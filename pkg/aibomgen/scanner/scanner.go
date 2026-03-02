@@ -477,8 +477,14 @@ func scanFile(path string) []Discovery {
 }
 
 // scanLines reads a file line by line and applies the given rules.
-// When multiLine is true, each pair of consecutive lines is also tested
-// (concatenated with a space), capturing two-line call expressions.
+// When multiLine is true, lines belonging to the same open-paren call are
+// accumulated and scanned as a single concatenated string once the parens
+// balance. This correctly handles 3-or-more-line call expressions such as:
+//
+//	pipeline(
+//	    "text-classification",
+//	    model="org/model",
+//	)
 func scanLines(path string, rules []detectionRule, multiLine bool) []Discovery {
 	f, err := os.Open(path)
 	if err != nil {
@@ -489,25 +495,51 @@ func scanLines(path string, rules []detectionRule, multiLine bool) []Discovery {
 	var results []Discovery
 	sc := bufio.NewScanner(f)
 	lineNum := 0
-	var prevLine string
-	var prevLineNum int
+
+	// Multi-line accumulation state (only used when multiLine=true).
+	var callBuf []string
+	callStartLine := 0
+	depth := 0
 
 	for sc.Scan() {
 		lineNum++
 		line := sc.Text()
 
+		// Always scan each individual line.
 		results = applyRules(results, rules, line, lineNum, path)
 
-		// Only stitch lines together when the previous line is clearly a
-		// continuation (open parenthesis at end), e.g.:
-		//   model = AutoModel.from_pretrained(
-		//       "org/model")
-		if multiLine && strings.HasSuffix(strings.TrimRight(prevLine, " \t"), "(") {
-			combined := prevLine + strings.TrimSpace(line)
-			results = applyRules(results, rules, combined, prevLineNum, path)
+		if !multiLine {
+			continue
 		}
-		prevLine = line
-		prevLineNum = lineNum
+
+		// Update paren depth for this line (naïve count; good enough for the
+		// patterns we target and avoids a full parser dependency).
+		for _, ch := range line {
+			switch ch {
+			case '(':
+				depth++
+			case ')':
+				depth--
+			}
+		}
+		if depth < 0 {
+			depth = 0 // guard against unmatched ')' in strings/comments
+		}
+
+		// Accumulate lines while a call is open.
+		if depth > 0 || len(callBuf) > 0 {
+			if len(callBuf) == 0 {
+				callStartLine = lineNum
+			}
+			callBuf = append(callBuf, strings.TrimSpace(line))
+		}
+
+		// Flush once parens are balanced.
+		if depth == 0 && len(callBuf) > 0 {
+			combined := strings.Join(callBuf, " ")
+			results = applyRules(results, rules, combined, callStartLine, path)
+			callBuf = nil
+		}
 	}
 	return results
 }
@@ -566,6 +598,7 @@ func scanNotebook(path string) []Discovery {
 			continue
 		}
 		rules := codeRules
+		multiLine := cell.CellType == "code"
 		if cell.CellType == "markdown" {
 			rules = mdFrontmatterRules
 		}
@@ -573,18 +606,45 @@ func scanNotebook(path string) []Discovery {
 		// Source is either a JSON string or a JSON array of strings.
 		lines := unmarshalSource(cell.Source)
 		lineNum := 0
-		var prevLine string
-		var prevLineNum int
+
+		// Multi-line accumulation state.
+		var callBuf []string
+		callStartLine := 0
+		depth := 0
+
 		for _, line := range lines {
 			for _, subline := range strings.Split(line, "\n") {
 				lineNum++
 				results = applyRules(results, rules, subline, lineNum, path)
-				if strings.HasSuffix(strings.TrimRight(prevLine, " \t"), "(") {
-					combined := prevLine + strings.TrimSpace(subline)
-					results = applyRules(results, rules, combined, prevLineNum, path)
+
+				if !multiLine {
+					continue
 				}
-				prevLine = subline
-				prevLineNum = lineNum
+
+				for _, ch := range subline {
+					switch ch {
+					case '(':
+						depth++
+					case ')':
+						depth--
+					}
+				}
+				if depth < 0 {
+					depth = 0
+				}
+
+				if depth > 0 || len(callBuf) > 0 {
+					if len(callBuf) == 0 {
+						callStartLine = lineNum
+					}
+					callBuf = append(callBuf, strings.TrimSpace(subline))
+				}
+
+				if depth == 0 && len(callBuf) > 0 {
+					combined := strings.Join(callBuf, " ")
+					results = applyRules(results, rules, combined, callStartLine, path)
+					callBuf = nil
+				}
 			}
 		}
 	}

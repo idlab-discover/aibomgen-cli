@@ -52,6 +52,27 @@ func TestScanDetectsModelsDedupesEvidence(t *testing.T) {
 	}
 }
 
+// TestMultiLinePipelineNoOrgPrefix verifies that a pipeline() call spread over
+// 3+ lines is detected even when the model ID has no "org/" prefix.
+// Regression test for: pipeline(\n    "task",\n    model="single-segment-id"\n)
+func TestMultiLinePipelineNoOrgPrefix(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "classify.py",
+		"classifier = pipeline(\n"+
+			"    \"text-classification\",\n"+
+			"    model=\"distilbert-base-uncased-finetuned-sst-2-english\"\n"+
+			")\n")
+
+	comps, err := Scan(dir)
+	if err != nil {
+		t.Fatalf("Scan failed: %v", err)
+	}
+	id := "distilbert-base-uncased-finetuned-sst-2-english"
+	if _, ok := findByID(comps, id); !ok {
+		t.Fatalf("expected %q to be detected; discoveries: %+v", id, comps)
+	}
+}
+
 func TestScanSkipsUnreadableFiles(t *testing.T) {
 	dir := t.TempDir()
 	pyPath := filepath.Join(dir, "blocked.py")
