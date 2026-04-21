@@ -254,19 +254,22 @@ Each folder below is a Go package.
 
 ### `main`
 
-Entry point that calls the Cobra root command.
+Entry point. Bootstraps the Cobra root command via [fang](https://github.com/charmbracelet/fang) for styled help output and version injection.
 
-### `cmd`
+### `cmd/aibomgen-cli`
 
-Cobra CLI wiring: root command, subcommands, flag parsing, and orchestration into `internal/*` packages.
+Cobra CLI wiring: root command, all subcommands, flag parsing, and orchestration into `internal/` and `pkg/` packages. Each command has its own file (`scan.go`, `generate.go`, `validate.go`, `completeness.go`, `enrich.go`, `merge.go`, `vulnscan.go`).
 
-### `internal/scanner`
+### `pkg/aibomgen/scanner`
 
-Repository scanning used by the `scan` command.
+Repository scanning used by the `scan` command. Walks a directory tree and applies a multi-rule detection engine across multiple file types:
 
-- Current behavior: walks files and detects Hugging Face model IDs by regex matching `from_pretrained("<id>")` in `.py`, `.ipynb`, and various config/script file types.
-- Important limitation: weight-file detection is intentionally disabled right now.
-- Future work: broaden detection beyond the current basic Hugging Face pattern.
+- **Python** (`.py`, `.ipynb`): `from_pretrained`, `hf_hub_download`, `snapshot_download`, `pipeline`, `InferenceClient`, `SentenceTransformer`, `ORTModel`, `PeftModel`, LangChain loaders, `evaluate.load`, and more — both positional and keyword argument forms
+- **YAML** (`.yaml`, `.yml`): `model_name_or_path`, `base_model`, `_name_or_path`, `pretrained_model_name_or_path`
+- **JSON** (`.json`): adapter configs, `_name_or_path`, `base_model`
+- **Markdown front-matter**: `base_model` field in YAML front-matter
+- **Shell scripts and Dockerfiles**: `huggingface-cli download` and `hf download`
+- **JavaScript / TypeScript** (`.js`, `.ts`, `.mjs`, `.cjs`): `pipeline` and `from_pretrained` calls via the `@huggingface/transformers` library
 
 ### `internal/fetcher`
 
@@ -274,21 +277,22 @@ HTTP clients for fetching model and dataset metadata from the Hugging Face Hub.
 
 - Fetches model metadata via API (`/api/models/:id`) and README (model cards)
 - Fetches dataset metadata via API (`/api/datasets/:id`) and README (dataset cards)
-- Used when `scan --hf-mode online`, `generate --hf-mode online`, or when enriching with `--refetch`
+- Fetches per-file security scan data via the HF tree API (models and datasets) for embedding in generated BOMs and for the `vuln-scan` command
+- Provides a `ModelSearcher` for the interactive model browser
+- Used when `--hf-mode online` or when enriching with `--refetch`
 - Supports optional bearer token via `--hf-token` for gated/private resources
 - Includes dummy implementations for offline/testing scenarios
 - Provides markdown extraction utilities for parsing model and dataset cards
 
 ### `internal/metadata`
 
-Central "field registry" describing which CycloneDX AI-BOM fields we care about.
+Central field registry describing which CycloneDX AI-BOM fields the tool populates and scores.
 
-- Defines field specifications for model components, dataset components, and Hugging Face properties
-- Each field has a key, weight, required status, apply logic, and presence check
-- Supports multiple field types: `ComponentKey`, `ModelCardKey`, `HFPropsKey`, and `DatasetKey`
-- Used by `internal/builder` to populate the BOM and by `internal/completeness` to score it
+- Defines field specifications for model components, dataset components, Hugging Face properties, model card fields, and security scan summaries
+- Each field has a key, weight, required status, an `Apply` function, and a `Present` check
+- Security scan summary fields: overall status, scanned file count, unsafe file count, caution file count — stored as `Component.Properties`
+- Used by `internal/builder` to populate the BOM and by `pkg/aibomgen/completeness` to score it
 - Used by `internal/enricher` to identify missing fields and apply new values
-- Includes helpers for parsing and applying metadata from API responses and model/dataset cards
 
 ### `internal/builder`
 
@@ -328,44 +332,43 @@ Validates an existing AIBOM.
 
 Interactively or automatically fills missing metadata fields in an existing AIBOM.
 
-- Supports two strategies: `interactive` (prompts user for values) and `file` (reads from config)
-- Can refetch metadata from Hugging Face Hub to fill known fields automatically
+- Supports two strategies: `interactive` (prompts user via Huh forms) and `file` (reads from a YAML config)
+- Can refetch the latest model metadata from Hugging Face Hub before prompting
 - Enriches both model components and dataset components
-- Shows before/after preview with completeness scoring
-- Integrates with the metadata field registry to identify and fill missing fields
-- Respects field weights and required status when prompting
+- Shows a before/after completeness preview before saving (unless `--no-preview`)
+- Respects field weights and required status when deciding what to prompt for
+
+### `internal/vulnscan`
+
+Standalone security scanning package used by the `vuln-scan` command.
+
+- `ScanBOM` fetches per-file security scan results for every model and dataset component in a BOM using the HF tree API
+- `ApplyToDOM` writes the discovered `cdx.Vulnerability` objects back into the BOM in-place
+- Errors per component are non-fatal; the scan continues for all other components
 
 ### `internal/ui`
 
-Comprehensive TUI (Terminal User Interface) system built with Charm libraries (Lipgloss, Bubbletea concepts).
+Comprehensive TUI system built with Charm libraries (Lipgloss, Bubbletea, Huh).
 
-- Provides rich, styled output for all commands (scan, generate, validate, completeness, enrich, merge)
-- Implements workflow tracking with task progress indicators
-- Defines a consistent color palette and text styles across the application
-- Includes specialized UI components for each command:
-  - `generate.go`: generation workflow with progress tracking
-  - `validation.go`: validation results with colored status indicators
-  - `completeness.go`: completeness scoring with visual field breakdown
-  - `workflow.go`: task-based progress tracking
-  - `progress.go`: spinner and progress indicators
-  - `styles.go`: centralized styling and color definitions
+- Provides rich, styled output for all commands
+- `Workflow` implements task-based progress tracking with a spinner
+- Specialized renderers per command: `GenerateUI`, `ValidationUI`, `CompletenessUI`, `MergerUI`
+- `styles.go`: centralized color palette and text styles (bold, muted, success, warning, error)
+- `model_selector.go`: interactive fuzzy-search model browser backed by `fetcher.ModelSearcher`
 
-### `internal/merger`
+### `pkg/aibomgen/merger`
 
-**[BETA]** BOM merging functionality for combining AIBOMs with SBOMs from other sources.
+**[BETA]** BOM merging functionality for combining AIBOMs with SBOMs from other tools.
 
-- Merges one or more AIBOMs with an SBOM while preserving the SBOM's application metadata
-- The SBOM's metadata component (application) remains as the primary metadata component
-- AI/ML model and dataset components from AIBOMs are added to the components list (not metadata)
-- Supports component deduplication based on BOM-ref to avoid duplicates
-- Intelligently merges dependencies, compositions, tools, and external references
-- Handles dependency graph merging with proper conflict resolution
-- Generates merge statistics (component counts, duplicates removed, AIBOMs merged)
-- Used by the `merge` command to create comprehensive BOMs combining AI/ML and traditional software components
+- Merges one or more AIBOMs with an SBOM, preserving the SBOM's metadata component as the primary component
+- AI/ML model and dataset components from AIBOMs are added to the components list
+- Supports component deduplication based on BOM-ref
+- Merges dependency graphs, compositions, tools, and external references
+- Returns a `MergeResult` with per-category component counts and duplicate removal statistics
 
 ## Docs and examples
 
-- `targets/target-2` is a small repository used in tests and examples.
-- `docs/` contains design notes and mapping documentation.
+- `targets` are small repositories used in integration tests and examples.
+- `docs/` contains design notes and field mapping documentation. These are drafts, not actual docs.
 
 
