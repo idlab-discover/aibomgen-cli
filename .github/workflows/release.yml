@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -19,6 +20,37 @@ jobs:
         with:
           go-version: '1.25.x'
           check-latest: true
+
+      - name: Build binary
+        run: |
+          go build -o AIBoMGen-cli ./
+          chmod +x AIBoMGen-cli
+
+      - name: Generate SBOM (Syft)
+        uses: anchore/sbom-action@v0
+        with:
+          file: ./AIBoMGen-cli
+          format: cyclonedx-json
+          output-file: sbom-binary.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Scan SBOM for vulnerabilities (Grype)
+        uses: anchore/scan-action@v7
+        with:
+          sbom: sbom-binary.json
+          output-format: cyclonedx-json
+          output-file: sbom-binary-vulnerabilities.json
+          fail-build: false
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.0.0
+
+      - name: Sign SBOM (Keyless)
+        run: |
+          cosign sign-blob --yes \
+            --bundle=sbom.bundle.json \
+            sbom-binary-vulnerabilities.json
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

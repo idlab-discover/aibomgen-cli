@@ -27,6 +27,12 @@ archives:
 checksum:
   name_template: checksums.txt
 
+release:
+  extra_files:
+    - glob: sbom-binary.json
+    - glob: sbom-binary-vulnerabilities.json
+    - glob: sbom.bundle.json
+
 changelog:
   sort: asc
   filters:
