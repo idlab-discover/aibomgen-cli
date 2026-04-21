@@ -296,37 +296,40 @@ Central field registry describing which CycloneDX AI-BOM fields the tool populat
 
 ### `internal/builder`
 
-Turns a scan result (and optional Hugging Face API response) into a CycloneDX BOM.
+Turns fetched metadata into a CycloneDX BOM.
 
-- Creates a minimal ML model component skeleton.
-- Applies the `internal/metadata` registry once to populate fields.
+- Builds the metadata component (ML model), applies the full field registry, computes a deterministic PURL and BOM-ref
+- `BuildDataset` builds dataset sub-components using the dataset registry
+- `InjectSecurityData` appends `BOM.Vulnerabilities` derived from the HF tree security scan entries; maps scanner statuses (`unsafe` → critical, `suspicious` → high, `caution` → medium) to CycloneDX severity ratings. Covered scanners: Cisco Foundation AI (ClamAV), ProtectAI, HuggingFace Pickle Scanner, VirusTotal, JFrog Research
 
-### `internal/generator`
+### `pkg/aibomgen/generator`
 
-Orchestrates “per discovery” generation.
+Orchestrates per-discovery AIBOM generation.
 
-- For each detected model: fetch metadata (online mode) and build a BOM via the builder.
-- Returns a list of generated BOMs back to the `scan` and `generate` commands.
+- For each detected model: creates an HTTP client, fetches model API response, README/model card, linked dataset metadata, and optionally the HF security tree; builds the BOM via `internal/builder`
+- `BuildDummyBOM` produces a deterministic fixture BOM for offline/testing use
+- Reports progress via a `ProgressCallback` used by the UI workflow tracker
 
-### `internal/io`
+### `pkg/aibomgen/bomio`
 
 Read/write helpers for CycloneDX BOMs.
 
-- Supports JSON and XML.
-- Supports `format=auto` based on file extension.
-- Supports optional CycloneDX spec version selection for output.
+- Supports JSON and XML
+- `format=auto` infers format from file extension
+- `WriteBOM` and `WriteOutputFiles` support optional CycloneDX spec version selection
 
-### `internal/completeness`
+### `pkg/aibomgen/completeness`
 
-Computes a completeness score $0..1$ for a BOM using weights defined in the metadata registry.
+Computes a completeness score $0..1$ for a BOM using weights defined in the metadata registry. Scores the model component and each linked dataset component separately. Returns missing required and optional field lists.
 
-### `internal/validator`
+### `pkg/aibomgen/validator`
 
 Validates an existing AIBOM.
 
-- Performs basic structural checks.
-- Validates CycloneDX spec version.
-- Runs completeness scoring and can enforce thresholds in strict mode.
+- Performs basic structural checks (nil BOM, missing `metadata.component`)
+- Validates CycloneDX spec version
+- Runs completeness scoring and can enforce a minimum threshold in strict mode
+- Returns per-dataset validation results alongside model results
 
 ### `internal/enricher`
 
