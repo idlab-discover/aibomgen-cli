@@ -1,4 +1,4 @@
 transformers==4.44.0
-torch==2.4.0
+torch==2.8.0
 onnxruntime==1.18.0
 huggingface-hub==0.24.5
