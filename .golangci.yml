@@ -1,0 +1,24 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck       # unchecked errors
+    - govet          # go vet passes
+    - staticcheck    # broad static analysis (SA, S, ST families)
+    - unused         # unexported identifiers never used
+    - gosimple       # simplification suggestions
+    - ineffassign    # assignments whose value is never read
+    - bodyclose      # HTTP response body not closed
+    - noctx          # HTTP requests without context
+    - godot          # comments should end with a period
+
+  settings:
+    godot:
+      scope: toplevel   # only top-level declarations (doc comments)
+      period: true
+
+issues:
+  # Keep output readable
+  max-issues-per-linter: 30
+  max-same-issues: 5
