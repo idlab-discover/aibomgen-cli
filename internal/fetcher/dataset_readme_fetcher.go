@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,16 +15,16 @@ type DatasetReadmeCard struct {
 	FrontMatter map[string]any
 	Body        string
 
-	// BOM-relevant front matter fields
+	// BOM-relevant front matter fields.
 	License            string   // BOM.metadata.component.licenses
 	Tags               []string // BOM.metadata.component.tags
 	Language           []string // BOM.metadata.component.data.classification / tags
 	AnnotationCreators []string // BOM.metadata.component.manufacturer, author, group
 
-	// Configs with data_files (for attachments/contents)
+	// Configs with data_files (for attachments/contents).
 	Configs []DatasetConfig // BOM.metadata.component.data.contents.attachment
 
-	// BOM-relevant Markdown body fields
+	// BOM-relevant Markdown body fields.
 	DatasetDescription    string // BOM.metadata.component.data.description
 	CuratedBy             string // BOM.metadata.component.data.governance.stewards.organization.name / custodians
 	FundedBy              string // BOM.metadata.component.data.governance.owners.organization.name
@@ -37,13 +38,13 @@ type DatasetReadmeCard struct {
 	DatasetCardContact    string // BOM.metadata.component.properties (datasetcardcontact)
 }
 
-// DatasetConfig represents a configuration with data files splits
+// DatasetConfig represents a configuration with data files splits.
 type DatasetConfig struct {
 	Name      string
 	DataFiles []DatasetDataFile
 }
 
-// DatasetDataFile represents a single data file entry with split info
+// DatasetDataFile represents a single data file entry with split info.
 type DatasetDataFile struct {
 	Split string
 	Path  string
@@ -80,7 +81,7 @@ func (f *DatasetReadmeFetcher) Fetch(datasetID string) (*DatasetReadmeCard, erro
 
 	var lastErr error
 	for _, url := range candidates {
-		req, err := http.NewRequest(http.MethodGet, url, nil)
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -124,18 +125,18 @@ func parseDatasetReadmeCard(raw string) *DatasetReadmeCard {
 	card.FrontMatter = fm
 	card.Body = body
 
-	// BOM-relevant front matter fields
+	// BOM-relevant front matter fields.
 	card.License = strings.TrimSpace(stringFromAny(fm["license"]))
 	card.Tags = stringSliceFromAny(fm["tags"])
 	card.Language = stringSliceFromAny(fm["language"])
 	card.AnnotationCreators = stringSliceFromAny(fm["annotations_creators"])
 
-	// Parse configs with data_files
+	// Parse configs with data_files.
 	if cfgs, ok := fm["configs"]; ok {
 		card.Configs = parseDatasetConfigs(cfgs)
 	}
 
-	// BOM-relevant Markdown body fields
+	// BOM-relevant Markdown body fields.
 	card.DatasetDescription = strings.TrimSpace(extractSection(body, "Dataset Description"))
 	card.CuratedBy = strings.TrimSpace(extractBulletValue(body, "Curated by"))
 	card.FundedBy = strings.TrimSpace(extractBulletValue(body, "Funded by"))
@@ -170,7 +171,7 @@ func parseDatasetConfigs(cfgs any) []DatasetConfig {
 			Name: strings.TrimSpace(stringFromAny(cfgMap["config_name"])),
 		}
 
-		// Parse data_files
+		// Parse data_files.
 		if dfAny, ok := cfgMap["data_files"]; ok {
 			dfList, ok := dfAny.([]any)
 			if ok {

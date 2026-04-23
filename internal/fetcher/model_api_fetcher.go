@@ -2,13 +2,14 @@ package fetcher
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 )
 
-// BoolOrString unmarshals JSON that may be either a boolean (true/false)
+// BoolOrString unmarshals JSON that may be either a boolean (true/false).
 // or a string (e.g. "auto").
 type BoolOrString struct {
 	Bool   *bool
@@ -23,7 +24,7 @@ func (v *BoolOrString) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 
-	// string case: "auto"
+	// string case: "auto".
 	if b[0] == '"' {
 		var s string
 		if err := json.Unmarshal(b, &s); err != nil {
@@ -35,7 +36,7 @@ func (v *BoolOrString) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 
-	// bool case: true/false
+	// bool case: true/false.
 	var bo bool
 	if err := json.Unmarshal(b, &bo); err != nil {
 		return err
@@ -51,7 +52,7 @@ type ModelAPIFetcher struct {
 	BaseURL string // optional; defaults to "https://huggingface.co"
 }
 
-// ModelAPIResponse is the decoded response from GET https://huggingface.co/api/models/:id
+// ModelAPIResponse is the decoded response from GET https://huggingface.co/api/models/:id.
 type ModelAPIResponse struct {
 	ID          string         `json:"id"`
 	ModelID     string         `json:"modelId"`
@@ -90,7 +91,7 @@ func (f *ModelAPIFetcher) Fetch(modelID string) (*ModelAPIResponse, error) {
 	}
 
 	url := fmt.Sprintf("%s/api/models/%s", baseURL, trimmedModelID)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}

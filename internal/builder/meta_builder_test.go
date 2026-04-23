@@ -34,7 +34,7 @@ func TestAddMetaSerialNumber(t *testing.T) {
 				t.Errorf("AddMetaSerialNumber() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			// Additional checks
+			// Additional checks.
 			if tt.args.bom.SerialNumber == "" {
 				t.Errorf("SerialNumber should be set")
 			}
@@ -263,7 +263,7 @@ func TestAddComponentPurl(t *testing.T) {
 			}
 			AddComponentPurl(tt.args.c)
 			if tt.args.c == nil {
-				// ensure no panic and no action
+				// ensure no panic and no action.
 				return
 			}
 			if tt.name == "noop when purl already set" {
@@ -296,18 +296,19 @@ func TestAddComponentBOMRef(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			AddComponentBOMRef(tt.args.c)
 			if tt.args.c == nil {
-				// nil input should be handled gracefully
+				// nil input should be handled gracefully.
 				return
 			}
-			if tt.name == "uses packageURL when present" {
+			switch tt.name {
+			case "uses packageURL when present":
 				if tt.args.c.BOMRef != tt.args.c.PackageURL {
 					t.Errorf("expected BOMRef to equal PackageURL %s, got %s", tt.args.c.PackageURL, tt.args.c.BOMRef)
 				}
-			} else if tt.name == "preserves existing BOMRef" {
+			case "preserves existing BOMRef":
 				if tt.args.c.BOMRef != "existing" {
 					t.Errorf("expected BOMRef to remain existing, got %s", tt.args.c.BOMRef)
 				}
-			} else {
+			default:
 				if !strings.HasPrefix(tt.args.c.BOMRef, "urn:uuid:") {
 					t.Errorf("expected BOMRef to start with urn:uuid:, got %s", tt.args.c.BOMRef)
 				}

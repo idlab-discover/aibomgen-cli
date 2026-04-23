@@ -24,7 +24,7 @@ var (
 	generateModelIDs     []string
 
 	// hfMode controls whether metadata is fetched from Hugging Face.
-	// Supported values: online|dummy
+	// Supported values: online|dummy.
 	hfMode    string
 	hfTimeout int
 	hfToken   string
@@ -32,14 +32,14 @@ var (
 	// Logging is controlled via generateLogLevel.
 	generateLogLevel string
 
-	// interactive enables the interactive model selector
+	// interactive enables the interactive model selector.
 	interactive bool
 
-	// noSecurityScan disables the HF tree security scan fetch
+	// noSecurityScan disables the HF tree security scan fetch.
 	noSecurityScan bool
 )
 
-// generateCmd represents the generate command
+// generateCmd represents the generate command.
 var generateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "Generate an AI-aware BOM (AIBOM) from Hugging Face model IDs",
@@ -55,7 +55,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	}
 	switch level {
 	case "quiet", "standard", "debug":
-		// ok
+		// ok.
 	default:
 		return apperr.Userf("invalid --log-level %q (expected quiet|standard|debug)", level)
 	}
@@ -69,20 +69,20 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	}
 	switch mode {
 	case "online", "dummy":
-		// ok
+		// ok.
 	default:
 		return apperr.Userf("invalid --hf-mode %q (expected online|dummy)", mode)
 	}
 
-	// Check if --interactive was explicitly provided
+	// Check if --interactive was explicitly provided.
 	interactiveMode := viper.GetBool("generate.interactive")
 
-	// Check if --model-id was explicitly provided on the command line
+	// Check if --model-id was explicitly provided on the command line.
 	modelIDFlagProvided := cmd.Flags().Changed("model-id")
 
-	// Get model IDs from viper (respects config file and CLI flag)
+	// Get model IDs from viper (respects config file and CLI flag).
 	modelIDs := viper.GetStringSlice("generate.model-ids")
-	// Filter out empty strings
+	// Filter out empty strings.
 	var cleanModelIDs []string
 	for _, id := range modelIDs {
 		if trimmed := strings.TrimSpace(id); trimmed != "" {
@@ -90,7 +90,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Interactive mode validation
+	// Interactive mode validation.
 	if interactiveMode {
 		if modelIDFlagProvided {
 			return apperr.User("--interactive cannot be used with --model-id")
@@ -113,7 +113,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		return apperr.User("either --model-id or --interactive is required. Use 'scan' command to scan directories")
 	}
 
-	// Get format from viper
+	// Get format from viper.
 	outputFormat := viper.GetString("generate.format")
 	if outputFormat == "" {
 		outputFormat = "auto"
@@ -122,7 +122,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	specVersion := viper.GetString("generate.spec")
 	outputPath := viper.GetString("generate.output")
 
-	// Fail fast on format/extension mismatch
+	// Fail fast on format/extension mismatch.
 	if outputPath != "" && outputFormat != "" && outputFormat != "auto" {
 		ext := filepath.Ext(outputPath)
 		if outputFormat == "xml" && ext == ".json" {
@@ -133,12 +133,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Wire internal package logging for debug mode
-	if level == "debug" {
-		// Logging removed
-	}
-
-	// Get HF settings
+	// Get HF settings.
 	hfToken := viper.GetString("generate.hf-token")
 	hfTimeout := viper.GetInt("generate.hf-timeout")
 	if hfTimeout <= 0 {
@@ -146,14 +141,14 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	}
 	timeout := time.Duration(hfTimeout) * time.Second
 
-	// Create UI handler
+	// Create UI handler.
 	genUI := ui.NewGenerateUI(cmd.OutOrStdout(), quiet)
 
 	var discoveredBOMs []generator.DiscoveredBOM
 	var err error
 
 	if interactiveMode {
-		// Interactive mode: show model selector
+		// Interactive mode: show model selector.
 		selectedModels, err := ui.RunModelSelector(ui.ModelSelectorConfig{
 			HFToken: hfToken,
 			Timeout: timeout,
@@ -167,13 +162,13 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		cleanModelIDs = selectedModels
 	}
 
-	// Generate BOMs from model IDs
+	// Generate BOMs from model IDs.
 	err = runModelIDMode(genUI, cleanModelIDs, mode, hfToken, timeout, quiet, &discoveredBOMs)
 	if err != nil {
 		return err
 	}
 
-	// Determine output settings
+	// Determine output settings.
 	output := viper.GetString("generate.output")
 	if output == "" {
 		if outputFormat == "xml" {
@@ -207,13 +202,13 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		fileExt = ".xml"
 	}
 
-	// Write output files
+	// Write output files.
 	written, err := bomio.WriteOutputFiles(discoveredBOMs, outputDir, fileExt, fmtChosen, specVersion)
 	if err != nil {
 		return err
 	}
 
-	// Print summary
+	// Print summary.
 	if len(written) == 0 {
 		genUI.PrintNoModelsFound()
 		return nil
@@ -239,12 +234,12 @@ func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode, hfToken strin
 
 	// Track per-model outcome for the final summary.
 	// fetch warnings (non-fatal) are accumulated and shown on the single success line.
-	// A model that fires EventError{Message:"BOM build failed"} but never EventModelComplete
+	// A model that fires EventError{Message:"BOM build failed"} but never EventModelComplete.
 	// produced no AIBOM and is shown as a failure.
 	pendingModels := make(map[string]*modelTracker)
 	var modelOrder []string // insertion-order IDs for deterministic display
 
-	// Create workflow with combined processing step
+	// Create workflow with combined processing step.
 	var workflow *ui.Workflow
 	var processTaskIdx, writeTaskIdx int
 
@@ -258,12 +253,12 @@ func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode, hfToken strin
 	totalModels := len(modelIDs)
 	modelsCompleted := 0
 
-	// Start processing
+	// Start processing.
 	if !quiet && workflow != nil {
 		workflow.StartTask(processTaskIdx, ui.Dim.Render(fmt.Sprintf("0/%d", totalModels)))
 	}
 
-	// Progress callback to update UI
+	// Progress callback to update UI.
 	onProgress := func(evt generator.ProgressEvent) {
 		if quiet || workflow == nil {
 			return
@@ -337,7 +332,7 @@ func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode, hfToken strin
 		workflow.CompleteTask(writeTaskIdx, fmt.Sprintf("%d file(s)", len(boms)))
 		workflow.Stop()
 
-		// Print individual model results after workflow completes
+		// Print individual model results after workflow completes.
 		fmt.Println()
 		for _, id := range modelOrder {
 			printModelResult(id, pendingModels[id], hasToken)
@@ -360,7 +355,7 @@ func init() {
 	generateCmd.Flags().BoolVar(&interactive, "interactive", false, "Interactive model selector (cannot be used with --model-id)")
 	generateCmd.Flags().BoolVar(&noSecurityScan, "no-security-scan", false, "Skip fetching the HuggingFace security scan tree")
 
-	// Bind all flags to viper for config file support
+	// Bind all flags to viper for config file support.
 	viper.BindPFlag("generate.model-ids", generateCmd.Flags().Lookup("model-id"))
 	viper.BindPFlag("generate.output", generateCmd.Flags().Lookup("output"))
 	viper.BindPFlag("generate.format", generateCmd.Flags().Lookup("format"))
@@ -378,7 +373,7 @@ type datasetResult struct {
 	err error // nil = fetched and built successfully
 }
 
-// modelTracker accumulates per-model progress events so the final summary
+// modelTracker accumulates per-model progress events so the final summary.
 // line can reflect the true outcome (success, 404, auth failure, etc.).
 // Shared by the generate and scan commands (same package).
 type modelTracker struct {

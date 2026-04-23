@@ -1,9 +1,9 @@
 package fetcher
 
-// DummyDatasetAPIFetcher returns a fixed DatasetAPIResponse for testing/demo purposes
+// DummyDatasetAPIFetcher returns a fixed DatasetAPIResponse for testing/demo purposes.
 type DummyDatasetAPIFetcher struct{}
 
-// Fetch returns a dummy dataset response
+// Fetch returns a dummy dataset response.
 func (f *DummyDatasetAPIFetcher) Fetch(datasetID string) (*DatasetAPIResponse, error) {
 	return &DatasetAPIResponse{
 		ID:          datasetID,

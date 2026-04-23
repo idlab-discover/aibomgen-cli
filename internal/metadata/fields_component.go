@@ -72,8 +72,6 @@ func componentFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				ok := bomHasComponentName(b)
-				if c := bomComponent(b); c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeText,
@@ -156,8 +154,6 @@ func componentFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				ok := c != nil && c.ExternalReferences != nil && len(*c.ExternalReferences) > 0
-				if c != nil {
-				}
 				return ok
 			},
 		},
@@ -209,8 +205,6 @@ func componentFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				ok := c != nil && c.Tags != nil && len(*c.Tags) > 0
-				if c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeMultiText,
@@ -271,8 +265,6 @@ func componentFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				ok := c != nil && c.Licenses != nil && len(*c.Licenses) > 0
-				if c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeSelect,
@@ -318,8 +310,6 @@ func componentFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				ok := c != nil && c.Hashes != nil && len(*c.Hashes) > 0
-				if c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeText,
@@ -372,8 +362,6 @@ func componentFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				ok := c != nil && c.Manufacturer != nil && strings.TrimSpace(c.Manufacturer.Name) != ""
-				if c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeText,
@@ -385,7 +373,7 @@ func componentFields() []FieldSpec {
 			Required: false,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
-					// Extract group from ModelID (part before /)
+					// Extract group from ModelID (part before /).
 					var modelID string
 					if src.HF != nil && strings.TrimSpace(src.HF.ModelID) != "" {
 						modelID = strings.TrimSpace(src.HF.ModelID)
@@ -445,8 +433,6 @@ func componentFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				ok := c != nil && strings.TrimSpace(c.Group) != ""
-				if c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeText,
@@ -484,8 +470,6 @@ func evidenceFields() []FieldSpec {
 				return nil
 			},
 			Present: func(b *cdx.BOM) bool {
-				if c := bomComponent(b); c != nil {
-				}
 				return true
 			},
 		},

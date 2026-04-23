@@ -13,9 +13,9 @@ import (
 	"sync"
 )
 
-// Discovery represents a Hugging Face model or dataset reference detected in a
+// Discovery represents a Hugging Face model or dataset reference detected in a.
 // project file. ID is the Hugging Face repository identifier (e.g.
-// "google-bert/bert-base-uncased"), Type is always "huggingface", and Method
+// "google-bert/bert-base-uncased"), Type is always "huggingface", and Method.
 // identifies the detection rule that matched (e.g. "from_pretrained").
 type Discovery struct {
 	ID       string `json:"id"`
@@ -46,7 +46,7 @@ const q = `["']`
 
 var (
 	// codeRules apply to Python source lines (.py, extracted notebook cells).
-	// Patterns cover every major HF Python API across transformers, diffusers,
+	// Patterns cover every major HF Python API across transformers, diffusers,.
 	// huggingface_hub, sentence-transformers, optimum, peft, langchain, evaluate, etc.
 	codeRules []detectionRule
 
@@ -67,10 +67,10 @@ var (
 )
 
 func init() {
-	// ── Python / code rules ─────────────────────────────────────────────────
+	// ── Python / code rules ─────────────────────────────────────────────────.
 
-	// Generic positional: .from_pretrained("model-id")
-	// Covers AutoModel, AutoTokenizer, AutoConfig, BertModel, GPT2Model,
+	// Generic positional: .from_pretrained("model-id").
+	// Covers AutoModel, AutoTokenizer, AutoConfig, BertModel, GPT2Model,.
 	// DiffusionPipeline, StableDiffusionPipeline, ORTModel*, PeftModel, etc.
 	codeRules = append(codeRules, detectionRule{
 		method:   "from_pretrained",
@@ -78,144 +78,144 @@ func init() {
 		groupIdx: 1,
 	})
 
-	// Keyword form: from_pretrained(pretrained_model_name_or_path="model-id")
+	// Keyword form: from_pretrained(pretrained_model_name_or_path="model-id").
 	codeRules = append(codeRules, detectionRule{
 		method:   "from_pretrained_kwarg",
 		pattern:  regexp.MustCompile(`\.from_pretrained\([^)]*?pretrained_model_name_or_path\s*=\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// transformers pipeline – positional second argument (the model):
-	//   pipeline("text-generation", "gpt2")
-	//   pipeline("text-generation", "facebook/opt-1.3b")
+	// transformers pipeline – positional second argument (the model):.
+	//   pipeline("text-generation", "gpt2").
+	//   pipeline("text-generation", "facebook/opt-1.3b").
 	codeRules = append(codeRules, detectionRule{
 		method:   "pipeline_positional",
 		pattern:  regexp.MustCompile(`\bpipeline\(\s*` + q + `[^"']+` + q + `\s*,\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// transformers pipeline – named model kwarg:
-	//   pipeline("task", model="facebook/opt-1.3b")
+	// transformers pipeline – named model kwarg:.
+	//   pipeline("task", model="facebook/opt-1.3b").
 	codeRules = append(codeRules, detectionRule{
 		method:   "pipeline_model_kwarg",
 		pattern:  regexp.MustCompile(`\bpipeline\([^)]*?\bmodel\s*=\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// huggingface_hub.hf_hub_download – positional repo_id
+	// huggingface_hub.hf_hub_download – positional repo_id.
 	codeRules = append(codeRules, detectionRule{
 		method:   "hf_hub_download",
 		pattern:  regexp.MustCompile(`\bhf_hub_download\(\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// huggingface_hub.hf_hub_download – keyword repo_id
+	// huggingface_hub.hf_hub_download – keyword repo_id.
 	codeRules = append(codeRules, detectionRule{
 		method:   "hf_hub_download_kwarg",
 		pattern:  regexp.MustCompile(`\bhf_hub_download\([^)]*?\brepo_id\s*=\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// huggingface_hub.snapshot_download – positional
+	// huggingface_hub.snapshot_download – positional.
 	codeRules = append(codeRules, detectionRule{
 		method:   "snapshot_download",
 		pattern:  regexp.MustCompile(`\bsnapshot_download\(\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// huggingface_hub.snapshot_download – keyword repo_id
+	// huggingface_hub.snapshot_download – keyword repo_id.
 	codeRules = append(codeRules, detectionRule{
 		method:   "snapshot_download_kwarg",
 		pattern:  regexp.MustCompile(`\bsnapshot_download\([^)]*?\brepo_id\s*=\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// huggingface_hub.InferenceClient – positional model
+	// huggingface_hub.InferenceClient – positional model.
 	codeRules = append(codeRules, detectionRule{
 		method:   "InferenceClient",
 		pattern:  regexp.MustCompile(`\bInferenceClient\(\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// huggingface_hub.InferenceClient – keyword model
+	// huggingface_hub.InferenceClient – keyword model.
 	codeRules = append(codeRules, detectionRule{
 		method:   "InferenceClient_model_kwarg",
 		pattern:  regexp.MustCompile(`\bInferenceClient\([^)]*?\bmodel\s*=\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// older huggingface_hub.InferenceApi – positional
+	// older huggingface_hub.InferenceApi – positional.
 	codeRules = append(codeRules, detectionRule{
 		method:   "InferenceApi",
 		pattern:  regexp.MustCompile(`\bInferenceApi\(\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// sentence-transformers: SentenceTransformer("model-id")
+	// sentence-transformers: SentenceTransformer("model-id").
 	codeRules = append(codeRules, detectionRule{
 		method:   "SentenceTransformer",
 		pattern:  regexp.MustCompile(`\bSentenceTransformer\(\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// sentence-transformers: CrossEncoder("model-id")
+	// sentence-transformers: CrossEncoder("model-id").
 	codeRules = append(codeRules, detectionRule{
 		method:   "CrossEncoder",
 		pattern:  regexp.MustCompile(`\bCrossEncoder\(\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// langchain: HuggingFaceHub(repo_id="model-id")
+	// langchain: HuggingFaceHub(repo_id="model-id").
 	codeRules = append(codeRules, detectionRule{
 		method:   "HuggingFaceHub_repo_id",
 		pattern:  regexp.MustCompile(`\bHuggingFaceHub\([^)]*?\brepo_id\s*=\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// langchain: HuggingFaceEndpoint(repo_id="model-id")
+	// langchain: HuggingFaceEndpoint(repo_id="model-id").
 	codeRules = append(codeRules, detectionRule{
 		method:   "HuggingFaceEndpoint_repo_id",
 		pattern:  regexp.MustCompile(`\bHuggingFaceEndpoint\([^)]*?\brepo_id\s*=\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// langchain: HuggingFacePipeline.from_model_id(model_id="model-id")
+	// langchain: HuggingFacePipeline.from_model_id(model_id="model-id").
 	codeRules = append(codeRules, detectionRule{
 		method:   "HuggingFacePipeline_from_model_id",
 		pattern:  regexp.MustCompile(`\bHuggingFacePipeline\.from_model_id\([^)]*?\bmodel_id\s*=\s*` + q + `(` + hfIDPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// evaluate.load("model-id") – e.g. evaluate.load("accuracy")
-	// Require org/model to reduce false positives (built-in metric names look like "accuracy")
+	// evaluate.load("model-id") – e.g. evaluate.load("accuracy").
+	// Require org/model to reduce false positives (built-in metric names look like "accuracy").
 	codeRules = append(codeRules, detectionRule{
 		method:   "evaluate_load",
 		pattern:  regexp.MustCompile(`\bevaluate\.load\(\s*` + q + `(` + hfIDSlashPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// Generic model= kwarg – require org/model to avoid false positives
+	// Generic model= kwarg – require org/model to avoid false positives.
 	codeRules = append(codeRules, detectionRule{
 		method:   "model_kwarg_slash",
 		pattern:  regexp.MustCompile(`\bmodel\s*=\s*` + q + `(` + hfIDSlashPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// Generic repo_id= kwarg – require org/model
+	// Generic repo_id= kwarg – require org/model.
 	codeRules = append(codeRules, detectionRule{
 		method:   "repo_id_kwarg_slash",
 		pattern:  regexp.MustCompile(`\brepo_id\s*=\s*` + q + `(` + hfIDSlashPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// Generic model_id= kwarg – require org/model
+	// Generic model_id= kwarg – require org/model.
 	codeRules = append(codeRules, detectionRule{
 		method:   "model_id_kwarg_slash",
 		pattern:  regexp.MustCompile(`\bmodel_id\s*=\s*` + q + `(` + hfIDSlashPat + `)` + q),
 		groupIdx: 1,
 	})
 
-	// ── YAML rules ──────────────────────────────────────────────────────────
+	// ── YAML rules ──────────────────────────────────────────────────────────.
 	// Common config keys in HF Trainer, Accelerate, TRL, Axolotl, LLaMA-Factory, etc.
 	// Require org/model form to reduce false positives from freeform text values.
 	yamlKeyAlt := `(?:` +
@@ -241,15 +241,15 @@ func init() {
 		groupIdx: 1,
 	})
 
-	// ── JSON rules ───────────────────────────────────────────────────────────
-	// HF config.json: "_name_or_path" stores the original model ID (may be single-segment)
+	// ── JSON rules ───────────────────────────────────────────────────────────.
+	// HF config.json: "_name_or_path" stores the original model ID (may be single-segment).
 	jsonRules = append(jsonRules, detectionRule{
 		method:   "json_name_or_path",
 		pattern:  regexp.MustCompile(`"_name_or_path"\s*:\s*"(` + hfIDPat + `)"`),
 		groupIdx: 1,
 	})
 
-	// adapter_config.json / training configs
+	// adapter_config.json / training configs.
 	jsonRules = append(jsonRules, detectionRule{
 		method:   "json_model_name_or_path",
 		pattern:  regexp.MustCompile(`"model_name_or_path"\s*:\s*"(` + hfIDSlashPat + `)"`),
@@ -274,10 +274,10 @@ func init() {
 		groupIdx: 1,
 	})
 
-	// ── Markdown front-matter rules ──────────────────────────────────────────
-	// Model cards on HF Hub embed metadata in YAML front matter:
-	//   model: org/model
-	//   base_model: org/model
+	// ── Markdown front-matter rules ──────────────────────────────────────────.
+	// Model cards on HF Hub embed metadata in YAML front matter:.
+	//   model: org/model.
+	//   base_model: org/model.
 	mdKeyAlt := `(?:model|base_model|model_id|model_name|model_name_or_path|widget_model)`
 	mdFrontmatterRules = append(mdFrontmatterRules, detectionRule{
 		method:   "markdown_frontmatter_model",
@@ -285,39 +285,39 @@ func init() {
 		groupIdx: 1,
 	})
 
-	// ── Shell / Dockerfile rules ──────────────────────────────────────────────
-	// huggingface-cli download org/model
+	// ── Shell / Dockerfile rules ──────────────────────────────────────────────.
+	// huggingface-cli download org/model.
 	shellRules = append(shellRules, detectionRule{
 		method:   "hf_cli_download",
 		pattern:  regexp.MustCompile(`huggingface-cli\s+download\s+["']?(` + hfIDSlashPat + `)["']?`),
 		groupIdx: 1,
 	})
 
-	// ENV/ARG model assignments in Dockerfiles and shell scripts:
-	//   MODEL_NAME=org/model  |  export HF_MODEL="org/model"
+	// ENV/ARG model assignments in Dockerfiles and shell scripts:.
+	//   MODEL_NAME=org/model  |  export HF_MODEL="org/model".
 	shellRules = append(shellRules, detectionRule{
 		method:   "shell_model_env",
 		pattern:  regexp.MustCompile(`(?:MODEL(?:_NAME|_ID|_PATH)?|HF_MODEL(?:_ID)?|HUGGINGFACE_MODEL)\s*=\s*["']?(` + hfIDSlashPat + `)["']?`),
 		groupIdx: 1,
 	})
 
-	// ── JavaScript / TypeScript rules ─────────────────────────────────────────
-	// @xenova/transformers or @huggingface/transformers pipeline:
-	//   await pipeline("task", "org/model")
+	// ── JavaScript / TypeScript rules ─────────────────────────────────────────.
+	// @xenova/transformers or @huggingface/transformers pipeline:.
+	//   await pipeline("task", "org/model").
 	jsRules = append(jsRules, detectionRule{
 		method:   "js_pipeline_positional",
 		pattern:  regexp.MustCompile(`\bpipeline\(\s*["'][^"']+["']\s*,\s*["'](` + hfIDPat + `)["']`),
 		groupIdx: 1,
 	})
 
-	// @xenova/transformers or @huggingface/transformers .from_pretrained
+	// @xenova/transformers or @huggingface/transformers .from_pretrained.
 	jsRules = append(jsRules, detectionRule{
 		method:   "js_from_pretrained",
 		pattern:  regexp.MustCompile(`\.from_pretrained\(\s*["'](` + hfIDPat + `)["']`),
 		groupIdx: 1,
 	})
 
-	// @huggingface/inference: hf.textGeneration({ model: "org/model" })
+	// @huggingface/inference: hf.textGeneration({ model: "org/model" }).
 	jsRules = append(jsRules, detectionRule{
 		method:   "js_model_field",
 		pattern:  regexp.MustCompile(`\bmodel\s*:\s*["'](` + hfIDSlashPat + `)["']`),
@@ -326,12 +326,12 @@ func init() {
 }
 
 // Scan walks root and returns deduplicated discovered HF model references.
-// Files in common non-source directories (.git, node_modules, __pycache__,
+// Files in common non-source directories (.git, node_modules, __pycache__,.
 // virtual-env dirs, build outputs) are skipped automatically.
 // Files are processed concurrently using a goroutine worker pool.
-// Scan walks the directory tree rooted at root and returns every Hugging Face
-// model and dataset reference it finds. The returned slice is deduplicated by
-// (ID, Path). Hidden directories, virtual environments, and common build
+// Scan walks the directory tree rooted at root and returns every Hugging Face.
+// model and dataset reference it finds. The returned slice is deduplicated by.
+// (ID, Path). Hidden directories, virtual environments, and common build.
 // output directories are skipped automatically.
 func Scan(root string) ([]Discovery, error) {
 	// Collect file paths first (fast, serial walk).
@@ -484,14 +484,14 @@ func scanFile(path string) []Discovery {
 }
 
 // scanLines reads a file line by line and applies the given rules.
-// When multiLine is true, lines belonging to the same open-paren call are
-// accumulated and scanned as a single concatenated string once the parens
-// balance. This correctly handles 3-or-more-line call expressions such as:
-//
-//	pipeline(
-//	    "text-classification",
-//	    model="org/model",
-//	)
+// When multiLine is true, lines belonging to the same open-paren call are.
+// accumulated and scanned as a single concatenated string once the parens.
+// balance. This correctly handles 3-or-more-line call expressions such as:.
+//.
+//	pipeline(.
+//	    "text-classification",.
+//	    model="org/model",.
+//	).
 func scanLines(path string, rules []detectionRule, multiLine bool) []Discovery {
 	f, err := os.Open(path)
 	if err != nil {
@@ -519,7 +519,7 @@ func scanLines(path string, rules []detectionRule, multiLine bool) []Discovery {
 			continue
 		}
 
-		// Update paren depth for this line (naïve count; good enough for the
+		// Update paren depth for this line (naïve count; good enough for the.
 		// patterns we target and avoids a full parser dependency).
 		for _, ch := range line {
 			switch ch {
@@ -585,7 +585,7 @@ type notebookFormat struct {
 	} `json:"cells"`
 }
 
-// scanNotebook parses a Jupyter notebook and scans each code cell's source
+// scanNotebook parses a Jupyter notebook and scans each code cell's source.
 // as Python using the standard code rules.
 func scanNotebook(path string) []Discovery {
 	data, err := os.ReadFile(path)
@@ -658,7 +658,7 @@ func scanNotebook(path string) []Discovery {
 	return results
 }
 
-// unmarshalSource decodes a notebook cell "source" field which is either
+// unmarshalSource decodes a notebook cell "source" field which is either.
 // a JSON string or a JSON array of strings.
 func unmarshalSource(raw json.RawMessage) []string {
 	if len(raw) == 0 {
@@ -677,8 +677,8 @@ func unmarshalSource(raw json.RawMessage) []string {
 	return nil
 }
 
-// scanMarkdown scans a Markdown file, applying mdFrontmatterRules to the YAML
-// front-matter block (between leading "---" delimiters) if present, and
+// scanMarkdown scans a Markdown file, applying mdFrontmatterRules to the YAML.
+// front-matter block (between leading "---" delimiters) if present, and.
 // falling back to a generic org/model inline search in the body.
 func scanMarkdown(path string) []Discovery {
 	f, err := os.Open(path)

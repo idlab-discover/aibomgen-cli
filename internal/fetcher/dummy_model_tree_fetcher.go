@@ -1,7 +1,7 @@
 package fetcher
 
-// DummyModelTreeFetcher returns a fixed, clean tree response for testing/demo
-// purposes without making any HTTP requests. It returns an empty slice,
+// DummyModelTreeFetcher returns a fixed, clean tree response for testing/demo.
+// purposes without making any HTTP requests. It returns an empty slice,.
 // indicating no security findings, which is the expected state for a dummy BOM.
 type DummyModelTreeFetcher struct{}
 

@@ -9,22 +9,22 @@ import (
 
 // MergeOptions configures how BOMs are merged.
 type MergeOptions struct {
-	// DeduplicateComponents removes duplicate components based on BOM-ref
+	// DeduplicateComponents removes duplicate components based on BOM-ref.
 	DeduplicateComponents bool
 }
 
 // MergeResult contains the merged BOM and metadata about the merge operation.
 type MergeResult struct {
-	// MergedBOM is the result of merging the BOMs
+	// MergedBOM is the result of merging the BOMs.
 	MergedBOM *cdx.BOM
-	// SBOMComponentCount is the number of components from the SBOM
+	// SBOMComponentCount is the number of components from the SBOM.
 	SBOMComponentCount int
-	// AIBOMComponentCount is the number of AI/ML components from the AIBOM(s)
+	// AIBOMComponentCount is the number of AI/ML components from the AIBOM(s).
 	AIBOMComponentCount int
-	// DuplicatesRemoved is the number of duplicate components removed (if deduplication enabled)
+	// DuplicatesRemoved is the number of duplicate components removed (if deduplication enabled).
 	DuplicatesRemoved int
 
-	// Detailed component tracking
+	// Detailed component tracking.
 	SBOMComponents    []string // Names of all SBOM components (libraries, files, etc.)
 	ModelComponents   []string // Names of ML model components from AIBOMs
 	DatasetComponents []string // Names of dataset components from AIBOMs
@@ -33,11 +33,11 @@ type MergeResult struct {
 
 // Merge combines two CycloneDX BOMs into a single BOM.
 // The primary BOM serves as the base, and components from the secondary BOM are added to it.
-// This function handles:
-// - Merging components while avoiding duplicates (based on BOM-ref)
-// - Merging dependencies
-// - Combining metadata
-// - Preserving compositions
+// This function handles:.
+// - Merging components while avoiding duplicates (based on BOM-ref).
+// - Merging dependencies.
+// - Combining metadata.
+// - Preserving compositions.
 func Merge(primary, secondary *cdx.BOM, opts MergeOptions) (*MergeResult, error) {
 	if primary == nil {
 		return nil, fmt.Errorf("primary BOM is nil")
@@ -50,20 +50,20 @@ func Merge(primary, secondary *cdx.BOM, opts MergeOptions) (*MergeResult, error)
 		MergedBOM: &cdx.BOM{},
 	}
 
-	// Use the primary BOM's spec version
+	// Use the primary BOM's spec version.
 	result.MergedBOM.SpecVersion = primary.SpecVersion
 	if result.MergedBOM.SpecVersion == cdx.SpecVersion(0) {
 		result.MergedBOM.SpecVersion = cdx.SpecVersion1_6
 	}
 
-	// Merge metadata
+	// Merge metadata.
 	result.MergedBOM.Metadata = mergeMetadata(primary.Metadata, secondary.Metadata, opts)
 
-	// Collect all components from both BOMs
+	// Collect all components from both BOMs.
 	componentsMap := make(map[string]*cdx.Component)
 	var mergedComponents []cdx.Component
 
-	// Add primary BOM components
+	// Add primary BOM components.
 	if primary.Components != nil {
 		for i := range *primary.Components {
 			comp := &(*primary.Components)[i]
@@ -76,7 +76,7 @@ func Merge(primary, secondary *cdx.BOM, opts MergeOptions) (*MergeResult, error)
 		}
 	}
 
-	// Add secondary BOM components (checking for duplicates)
+	// Add secondary BOM components (checking for duplicates).
 	if secondary.Components != nil {
 		for i := range *secondary.Components {
 			comp := &(*secondary.Components)[i]
@@ -95,24 +95,24 @@ func Merge(primary, secondary *cdx.BOM, opts MergeOptions) (*MergeResult, error)
 		}
 	}
 
-	// Update the final count after deduplication
+	// Update the final count after deduplication.
 	result.AIBOMComponentCount -= result.DuplicatesRemoved
 
 	if len(mergedComponents) > 0 {
 		result.MergedBOM.Components = &mergedComponents
 	}
 
-	// Merge dependencies
+	// Merge dependencies.
 	result.MergedBOM.Dependencies = mergeDependencies(primary.Dependencies, secondary.Dependencies)
 
-	// Merge compositions
+	// Merge compositions.
 	result.MergedBOM.Compositions = mergeCompositions(primary.Compositions, secondary.Compositions)
 
-	// Copy other fields from primary BOM
+	// Copy other fields from primary BOM.
 	result.MergedBOM.SerialNumber = primary.SerialNumber
 	result.MergedBOM.Version = primary.Version
 
-	// Merge services if present
+	// Merge services if present.
 	if primary.Services != nil || secondary.Services != nil {
 		mergedServices := mergeServices(primary.Services, secondary.Services)
 		if len(*mergedServices) > 0 {
@@ -120,7 +120,7 @@ func Merge(primary, secondary *cdx.BOM, opts MergeOptions) (*MergeResult, error)
 		}
 	}
 
-	// Merge external references if needed
+	// Merge external references if needed.
 	result.MergedBOM.ExternalReferences = mergeExternalReferences(
 		primary.ExternalReferences,
 		secondary.ExternalReferences,
@@ -132,12 +132,12 @@ func Merge(primary, secondary *cdx.BOM, opts MergeOptions) (*MergeResult, error)
 // MergeAIBOMsWithSBOM combines one or more AIBOMs with an SBOM into a single BOM.
 // The SBOM serves as the base, preserving its application metadata component.
 // AI/ML components from the AIBOMs are added to the components list.
-// This function handles:
-// - Preserving SBOM metadata and application component
-// - Adding AI/ML model and dataset components from AIBOMs
-// - Merging dependencies
-// - Combining tools metadata
-// - Avoiding duplicates (based on BOM-ref)
+// This function handles:.
+// - Preserving SBOM metadata and application component.
+// - Adding AI/ML model and dataset components from AIBOMs.
+// - Merging dependencies.
+// - Combining tools metadata.
+// - Avoiding duplicates (based on BOM-ref).
 func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*MergeResult, error) {
 	if sbom == nil {
 		return nil, fmt.Errorf("SBOM is nil")
@@ -150,10 +150,10 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 		MergedBOM: &cdx.BOM{},
 	}
 
-	// Track unique tools by name@version for deduplication
+	// Track unique tools by name@version for deduplication.
 	toolsMap := make(map[string]bool)
 
-	// Use the SBOM's spec version, format and schema
+	// Use the SBOM's spec version, format and schema.
 	result.MergedBOM.SpecVersion = sbom.SpecVersion
 	if result.MergedBOM.SpecVersion == cdx.SpecVersion(0) {
 		result.MergedBOM.SpecVersion = cdx.SpecVersion1_6
@@ -165,7 +165,7 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 	}
 	result.MergedBOM.JSONSchema = sbom.JSONSchema
 
-	// Preserve SBOM metadata (including the application component)
+	// Preserve SBOM metadata (including the application component).
 	if sbom.Metadata != nil {
 		result.MergedBOM.Metadata = &cdx.Metadata{
 			Timestamp:   sbom.Metadata.Timestamp,
@@ -177,22 +177,22 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 			Properties:  sbom.Metadata.Properties,
 		}
 
-		// Track metadata component name
+		// Track metadata component name.
 		if sbom.Metadata.Component != nil {
 			result.MetadataComponent = sbom.Metadata.Component.Name
 		}
 
-		// Copy SBOM tools (handle both old tools.tools and new tools.components formats)
+		// Copy SBOM tools (handle both old tools.tools and new tools.components formats).
 		if sbom.Metadata.Tools != nil {
 			result.MergedBOM.Metadata.Tools = &cdx.ToolsChoice{}
 
-			// Copy tools.components (newer format used by Syft and AIBoMGen)
+			// Copy tools.components (newer format used by Syft and AIBoMGen).
 			if sbom.Metadata.Tools.Components != nil && len(*sbom.Metadata.Tools.Components) > 0 {
 				componentsCopy := make([]cdx.Component, len(*sbom.Metadata.Tools.Components))
 				copy(componentsCopy, *sbom.Metadata.Tools.Components)
 				result.MergedBOM.Metadata.Tools.Components = &componentsCopy
 
-				// Track SBOM tools in the map for deduplication
+				// Track SBOM tools in the map for deduplication.
 				for i := range *sbom.Metadata.Tools.Components {
 					toolKey := getToolKey(&(*sbom.Metadata.Tools.Components)[i])
 					if toolKey != "" {
@@ -221,11 +221,11 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 		}
 	}
 
-	// Collect all components from SBOM
+	// Collect all components from SBOM.
 	componentsMap := make(map[string]*cdx.Component)
 	var mergedComponents []cdx.Component
 
-	// Add SBOM components (software libraries, etc.)
+	// Add SBOM components (software libraries, etc.).
 	if sbom.Components != nil {
 		for i := range *sbom.Components {
 			comp := &(*sbom.Components)[i]
@@ -236,14 +236,14 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 			mergedComponents = append(mergedComponents, *comp)
 			result.SBOMComponentCount++
 
-			// Track all SBOM component names
+			// Track all SBOM component names.
 			result.SBOMComponents = append(result.SBOMComponents, comp.Name)
 		}
 	}
 
-	// Add components from all AIBOMs (models and datasets)
+	// Add components from all AIBOMs (models and datasets).
 	for _, aibom := range aiboms {
-		// Add the AIBOM's metadata component (the ML model) to components list
+		// Add the AIBOM's metadata component (the ML model) to components list.
 		if aibom.Metadata != nil && aibom.Metadata.Component != nil {
 			comp := aibom.Metadata.Component
 			bomRef := getBOMRef(comp)
@@ -262,14 +262,14 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 				mergedComponents = append(mergedComponents, *comp)
 				result.AIBOMComponentCount++
 
-				// Track ML model component name
+				// Track ML model component name.
 				if comp.Type == cdx.ComponentTypeMachineLearningModel {
 					result.ModelComponents = append(result.ModelComponents, comp.Name)
 				}
 			}
 		}
 
-		// Add dataset components from AIBOM's components list
+		// Add dataset components from AIBOM's components list.
 		if aibom.Components != nil {
 			for i := range *aibom.Components {
 				comp := &(*aibom.Components)[i]
@@ -286,14 +286,14 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 				mergedComponents = append(mergedComponents, *comp)
 				result.AIBOMComponentCount++
 
-				// Track dataset component names
+				// Track dataset component names.
 				if comp.Type == cdx.ComponentTypeData {
 					result.DatasetComponents = append(result.DatasetComponents, comp.Name)
 				}
 			}
 		}
 
-		// Merge tools from AIBOM metadata (with deduplication)
+		// Merge tools from AIBOM metadata (with deduplication).
 		if aibom.Metadata != nil && aibom.Metadata.Tools != nil && aibom.Metadata.Tools.Components != nil {
 			if result.MergedBOM.Metadata == nil {
 				result.MergedBOM.Metadata = &cdx.Metadata{}
@@ -305,12 +305,12 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 				result.MergedBOM.Metadata.Tools.Components = &[]cdx.Component{}
 			}
 
-			// Add each tool from AIBOM, checking for duplicates
+			// Add each tool from AIBOM, checking for duplicates.
 			for i := range *aibom.Metadata.Tools.Components {
 				tool := &(*aibom.Metadata.Tools.Components)[i]
 				toolKey := getToolKey(tool)
 
-				// Only add if not already present (deduplicate by name@version)
+				// Only add if not already present (deduplicate by name@version).
 				if toolKey == "" || !toolsMap[toolKey] {
 					*result.MergedBOM.Metadata.Tools.Components = append(*result.MergedBOM.Metadata.Tools.Components, *tool)
 					if toolKey != "" {
@@ -325,7 +325,7 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 		result.MergedBOM.Components = &mergedComponents
 	}
 
-	// Merge dependencies from SBOM and all AIBOMs
+	// Merge dependencies from SBOM and all AIBOMs.
 	var allDependencies []*[]cdx.Dependency
 	if sbom.Dependencies != nil {
 		allDependencies = append(allDependencies, sbom.Dependencies)
@@ -339,7 +339,7 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 		result.MergedBOM.Dependencies = mergeDependenciesMultiple(allDependencies...)
 	}
 
-	// Merge compositions from SBOM and AIBOMs
+	// Merge compositions from SBOM and AIBOMs.
 	var allCompositions []*[]cdx.Composition
 	if sbom.Compositions != nil {
 		allCompositions = append(allCompositions, sbom.Compositions)
@@ -353,11 +353,11 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 		result.MergedBOM.Compositions = mergeCompositionsMultiple(allCompositions...)
 	}
 
-	// Copy other fields from SBOM
+	// Copy other fields from SBOM.
 	result.MergedBOM.SerialNumber = sbom.SerialNumber
 	result.MergedBOM.Version = sbom.Version
 
-	// Merge services if present
+	// Merge services if present.
 	var allServices []*[]cdx.Service
 	if sbom.Services != nil {
 		allServices = append(allServices, sbom.Services)
@@ -374,7 +374,7 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 		}
 	}
 
-	// Merge external references
+	// Merge external references.
 	var allExternalRefs []*[]cdx.ExternalReference
 	if sbom.ExternalReferences != nil {
 		allExternalRefs = append(allExternalRefs, sbom.ExternalReferences)
@@ -399,7 +399,7 @@ func mergeMetadata(primary, secondary *cdx.Metadata, opts MergeOptions) *cdx.Met
 
 	merged := &cdx.Metadata{}
 
-	// Prefer primary metadata as base
+	// Prefer primary metadata as base.
 	if primary != nil {
 		merged.Timestamp = primary.Timestamp
 		merged.Authors = primary.Authors
@@ -409,9 +409,9 @@ func mergeMetadata(primary, secondary *cdx.Metadata, opts MergeOptions) *cdx.Met
 		merged.Licenses = primary.Licenses
 		merged.Properties = primary.Properties
 
-		// Deep copy tools from primary
+		// Deep copy tools from primary.
 		if primary.Tools != nil && primary.Tools.Tools != nil && len(*primary.Tools.Tools) > 0 {
-			toolsCopy := make([]cdx.Tool, len(*primary.Tools.Tools))
+			toolsCopy := make([]cdx.Tool, len(*primary.Tools.Tools)) //nolint:staticcheck // cdx.Tool is deprecated; used here intentionally to handle legacy BOM inputs
 			copy(toolsCopy, *primary.Tools.Tools)
 			merged.Tools = &cdx.ToolsChoice{
 				Tools: &toolsCopy,
@@ -419,24 +419,24 @@ func mergeMetadata(primary, secondary *cdx.Metadata, opts MergeOptions) *cdx.Met
 		}
 	}
 
-	// Merge tools from secondary
+	// Merge tools from secondary.
 	if secondary != nil {
-		// If primary didn't have tools, use secondary's
+		// If primary didn't have tools, use secondary's.
 		if merged.Tools == nil && secondary.Tools != nil && secondary.Tools.Tools != nil && len(*secondary.Tools.Tools) > 0 {
-			toolsCopy := make([]cdx.Tool, len(*secondary.Tools.Tools))
+			toolsCopy := make([]cdx.Tool, len(*secondary.Tools.Tools)) //nolint:staticcheck // cdx.Tool is deprecated; used here intentionally to handle legacy BOM inputs
 			copy(toolsCopy, *secondary.Tools.Tools)
 			merged.Tools = &cdx.ToolsChoice{
 				Tools: &toolsCopy,
 			}
 		} else if merged.Tools != nil && secondary.Tools != nil && secondary.Tools.Tools != nil && len(*secondary.Tools.Tools) > 0 {
-			// Combine tools from both
+			// Combine tools from both.
 			combinedTools := append(*merged.Tools.Tools, *secondary.Tools.Tools...)
 			merged.Tools = &cdx.ToolsChoice{
 				Tools: &combinedTools,
 			}
 		}
 
-		// If primary didn't have a timestamp but secondary does, use secondary's
+		// If primary didn't have a timestamp but secondary does, use secondary's.
 		if merged.Timestamp == "" && secondary.Timestamp != "" {
 			merged.Timestamp = secondary.Timestamp
 		}
@@ -453,7 +453,7 @@ func mergeDependencies(primary, secondary *[]cdx.Dependency) *[]cdx.Dependency {
 
 	depMap := make(map[string]*cdx.Dependency)
 
-	// Add primary dependencies
+	// Add primary dependencies.
 	if primary != nil {
 		for i := range *primary {
 			dep := &(*primary)[i]
@@ -461,17 +461,17 @@ func mergeDependencies(primary, secondary *[]cdx.Dependency) *[]cdx.Dependency {
 		}
 	}
 
-	// Merge secondary dependencies
+	// Merge secondary dependencies.
 	if secondary != nil {
 		for i := range *secondary {
 			dep := &(*secondary)[i]
 			if existing, exists := depMap[dep.Ref]; exists {
-				// Merge dependency lists for the same ref
+				// Merge dependency lists for the same ref.
 				if dep.Dependencies != nil {
 					if existing.Dependencies == nil {
 						existing.Dependencies = dep.Dependencies
 					} else {
-						// Combine dependencies, removing duplicates
+						// Combine dependencies, removing duplicates.
 						combined := mergeDependencyRefs(*existing.Dependencies, *dep.Dependencies)
 						existing.Dependencies = &combined
 					}
@@ -482,7 +482,7 @@ func mergeDependencies(primary, secondary *[]cdx.Dependency) *[]cdx.Dependency {
 		}
 	}
 
-	// Convert map back to slice
+	// Convert map back to slice.
 	var merged []cdx.Dependency
 	for _, dep := range depMap {
 		merged = append(merged, *dep)
@@ -549,7 +549,7 @@ func mergeServices(primary, secondary *[]cdx.Service) *[]cdx.Service {
 	serviceMap := make(map[string]*cdx.Service)
 	var merged []cdx.Service
 
-	// Add primary services
+	// Add primary services.
 	if primary != nil {
 		for i := range *primary {
 			svc := &(*primary)[i]
@@ -561,7 +561,7 @@ func mergeServices(primary, secondary *[]cdx.Service) *[]cdx.Service {
 		}
 	}
 
-	// Add secondary services (checking for duplicates)
+	// Add secondary services (checking for duplicates).
 	if secondary != nil {
 		for i := range *secondary {
 			svc := &(*secondary)[i]
@@ -609,7 +609,7 @@ func mergeExternalReferences(primary, secondary *[]cdx.ExternalReference) *[]cdx
 // getBOMRef returns the BOM-ref of a component.
 func getBOMRef(comp *cdx.Component) string {
 	if comp.BOMRef == "" {
-		// Try to generate a ref from component identity
+		// Try to generate a ref from component identity.
 		return generateBOMRef(comp)
 	}
 	return comp.BOMRef
@@ -624,9 +624,9 @@ func getToolKey(comp *cdx.Component) string {
 	return comp.Name + "@" + comp.Version
 }
 
-// legacyToolToComponent maps deprecated metadata.tools.tools entries to
+// legacyToolToComponent maps deprecated metadata.tools.tools entries to.
 // metadata.tools.components so merged output only uses one ToolsChoice shape.
-func legacyToolToComponent(tool *cdx.Tool) cdx.Component {
+func legacyToolToComponent(tool *cdx.Tool) cdx.Component { //nolint:staticcheck // cdx.Tool is deprecated; used here intentionally for legacy-tool normalization
 	comp := cdx.Component{
 		Type:    cdx.ComponentTypeApplication,
 		Name:    tool.Name,
@@ -696,12 +696,12 @@ func mergeDependenciesMultiple(deps ...*[]cdx.Dependency) *[]cdx.Dependency {
 		for i := range *depList {
 			dep := &(*depList)[i]
 			if existing, exists := depMap[dep.Ref]; exists {
-				// Merge dependency lists for the same ref
+				// Merge dependency lists for the same ref.
 				if dep.Dependencies != nil {
 					if existing.Dependencies == nil {
 						existing.Dependencies = dep.Dependencies
 					} else {
-						// Combine dependencies, removing duplicates
+						// Combine dependencies, removing duplicates.
 						combined := mergeDependencyRefs(*existing.Dependencies, *dep.Dependencies)
 						existing.Dependencies = &combined
 					}

@@ -11,7 +11,7 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/internal/fetcher"
 )
 
-// ComponentScanResult holds the security tree entries and any derived vulnerabilities
+// ComponentScanResult holds the security tree entries and any derived vulnerabilities.
 // for a single BOM component (model or dataset).
 type ComponentScanResult struct {
 	// ComponentRef is the BOM-ref of the affected component.
@@ -34,9 +34,9 @@ type Options struct {
 	BaseURL string
 }
 
-// ScanBOM fetches security scan results for every ML-model and dataset component
+// ScanBOM fetches security scan results for every ML-model and dataset component.
 // found in the given BOM and returns one ComponentScanResult per component.
-// Errors per component are recorded in ComponentScanResult.Err and do not abort
+// Errors per component are recorded in ComponentScanResult.Err and do not abort.
 // the overall scan.
 func ScanBOM(bom *cdx.BOM, opts Options) []ComponentScanResult {
 	if opts.Timeout <= 0 {
@@ -130,7 +130,7 @@ func hfIDFromComponent(c *cdx.Component) string {
 }
 
 // datasetIDFromComponent extracts the HuggingFace dataset ID from a data component.
-// Dataset PURLs are pkg:huggingface/datasets/{owner/name}@sha, so the namespace
+// Dataset PURLs are pkg:huggingface/datasets/{owner/name}@sha, so the namespace.
 // segment "datasets" must be stripped to get the actual API identifier.
 func datasetIDFromComponent(c *cdx.Component) string {
 	if c.PackageURL != "" {
@@ -164,9 +164,9 @@ func idFromPURL(purl string) string {
 }
 
 // datasetIDFromPURL extracts the dataset owner/name from a pkg:huggingface/datasets/... PURL.
-// e.g. "pkg:huggingface/datasets/bookcorpus@sha" → "bookcorpus"
-//
-//	"pkg:huggingface/datasets/allenai/c4@sha"  → "allenai/c4"
+// e.g. "pkg:huggingface/datasets/bookcorpus@sha" → "bookcorpus".
+//.
+//	"pkg:huggingface/datasets/allenai/c4@sha"  → "allenai/c4".
 func datasetIDFromPURL(purl string) string {
 	const prefix = "pkg:huggingface/datasets/"
 	if !strings.HasPrefix(purl, prefix) {

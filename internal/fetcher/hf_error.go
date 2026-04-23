@@ -7,7 +7,7 @@ import (
 )
 
 // HFError is returned when the Hugging Face Hub responds with a non-2xx HTTP status.
-// Using a typed error allows callers to distinguish "not found" (404) from transient
+// Using a typed error allows callers to distinguish "not found" (404) from transient.
 // failures without string matching.
 type HFError struct {
 	StatusCode int

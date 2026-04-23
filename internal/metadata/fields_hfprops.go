@@ -121,8 +121,6 @@ func hfProp(key Key, weight float64, get func(src Source) (any, bool)) FieldSpec
 			c := bomComponent(b)
 			propName := strings.TrimPrefix(key.String(), "BOM.metadata.component.properties.")
 			ok := c != nil && hasProperty(c, propName)
-			if c != nil {
-			}
 			return ok
 		},
 	}

@@ -11,7 +11,7 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 )
 
-// Version is set at build time
+// Version is set at build time.
 var Version = "dev"
 
 func main() {

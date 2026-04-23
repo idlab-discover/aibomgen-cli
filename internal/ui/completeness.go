@@ -5,19 +5,19 @@ import (
 	"io"
 	"strings"
 
-	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/completeness"
 	"github.com/idlab-discover/aibomgen-cli/internal/metadata"
+	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/completeness"
 
 	lipgloss "charm.land/lipgloss/v2"
 )
 
-// CompletenessUI provides a rich UI for the completeness command
+// CompletenessUI provides a rich UI for the completeness command.
 type CompletenessUI struct {
 	writer io.Writer
 	quiet  bool
 }
 
-// NewCompletenessUI creates a new UI handler for the completeness command
+// NewCompletenessUI creates a new UI handler for the completeness command.
 func NewCompletenessUI(w io.Writer, quiet bool) *CompletenessUI {
 	return &CompletenessUI{
 		writer: w,
@@ -25,7 +25,7 @@ func NewCompletenessUI(w io.Writer, quiet bool) *CompletenessUI {
 	}
 }
 
-// PrintReport renders a beautiful completeness report
+// PrintReport renders a beautiful completeness report.
 func (c *CompletenessUI) PrintReport(result completeness.Result) {
 	if c.quiet {
 		return
@@ -33,39 +33,39 @@ func (c *CompletenessUI) PrintReport(result completeness.Result) {
 
 	var output strings.Builder
 
-	// Header
+	// Header.
 	output.WriteString(Success.Bold(true).Render("AIBOM Completeness Report"))
 	output.WriteString("\n\n")
 
-	// Model Score Section
+	// Model Score Section.
 	output.WriteString(c.renderModelScore(result))
 	output.WriteString("\n\n")
 
-	// Missing Fields Section
+	// Missing Fields Section.
 	if len(result.MissingRequired) > 0 || len(result.MissingOptional) > 0 {
 		output.WriteString(c.renderMissingFields(result))
 		output.WriteString("\n\n")
 	}
 
-	// Dataset Scores Section
+	// Dataset Scores Section.
 	if len(result.DatasetResults) > 0 {
 		output.WriteString(c.renderDatasetScores(result.DatasetResults))
 		output.WriteString("\n")
 	}
 
-	// Wrap in box
+	// Wrap in box.
 	boxed := SuccessBox.Render(output.String())
 	fmt.Fprintln(c.writer, boxed)
 }
 
-// renderModelScore creates the model score visualization with progress bar
+// renderModelScore creates the model score visualization with progress bar.
 func (c *CompletenessUI) renderModelScore(result completeness.Result) string {
 	var sb strings.Builder
 
 	sb.WriteString(SectionHeader.Render("Model Component"))
 	sb.WriteString("\n")
 
-	// Show model ID if available
+	// Show model ID if available.
 	if result.ModelID != "" {
 		sb.WriteString(FormatKeyValue("ID", Highlight.Render(result.ModelID)))
 		sb.WriteString("\n")
@@ -78,11 +78,11 @@ func (c *CompletenessUI) renderModelScore(result completeness.Result) string {
 	return sb.String()
 }
 
-// renderMissingFields creates the missing fields section with expandable groups
+// renderMissingFields creates the missing fields section with expandable groups.
 func (c *CompletenessUI) renderMissingFields(result completeness.Result) string {
 	var sb strings.Builder
 
-	// Required Fields
+	// Required Fields.
 	if len(result.MissingRequired) > 0 {
 		sb.WriteString(Error.Render(fmt.Sprintf("▼ Required Fields (%d missing)", len(result.MissingRequired))))
 		sb.WriteString("\n")
@@ -95,7 +95,7 @@ func (c *CompletenessUI) renderMissingFields(result completeness.Result) string 
 		}
 	}
 
-	// Optional Fields
+	// Optional Fields.
 	if len(result.MissingOptional) > 0 {
 		if len(result.MissingRequired) > 0 {
 			sb.WriteString("\n")
@@ -114,7 +114,7 @@ func (c *CompletenessUI) renderMissingFields(result completeness.Result) string 
 	return strings.TrimRight(sb.String(), "\n")
 }
 
-// renderDatasetScores creates the dataset scores section
+// renderDatasetScores creates the dataset scores section.
 func (c *CompletenessUI) renderDatasetScores(datasets map[string]completeness.DatasetResult) string {
 	var sb strings.Builder
 
@@ -122,17 +122,17 @@ func (c *CompletenessUI) renderDatasetScores(datasets map[string]completeness.Da
 	sb.WriteString("\n")
 
 	for dsName, dsResult := range datasets {
-		// Dataset name with label
+		// Dataset name with label.
 		sb.WriteString(FormatKeyValue("ID", Highlight.Render(dsName)))
 		sb.WriteString("\n")
 
-		// Progress bar with label
+		// Progress bar with label.
 		sb.WriteString(FormatKeyValue("Score", c.renderProgressBar(dsResult.Score, 40)+" "+c.renderScorePercentage(dsResult.Score)))
 		sb.WriteString("\n")
 		sb.WriteString(Dim.Render(fmt.Sprintf("(%d/%d fields present)", dsResult.Passed, dsResult.Total)))
 		sb.WriteString("\n")
 
-		// Missing fields for this dataset - show underneath each other like model component
+		// Missing fields for this dataset - show underneath each other like model component.
 		if len(dsResult.MissingRequired) > 0 {
 			sb.WriteString("\n")
 			sb.WriteString(Error.Render(fmt.Sprintf("▼ Required Fields (%d missing)", len(dsResult.MissingRequired))))
@@ -168,14 +168,14 @@ func (c *CompletenessUI) renderDatasetScores(datasets map[string]completeness.Da
 	return strings.TrimRight(sb.String(), "\n")
 }
 
-// renderProgressBar creates a visual progress bar
+// renderProgressBar creates a visual progress bar.
 func (c *CompletenessUI) renderProgressBar(score float64, width int) string {
 	filled := int(score * float64(width))
 	empty := width - filled
 
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
 
-	// Color the bar based on score
+	// Color the bar based on score.
 	var style lipgloss.Style
 	if score >= 0.8 {
 		style = lipgloss.NewStyle().Foreground(ColorSuccess)
@@ -188,7 +188,7 @@ func (c *CompletenessUI) renderProgressBar(score float64, width int) string {
 	return style.Render(bar)
 }
 
-// renderScorePercentage formats the score as a percentage
+// renderScorePercentage formats the score as a percentage.
 func (c *CompletenessUI) renderScorePercentage(score float64) string {
 	percentage := score * 100
 	formatted := fmt.Sprintf("%.1f%%", percentage)
@@ -201,7 +201,7 @@ func (c *CompletenessUI) renderScorePercentage(score float64) string {
 	return Error.Render(formatted)
 }
 
-// formatFieldKeys formats field keys as a comma-separated string for model keys
+// formatFieldKeys formats field keys as a comma-separated string for model keys.
 func (c *CompletenessUI) formatFieldKeys(keys []metadata.Key) string {
 	if len(keys) == 0 {
 		return ""
@@ -213,7 +213,7 @@ func (c *CompletenessUI) formatFieldKeys(keys []metadata.Key) string {
 	return strings.Join(names, ", ")
 }
 
-// PrintSimpleReport prints a minimal text report (fallback for quiet mode or issues)
+// PrintSimpleReport prints a minimal text report (fallback for quiet mode or issues).
 func (c *CompletenessUI) PrintSimpleReport(result completeness.Result) {
 	fmt.Fprintf(c.writer, "%s Model score: %.1f%% (%d/%d)\n", Title.Render("Score"), result.Score*100, result.Passed, result.Total)
 

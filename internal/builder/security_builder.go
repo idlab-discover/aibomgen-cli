@@ -32,15 +32,15 @@ func statusToSeverity(status string) cdx.Severity {
 	}
 }
 
-// isActionable returns true when a scanner status warrants a vulnerability rating
+// isActionable returns true when a scanner status warrants a vulnerability rating.
 // (i.e. excludes "safe" and "unscanned").
 func isActionable(status string) bool {
 	s := strings.ToLower(status)
 	return s != "" && s != "safe" && s != "unscanned"
 }
 
-// InjectSecurityData appends BOM.Vulnerabilities derived from the HF tree
-// security scan results. Summary Component.Properties are handled by the
+// InjectSecurityData appends BOM.Vulnerabilities derived from the HF tree.
+// security scan results. Summary Component.Properties are handled by the.
 // metadata registry (fields_security.go) which runs before this call.
 // It is a no-op when entries is empty.
 func InjectSecurityData(bom *cdx.BOM, comp *cdx.Component, entries []fetcher.SecurityFileEntry, modelID string) {
@@ -91,12 +91,12 @@ func InjectSecurityData(bom *cdx.BOM, comp *cdx.Component, entries []fetcher.Sec
 	*bom.Vulnerabilities = append(*bom.Vulnerabilities, vulns...)
 }
 
-// buildFileVulnerability converts a single SecurityFileEntry into a CycloneDX
+// buildFileVulnerability converts a single SecurityFileEntry into a CycloneDX.
 // Vulnerability, aggregating findings from all per-file scanners.
 func buildFileVulnerability(entry fetcher.SecurityFileEntry, comp *cdx.Component, modelID string) cdx.Vulnerability {
 	sfs := entry.SecurityFileStatus
 
-	// Collect per-scanner ratings
+	// Collect per-scanner ratings.
 	type scannerEntry struct {
 		key    string
 		status string
@@ -144,7 +144,7 @@ func buildFileVulnerability(entry fetcher.SecurityFileEntry, comp *cdx.Component
 		}
 	}
 
-	// Include pickle import details in description
+	// Include pickle import details in description.
 	if isActionable(sfs.PickleImportScan.Status) && len(sfs.PickleImportScan.PickleImports) > 0 {
 		var imports []string
 		for _, pi := range sfs.PickleImportScan.PickleImports {
@@ -153,13 +153,13 @@ func buildFileVulnerability(entry fetcher.SecurityFileEntry, comp *cdx.Component
 		descParts = append(descParts, "Pickle imports: "+strings.Join(imports, ", "))
 	}
 
-	// Build description
+	// Build description.
 	description := fmt.Sprintf("Security finding in file %q (overall status: %s)", entry.Path, sfs.Status)
 	if len(descParts) > 0 {
 		description += ". " + strings.Join(descParts, "; ")
 	}
 
-	// Sanitise path for use in BOMRef
+	// Sanitise path for use in BOMRef.
 	safePath := strings.ReplaceAll(entry.Path, "/", "-")
 	safePath = strings.ReplaceAll(safePath, " ", "_")
 

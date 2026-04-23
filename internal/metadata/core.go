@@ -13,7 +13,7 @@ type Key string
 func (k Key) String() string { return string(k) }
 
 const (
-	// BOM.metadata.component.* (MODEL)
+	// BOM.metadata.component.* (MODEL).
 	ComponentName               Key = "BOM.metadata.component.name"
 	ComponentExternalReferences Key = "BOM.metadata.component.externalReferences"
 	ComponentTags               Key = "BOM.metadata.component.tags"
@@ -22,7 +22,7 @@ const (
 	ComponentManufacturer       Key = "BOM.metadata.component.manufacturer"
 	ComponentGroup              Key = "BOM.metadata.component.group"
 
-	// Component-level extra properties (stored later as CycloneDX Component.Properties)
+	// Component-level extra properties (stored later as CycloneDX Component.Properties).
 	ComponentPropertiesHuggingFaceLastModified Key = "BOM.metadata.component.properties.huggingface:lastModified"
 	ComponentPropertiesHuggingFaceCreatedAt    Key = "BOM.metadata.component.properties.huggingface:createdAt"
 	ComponentPropertiesHuggingFaceLanguage     Key = "BOM.metadata.component.properties.huggingface:language"
@@ -34,7 +34,7 @@ const (
 	ComponentPropertiesHuggingFaceBaseModel    Key = "BOM.metadata.component.properties.huggingface:baseModel"
 	ComponentPropertiesHuggingFaceContact      Key = "BOM.metadata.component.properties.huggingface:modelCardContact"
 
-	// BOM.metadata.component.modelCard.* (MODEL CARD)
+	// BOM.metadata.component.modelCard.* (MODEL CARD).
 	ModelCardModelParametersTask                                 Key = "BOM.metadata.component.modelCard.modelParameters.task"
 	ModelCardModelParametersArchitectureFamily                   Key = "BOM.metadata.component.modelCard.modelParameters.architectureFamily"
 	ModelCardModelParametersModelArchitecture                    Key = "BOM.metadata.component.modelCard.modelParameters.modelArchitecture"
@@ -45,20 +45,20 @@ const (
 	ModelCardQuantitativeAnalysisPerformanceMetrics              Key = "BOM.metadata.component.modelCard.quantitativeAnalysis.performanceMetrics"
 	ModelCardConsiderationsEnvironmentalConsiderationsProperties Key = "BOM.metadata.component.modelCard.considerations.environmentalConsiderations.properties"
 
-	// Security scan summary stored as Component.Properties
+	// Security scan summary stored as Component.Properties.
 	ComponentPropertiesSecurityOverallStatus Key = "BOM.metadata.component.properties.huggingface:security:overallStatus"
 	ComponentPropertiesSecurityScannedFiles  Key = "BOM.metadata.component.properties.huggingface:security:scannedFileCount"
 	ComponentPropertiesSecurityUnsafeFiles   Key = "BOM.metadata.component.properties.huggingface:security:unsafeFileCount"
 	ComponentPropertiesSecurityCautionFiles  Key = "BOM.metadata.component.properties.huggingface:security:cautionFileCount"
 )
 
-// DatasetKey identifies dataset-specific CycloneDX fields
+// DatasetKey identifies dataset-specific CycloneDX fields.
 type DatasetKey string
 
 func (k DatasetKey) String() string { return string(k) }
 
 const (
-	// BOM.components[DATA].* (DATASET)
+	// BOM.components[DATA].* (DATASET).
 	DatasetName               DatasetKey = "BOM.components[DATA].name"
 	DatasetExternalReferences DatasetKey = "BOM.components[DATA].externalReferences"
 	DatasetTags               DatasetKey = "BOM.components[DATA].tags"
@@ -93,12 +93,12 @@ type Target struct {
 	Component *cdx.Component
 	ModelCard *cdx.MLModelCard
 
-	// Options (builder can set these when calling Apply)
+	// Options (builder can set these when calling Apply).
 	IncludeEvidenceProperties bool
 	HuggingFaceBaseURL        string
 }
 
-// DatasetSource mirrors Source but for datasets
+// DatasetSource mirrors Source but for datasets.
 type DatasetSource struct {
 	DatasetID string
 	Scan      scanner.Discovery
@@ -106,16 +106,16 @@ type DatasetSource struct {
 	Readme    *fetcher.DatasetReadmeCard
 }
 
-// DatasetTarget is the dataset component being built
+// DatasetTarget is the dataset component being built.
 type DatasetTarget struct {
 	Component *cdx.Component
 
-	// Options
+	// Options.
 	IncludeEvidenceProperties bool
 	HuggingFaceBaseURL        string
 }
 
-// InputType defines the type of input field for interactive enrichment
+// InputType defines the type of input field for interactive enrichment.
 type InputType string
 
 const (
@@ -125,12 +125,12 @@ const (
 	InputTypeMultiText InputType = "multitext" // Comma-separated values
 )
 
-// FieldSpec is a first-class definition of a field:
-// - how it contributes to completeness
-// - how it is populated into the BOM
-// - how its presence is detected
-// - how user-provided values are set
-// - how it should be presented in interactive forms
+// FieldSpec is a first-class definition of a field:.
+// - how it contributes to completeness.
+// - how it is populated into the BOM.
+// - how its presence is detected.
+// - how user-provided values are set.
+// - how it should be presented in interactive forms.
 type FieldSpec struct {
 	Key      Key
 	Weight   float64
@@ -141,13 +141,13 @@ type FieldSpec struct {
 	Apply   func(Target, any) error
 	Present func(*cdx.BOM) bool
 
-	// UI metadata for interactive enrichment
+	// UI metadata for interactive enrichment.
 	InputType   InputType
 	Placeholder string
 	Suggestions []string
 }
 
-// DatasetFieldSpec is the dataset analog of FieldSpec
+// DatasetFieldSpec is the dataset analog of FieldSpec.
 type DatasetFieldSpec struct {
 	Key      DatasetKey
 	Weight   float64
@@ -158,7 +158,7 @@ type DatasetFieldSpec struct {
 	Apply   func(DatasetTarget, any) error
 	Present func(comp *cdx.Component) bool
 
-	// UI metadata for interactive enrichment
+	// UI metadata for interactive enrichment.
 	InputType   InputType
 	Placeholder string
 	Suggestions []string

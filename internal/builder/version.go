@@ -2,6 +2,7 @@ package builder
 
 import (
 	"bytes"
+	"context"
 	"os/exec"
 	"runtime/debug"
 	"strings"
@@ -10,7 +11,7 @@ import (
 const aibomgenModulePath = "github.com/idlab-discover/aibomgen-cli"
 
 var (
-	// Set these at build time with -ldflags "-X 'github.com/idlab-discover/aibomgen-cli/internal/builder.Version=...' -X '...Commit=...'"
+	// Set these at build time with -ldflags "-X 'github.com/idlab-discover/aibomgen-cli/internal/builder.Version=...' -X '...Commit=...'".
 	Version = ""
 	Commit  = ""
 )
@@ -18,12 +19,12 @@ var (
 var readBuildInfo = debug.ReadBuildInfo
 
 func GetAIBoMGenVersion() string {
-	// 1) prefer explicit ldflags
+	// 1) prefer explicit ldflags.
 	if Version != "" && Version != "dev" {
 		return Version
 	}
 
-	// 2) build info lookup
+	// 2) build info lookup.
 	info, ok := readBuildInfo()
 	if ok && info != nil {
 		// When running as the CLI binary itself.
@@ -49,7 +50,7 @@ func GetAIBoMGenVersion() string {
 		}
 	}
 
-	// 3) commit fallback
+	// 3) commit fallback.
 	if Commit != "" {
 		return "commit-" + Commit
 	}
@@ -82,10 +83,10 @@ func cleanVersion(v string) string {
 }
 
 func gitDescribe() string {
-	cmd := exec.Command("git", "describe", "--tags", "--always", "--dirty")
+	cmd := exec.CommandContext(context.Background(), "git", "describe", "--tags", "--always", "--dirty")
 	out, err := cmd.Output()
 	if err != nil {
-		cmd2 := exec.Command("git", "rev-parse", "--short", "HEAD")
+		cmd2 := exec.CommandContext(context.Background(), "git", "rev-parse", "--short", "HEAD")
 		if out2, err2 := cmd2.Output(); err2 == nil {
 			return strings.TrimSpace(string(out2))
 		}

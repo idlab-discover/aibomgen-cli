@@ -10,22 +10,22 @@ import (
 	cdx "github.com/CycloneDX/cyclonedx-go"
 )
 
-// Test Strategy:
-// - Uses calculated score values (e.g., 1.0 / 12.15) instead of hardcoded floats to avoid precision issues
-// - Implements tolerance-based comparison (1e-9) for floating point scores
-// - Helper functions resultsEqual() and datasetResultsEqual() compare results with proper float handling
-// - Best practice: never hardcode floating point literals in test expectations
+// Test Strategy:.
+// - Uses calculated score values (e.g., 1.0 / 12.15) instead of hardcoded floats to avoid precision issues.
+// - Implements tolerance-based comparison (1e-9) for floating point scores.
+// - Helper functions resultsEqual() and datasetResultsEqual() compare results with proper float handling.
+// - Best practice: never hardcode floating point literals in test expectations.
 
-// Constants from metadata registry (total weight: 12.15 for model, 9.4 for dataset)
+// Constants from metadata registry (total weight: 12.15 for model, 9.4 for dataset).
 const (
 	totalModelFields   = 30
 	totalDatasetFields = 17
 	floatTolerance     = 1e-9 // Tolerance for floating point comparison
 )
 
-// Helper function to compare two Result structs with floating point tolerance
+// Helper function to compare two Result structs with floating point tolerance.
 func resultsEqual(got, want Result) bool {
-	// Compare non-float fields
+	// Compare non-float fields.
 	if got.ModelID != want.ModelID ||
 		got.Passed != want.Passed ||
 		got.Total != want.Total ||
@@ -34,12 +34,12 @@ func resultsEqual(got, want Result) bool {
 		return false
 	}
 
-	// Compare Score with tolerance
+	// Compare Score with tolerance.
 	if math.Abs(got.Score-want.Score) > floatTolerance {
 		return false
 	}
 
-	// Compare DatasetResults
+	// Compare DatasetResults.
 	if len(got.DatasetResults) != len(want.DatasetResults) {
 		return false
 	}
@@ -57,7 +57,7 @@ func resultsEqual(got, want Result) bool {
 	return true
 }
 
-// Helper function to compare two DatasetResult structs with floating point tolerance
+// Helper function to compare two DatasetResult structs with floating point tolerance.
 func datasetResultsEqual(got, want DatasetResult) bool {
 	if got.DatasetRef != want.DatasetRef ||
 		got.Passed != want.Passed ||
@@ -67,7 +67,7 @@ func datasetResultsEqual(got, want DatasetResult) bool {
 		return false
 	}
 
-	// Compare Score with tolerance
+	// Compare Score with tolerance.
 	return math.Abs(got.Score-want.Score) <= floatTolerance
 }
 
@@ -220,7 +220,7 @@ func TestCheck(t *testing.T) {
 					metadata.ModelCardModelParametersTask,
 					metadata.ModelCardModelParametersArchitectureFamily,
 					metadata.ModelCardModelParametersModelArchitecture,
-					// Datasets is now present, so it's not in missing list
+					// Datasets is now present, so it's not in missing list.
 					metadata.ModelCardConsiderationsUseCases,
 					metadata.ModelCardConsiderationsTechnicalLimitations,
 					metadata.ModelCardConsiderationsEthicalConsiderations,
@@ -545,7 +545,7 @@ func TestCheck(t *testing.T) {
 							metadata.DatasetExternalReferences,
 							metadata.DatasetTags,
 							metadata.DatasetLicenses,
-							// DatasetDescription is present, so excluded
+							// DatasetDescription is present, so excluded.
 							metadata.DatasetManufacturer,
 							metadata.DatasetAuthors,
 							metadata.DatasetGroup,
@@ -833,7 +833,7 @@ func TestCheckDataset(t *testing.T) {
 					metadata.DatasetExternalReferences,
 					metadata.DatasetTags,
 					metadata.DatasetLicenses,
-					// DatasetDescription is present, so excluded
+					// DatasetDescription is present, so excluded.
 					metadata.DatasetManufacturer,
 					metadata.DatasetAuthors,
 					metadata.DatasetGroup,
@@ -860,10 +860,10 @@ func TestCheckDataset(t *testing.T) {
 	}
 }
 
-// Test edge cases using custom registries for 100% coverage
+// Test edge cases using custom registries for 100% coverage.
 
 func Test_checkWithRegistry_RequiredDatasetField(t *testing.T) {
-	// Test when ModelCardModelParametersDatasets is required (covers line 56)
+	// Test when ModelCardModelParametersDatasets is required (covers line 56).
 	customRegistry := []metadata.FieldSpec{
 		{
 			Key:      metadata.ComponentName,
@@ -891,7 +891,7 @@ func Test_checkWithRegistry_RequiredDatasetField(t *testing.T) {
 		Metadata: &cdx.Metadata{
 			Component: &cdx.Component{
 				Name: "test-model",
-				// No datasets, so the required field is missing
+				// No datasets, so the required field is missing.
 			},
 		},
 	}
@@ -913,7 +913,7 @@ func Test_checkWithRegistry_RequiredDatasetField(t *testing.T) {
 }
 
 func Test_checkDatasetWithRegistry_ZeroWeight(t *testing.T) {
-	// Test field with Weight <= 0 (covers line 152)
+	// Test field with Weight <= 0 (covers line 152).
 	customRegistry := []metadata.DatasetFieldSpec{
 		{
 			Key:      metadata.DatasetName,
@@ -950,7 +950,7 @@ func Test_checkDatasetWithRegistry_ZeroWeight(t *testing.T) {
 
 	got := checkDatasetWithRegistry(comp, customRegistry)
 
-	// Only DatasetName should be counted (weight > 0)
+	// Only DatasetName should be counted (weight > 0).
 	if got.Total != 1 {
 		t.Errorf("Total = %v, want 1 (fields with zero/negative weight should be skipped)", got.Total)
 	}
@@ -963,7 +963,7 @@ func Test_checkDatasetWithRegistry_ZeroWeight(t *testing.T) {
 }
 
 func Test_checkWithRegistry_ZeroWeight(t *testing.T) {
-	// Test model field with Weight <= 0
+	// Test model field with Weight <= 0.
 	customRegistry := []metadata.FieldSpec{
 		{
 			Key:      metadata.ComponentName,
@@ -994,7 +994,7 @@ func Test_checkWithRegistry_ZeroWeight(t *testing.T) {
 
 	got := checkWithRegistry(bom, customRegistry, []metadata.DatasetFieldSpec{})
 
-	// Only ComponentName should be counted (weight > 0)
+	// Only ComponentName should be counted (weight > 0).
 	if got.Total != 1 {
 		t.Errorf("Total = %v, want 1 (fields with zero weight should be skipped)", got.Total)
 	}

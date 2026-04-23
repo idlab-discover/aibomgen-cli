@@ -1,4 +1,4 @@
-// File: internal/enricher/interactive.go - Replace the entire file with this corrected version
+// File: internal/enricher/interactive.go - Replace the entire file with this corrected version.
 
 package enricher
 
@@ -12,19 +12,19 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 )
 
-// InteractiveEnricher provides a form-based interactive enrichment experience
+// InteractiveEnricher provides a form-based interactive enrichment experience.
 type InteractiveEnricher struct {
 	enricher *Enricher
 }
 
-// NewInteractiveEnricher creates a new InteractiveEnricher instance
+// NewInteractiveEnricher creates a new InteractiveEnricher instance.
 func NewInteractiveEnricher(e *Enricher) *InteractiveEnricher {
 	return &InteractiveEnricher{
 		enricher: e,
 	}
 }
 
-// EnrichInteractive enriches fields using interactive forms
+// EnrichInteractive enriches fields using interactive forms.
 func (ie *InteractiveEnricher) EnrichInteractive(
 	bom *cdx.BOM,
 	missingFields []metadata.FieldSpec,
@@ -35,17 +35,17 @@ func (ie *InteractiveEnricher) EnrichInteractive(
 		return nil, nil
 	}
 
-	// Storage for form values - use map of pointers
+	// Storage for form values - use map of pointers.
 	valueStore := make(map[metadata.Key]*string)
 	for _, spec := range missingFields {
 		val := ""
 		valueStore[spec.Key] = &val
 	}
 
-	// Create form groups - one form with all fields
+	// Create form groups - one form with all fields.
 	formGroups := []*huh.Group{}
 
-	// Add intro note
+	// Add intro note.
 	formGroups = append(formGroups, huh.NewGroup(
 		huh.NewNote().
 			Title("Model Enrichment").
@@ -54,7 +54,7 @@ func (ie *InteractiveEnricher) EnrichInteractive(
 			NextLabel("Continue"),
 	))
 
-	// Create inputs for each field
+	// Create inputs for each field.
 	for _, spec := range missingFields {
 		fieldInputs := ie.createFieldInput(spec, src, valueStore[spec.Key])
 		if len(fieldInputs) > 0 {
@@ -62,19 +62,19 @@ func (ie *InteractiveEnricher) EnrichInteractive(
 		}
 	}
 
-	// Skip if no inputs were created
+	// Skip if no inputs were created.
 	if len(formGroups) <= 1 {
 		return nil, nil
 	}
 
-	// Create and run form
+	// Create and run form.
 	form := huh.NewForm(formGroups...)
 	err := form.Run()
 	if err != nil {
 		return nil, err
 	}
 
-	// Now read the values from the pointers and apply them
+	// Now read the values from the pointers and apply them.
 	changes := make(map[metadata.Key]string)
 	for _, spec := range missingFields {
 		strValue := *valueStore[spec.Key]
@@ -82,10 +82,10 @@ func (ie *InteractiveEnricher) EnrichInteractive(
 			continue
 		}
 
-		// Apply the value
+		// Apply the value.
 		err := metadata.ApplyUserValue(spec, strValue, tgt)
 		if err != nil {
-			// Continue on error, just skip this field
+			// Continue on error, just skip this field.
 			continue
 		}
 		changes[spec.Key] = strValue
@@ -94,7 +94,7 @@ func (ie *InteractiveEnricher) EnrichInteractive(
 	return changes, nil
 }
 
-// createFieldInput creates form inputs for a field spec
+// createFieldInput creates form inputs for a field spec.
 func (ie *InteractiveEnricher) createFieldInput(
 	spec metadata.FieldSpec,
 	src metadata.Source,
@@ -102,7 +102,7 @@ func (ie *InteractiveEnricher) createFieldInput(
 ) []huh.Field {
 	var inputs []huh.Field
 
-	// Create appropriate input based on spec.InputType
+	// Create appropriate input based on spec.InputType.
 	switch spec.InputType {
 	case metadata.InputTypeTextArea:
 		inputs = append(inputs, ie.createTextAreaInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
@@ -117,7 +117,7 @@ func (ie *InteractiveEnricher) createFieldInput(
 	return inputs
 }
 
-// createTextInput creates a standard text input field
+// createTextInput creates a standard text input field.
 func (ie *InteractiveEnricher) createTextInput(
 	key metadata.Key,
 	required bool,
@@ -128,7 +128,7 @@ func (ie *InteractiveEnricher) createTextInput(
 	src metadata.Source,
 	valuePtr *string,
 ) huh.Field {
-	// Get suggestions from sources if not explicitly provided
+	// Get suggestions from sources if not explicitly provided.
 	if len(suggestions) == 0 {
 		suggestions = ie.getSuggestionsFromSources(sources, src)
 	}
@@ -151,7 +151,7 @@ func (ie *InteractiveEnricher) createTextInput(
 	return input
 }
 
-// createMultiTextInput creates input for comma-separated arrays
+// createMultiTextInput creates input for comma-separated arrays.
 func (ie *InteractiveEnricher) createMultiTextInput(
 	key metadata.Key,
 	required bool,
@@ -184,7 +184,7 @@ func (ie *InteractiveEnricher) createMultiTextInput(
 	return input
 }
 
-// createTextAreaInput creates a multi-line text input
+// createTextAreaInput creates a multi-line text input.
 func (ie *InteractiveEnricher) createTextAreaInput(
 	key metadata.Key,
 	required bool,
@@ -219,7 +219,7 @@ func (ie *InteractiveEnricher) createTextAreaInput(
 	return input
 }
 
-// createSelectInput creates a select input with predefined options
+// createSelectInput creates a select input with predefined options.
 func (ie *InteractiveEnricher) createSelectInput(
 	key metadata.Key,
 	required bool,
@@ -256,7 +256,7 @@ func (ie *InteractiveEnricher) createSelectInput(
 	return input
 }
 
-// Helper methods
+// Helper methods.
 
 func (ie *InteractiveEnricher) formatTitle(key metadata.Key, weight float64, required bool) string {
 	requiredLabel := ""
@@ -266,7 +266,7 @@ func (ie *InteractiveEnricher) formatTitle(key metadata.Key, weight float64, req
 
 	weightLabel := ui.Muted.Render(fmt.Sprintf(" (weight: %.1f)", weight))
 
-	// Simplify the key for display
+	// Simplify the key for display.
 	displayKey := ie.simplifyKeyForDisplay(key)
 
 	return fmt.Sprintf("%s%s%s", displayKey, weightLabel, requiredLabel)
@@ -287,7 +287,7 @@ func (ie *InteractiveEnricher) formatDescription(suggestions []string, placehold
 		parts = append(parts, ui.Muted.Render("Enter comma-separated values"))
 	}
 
-	// Always show placeholder hint if not already in the input field placeholder
+	// Always show placeholder hint if not already in the input field placeholder.
 	if placeholder != "" && len(parts) > 0 {
 		parts = append(parts, ui.Muted.Render("Format: ")+placeholder)
 	}
@@ -300,7 +300,7 @@ func (ie *InteractiveEnricher) formatDescription(suggestions []string, placehold
 }
 
 func (ie *InteractiveEnricher) getSuggestionsFromSources(sources []func(metadata.Source) (any, bool), src metadata.Source) []string {
-	// Try to get value from sources
+	// Try to get value from sources.
 	for _, sourceFn := range sources {
 		if val, ok := sourceFn(src); ok && val != nil {
 			switch v := val.(type) {
@@ -319,8 +319,8 @@ func (ie *InteractiveEnricher) getSuggestionsFromSources(sources []func(metadata
 }
 
 func (ie *InteractiveEnricher) simplifyKeyForDisplay(key metadata.Key) string {
-	// we could define extra logic here to transform key in more readable form
-	// for now, just return the string representation for clarity
+	// we could define extra logic here to transform key in more readable form.
+	// for now, just return the string representation for clarity.
 	return string(key)
 }
 
@@ -333,7 +333,7 @@ func (ie *InteractiveEnricher) camelToTitle(s string) string {
 		result = append(result, r)
 	}
 	title := string(result)
-	// Capitalize first letter of each word
+	// Capitalize first letter of each word.
 	words := strings.Fields(title)
 	for i, word := range words {
 		if len(word) > 0 {
@@ -343,7 +343,7 @@ func (ie *InteractiveEnricher) camelToTitle(s string) string {
 	return strings.Join(words, " ")
 }
 
-// EnrichDatasetInteractive enriches dataset fields using interactive forms
+// EnrichDatasetInteractive enriches dataset fields using interactive forms.
 func (ie *InteractiveEnricher) EnrichDatasetInteractive(
 	comp *cdx.Component,
 	missingFields []metadata.DatasetFieldSpec,
@@ -354,17 +354,17 @@ func (ie *InteractiveEnricher) EnrichDatasetInteractive(
 		return nil, nil
 	}
 
-	// Storage for form values - use map of pointers
+	// Storage for form values - use map of pointers.
 	valueStore := make(map[metadata.DatasetKey]*string)
 	for _, spec := range missingFields {
 		val := ""
 		valueStore[spec.Key] = &val
 	}
 
-	// Create form groups
+	// Create form groups.
 	formGroups := []*huh.Group{}
 
-	// Add intro note
+	// Add intro note.
 	formGroups = append(formGroups, huh.NewGroup(
 		huh.NewNote().
 			Title(fmt.Sprintf("Dataset Enrichment: %s", comp.Name)).
@@ -373,7 +373,7 @@ func (ie *InteractiveEnricher) EnrichDatasetInteractive(
 			NextLabel("Continue"),
 	))
 
-	// Create inputs for each field
+	// Create inputs for each field.
 	for _, spec := range missingFields {
 		fieldInputs := ie.createDatasetFieldInput(spec, src, valueStore[spec.Key])
 		if len(fieldInputs) > 0 {
@@ -381,19 +381,19 @@ func (ie *InteractiveEnricher) EnrichDatasetInteractive(
 		}
 	}
 
-	// Skip if no inputs were created
+	// Skip if no inputs were created.
 	if len(formGroups) <= 1 {
 		return nil, nil
 	}
 
-	// Create and run form
+	// Create and run form.
 	form := huh.NewForm(formGroups...)
 	err := form.Run()
 	if err != nil {
 		return nil, err
 	}
 
-	// Now read the values from the pointers and apply them
+	// Now read the values from the pointers and apply them.
 	changes := make(map[metadata.DatasetKey]string)
 	for _, spec := range missingFields {
 		strValue := *valueStore[spec.Key]
@@ -401,10 +401,10 @@ func (ie *InteractiveEnricher) EnrichDatasetInteractive(
 			continue
 		}
 
-		// Apply the value
+		// Apply the value.
 		err := metadata.ApplyDatasetUserValue(spec, strValue, tgt)
 		if err != nil {
-			// Continue on error, just skip this field
+			// Continue on error, just skip this field.
 			continue
 		}
 		changes[spec.Key] = strValue
@@ -413,7 +413,7 @@ func (ie *InteractiveEnricher) EnrichDatasetInteractive(
 	return changes, nil
 }
 
-// createDatasetFieldInput creates form inputs for a dataset field spec
+// createDatasetFieldInput creates form inputs for a dataset field spec.
 func (ie *InteractiveEnricher) createDatasetFieldInput(
 	spec metadata.DatasetFieldSpec,
 	src metadata.DatasetSource,
@@ -421,7 +421,7 @@ func (ie *InteractiveEnricher) createDatasetFieldInput(
 ) []huh.Field {
 	var inputs []huh.Field
 
-	// Create appropriate input based on spec.InputType
+	// Create appropriate input based on spec.InputType.
 	switch spec.InputType {
 	case metadata.InputTypeTextArea:
 		inputs = append(inputs, ie.createDatasetTextAreaInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
@@ -436,7 +436,7 @@ func (ie *InteractiveEnricher) createDatasetFieldInput(
 	return inputs
 }
 
-// Dataset-specific input creators
+// Dataset-specific input creators.
 func (ie *InteractiveEnricher) createDatasetTextInput(
 	key metadata.DatasetKey,
 	required bool,
@@ -588,7 +588,7 @@ func (ie *InteractiveEnricher) simplifyDatasetKeyForDisplay(key metadata.Dataset
 
 	lastPart := parts[len(parts)-1]
 
-	// Handle special cases
+	// Handle special cases.
 	if strings.Contains(lastPart, ":") {
 		parts := strings.Split(lastPart, ":")
 		if len(parts) > 1 {
@@ -600,7 +600,7 @@ func (ie *InteractiveEnricher) simplifyDatasetKeyForDisplay(key metadata.Dataset
 }
 
 func (ie *InteractiveEnricher) getDatasetSuggestionsFromSources(sources []func(metadata.DatasetSource) (any, bool), src metadata.DatasetSource) []string {
-	// Try to get value from sources
+	// Try to get value from sources.
 	for _, sourceFn := range sources {
 		if val, ok := sourceFn(src); ok && val != nil {
 			switch v := val.(type) {

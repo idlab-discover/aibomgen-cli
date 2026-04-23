@@ -13,7 +13,7 @@ import (
 	cdx "github.com/CycloneDX/cyclonedx-go"
 )
 
-// DiscoveredBOM pairs a scanner discovery with the CycloneDX BOM generated
+// DiscoveredBOM pairs a scanner discovery with the CycloneDX BOM generated.
 // from it.
 type DiscoveredBOM struct {
 	Discovery scanner.Discovery
@@ -29,7 +29,7 @@ var newBOMBuilder = func() bomBuilder {
 	return builder.NewBOMBuilder(builder.DefaultOptions())
 }
 
-// Fetcher factory functions for testing
+// Fetcher factory functions for testing.
 type fetcherSet struct {
 	modelAPI interface {
 		Fetch(string) (*fetcher.ModelAPIResponse, error)
@@ -62,7 +62,7 @@ func newHTTPClient(opts GenerateOptions) *http.Client {
 	return fetcher.NewHFClient(opts.Timeout, opts.HFToken)
 }
 
-// Dummy fetcher factory for BuildDummyBOM testing
+// Dummy fetcher factory for BuildDummyBOM testing.
 var newDummyFetcherSet = func() fetcherSet {
 	return fetcherSet{
 		modelAPI:      &fetcher.DummyModelAPIFetcher{},
@@ -73,10 +73,10 @@ var newDummyFetcherSet = func() fetcherSet {
 	}
 }
 
-// ProgressCallback is called during generation to report progress
+// ProgressCallback is called during generation to report progress.
 type ProgressCallback func(event ProgressEvent)
 
-// ProgressEvent represents a progress update
+// ProgressEvent represents a progress update.
 type ProgressEvent struct {
 	Type     ProgressEventType
 	ModelID  string
@@ -87,7 +87,7 @@ type ProgressEvent struct {
 	Error    error
 }
 
-// ProgressEventType identifies the type of progress event
+// ProgressEventType identifies the type of progress event.
 type ProgressEventType int
 
 const (
@@ -106,7 +106,7 @@ const (
 	EventError
 )
 
-// GenerateOptions configures the generation process
+// GenerateOptions configures the generation process.
 type GenerateOptions struct {
 	HFToken          string
 	Timeout          time.Duration
@@ -119,7 +119,7 @@ type GenerateOptions struct {
 func BuildDummyBOM() ([]DiscoveredBOM, error) {
 	fetchers := newDummyFetcherSet()
 
-	// Create a dummy discovery
+	// Create a dummy discovery.
 	dummyDiscovery := scanner.Discovery{
 		ID:       "dummy-org/dummy-model",
 		Name:     "dummy-model",
@@ -128,7 +128,7 @@ func BuildDummyBOM() ([]DiscoveredBOM, error) {
 		Evidence: "from_pretrained('dummy-org/dummy-model')",
 	}
 
-	// Fetch dummy metadata
+	// Fetch dummy metadata.
 	apiResp, err := fetchers.modelAPI.Fetch("dummy-org/dummy-model")
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func BuildDummyBOM() ([]DiscoveredBOM, error) {
 		securityTree, _ = fetchers.modelTree.Fetch("dummy-org/dummy-model")
 	}
 
-	// Build the BOM with all dummy data
+	// Build the BOM with all dummy data.
 	bctx := builder.BuildContext{
 		ModelID:      "dummy-org/dummy-model",
 		Scan:         dummyDiscovery,
@@ -163,7 +163,7 @@ func BuildDummyBOM() ([]DiscoveredBOM, error) {
 	noProgress := func(ProgressEvent) {}
 	buildDatasetComponents(fetchers, bom, extractDatasetsFromModel(apiResp, readme), "dummy-org/dummy-model", noProgress)
 
-	// Add dependencies from model to datasets
+	// Add dependencies from model to datasets.
 	builder.AddDependencies(bom)
 
 	return []DiscoveredBOM{
@@ -251,7 +251,7 @@ func BuildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([
 
 		datasetCount := buildDatasetComponents(fetchers, bom, extractDatasetsFromModel(resp, readme), modelID, progress)
 
-		// Add dependencies from model to datasets
+		// Add dependencies from model to datasets.
 		builder.AddDependencies(bom)
 
 		progress(ProgressEvent{Type: EventModelComplete, ModelID: modelID, Datasets: datasetCount})
@@ -265,7 +265,7 @@ func BuildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([
 	return results, nil
 }
 
-// fetchErrMessage returns a user-facing message for a Hugging Face fetch error,
+// fetchErrMessage returns a user-facing message for a Hugging Face fetch error,.
 // distinguishing "not found" (404) from other failures.
 func fetchErrMessage(kind string, err error) string {
 	if fetcher.IsNotFound(err) {
@@ -274,14 +274,14 @@ func fetchErrMessage(kind string, err error) string {
 	return kind + " fetch failed: " + err.Error()
 }
 
-// extractDatasetsFromModel extracts dataset IDs from model's training metadata
+// extractDatasetsFromModel extracts dataset IDs from model's training metadata.
 func extractDatasetsFromModel(modelResp *fetcher.ModelAPIResponse, readme *fetcher.ModelReadmeCard) []string {
 	var datasets []string
 
-	// Check model API response for datasets field
+	// Check model API response for datasets field.
 	if modelResp != nil && modelResp.CardData != nil {
 		if datasetsVal, ok := modelResp.CardData["datasets"]; ok {
-			// Could be a slice or a single value
+			// Could be a slice or a single value.
 			switch v := datasetsVal.(type) {
 			case []interface{}:
 				for _, item := range v {
@@ -297,7 +297,7 @@ func extractDatasetsFromModel(modelResp *fetcher.ModelAPIResponse, readme *fetch
 		}
 	}
 
-	// Check readme for dataset references
+	// Check readme for dataset references.
 	if readme != nil && readme.Datasets != nil {
 		for _, dsID := range readme.Datasets {
 			if strings.TrimSpace(dsID) != "" {
@@ -306,7 +306,7 @@ func extractDatasetsFromModel(modelResp *fetcher.ModelAPIResponse, readme *fetch
 		}
 	}
 
-	// Deduplicate
+	// Deduplicate.
 	if len(datasets) > 0 {
 		seen := make(map[string]struct{})
 		unique := make([]string, 0)
@@ -323,9 +323,9 @@ func extractDatasetsFromModel(modelResp *fetcher.ModelAPIResponse, readme *fetch
 }
 
 // buildDatasetComponents fetches and builds dataset components for a model BOM.
-// It appends each successfully built dataset component to bom.Components and returns
+// It appends each successfully built dataset component to bom.Components and returns.
 // the number of datasets that were successfully added.
-// Dataset references that fail to fetch (e.g. not on HuggingFace) are silently skipped;
+// Dataset references that fail to fetch (e.g. not on HuggingFace) are silently skipped;.
 // the references are still preserved in the model's modelCard metadata.
 func buildDatasetComponents(fetchers fetcherSet, bom *cdx.BOM, datasets []string, modelID string, progress ProgressCallback) int {
 	count := 0
@@ -389,7 +389,7 @@ func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM
 
 		progress(ProgressEvent{Type: EventFetchStart, ModelID: modelID, Index: i, Total: len(modelIDs)})
 
-		// Fetch API metadata
+		// Fetch API metadata.
 		resp, err := fetchers.modelAPI.Fetch(modelID)
 		if err != nil {
 			progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: "API fetch failed"})
@@ -398,7 +398,7 @@ func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM
 			progress(ProgressEvent{Type: EventFetchAPIComplete, ModelID: modelID})
 		}
 
-		// Fetch README
+		// Fetch README.
 		readme, err := fetchers.modelReadme.Fetch(modelID)
 		if err != nil {
 			progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: "README fetch failed"})
@@ -407,7 +407,7 @@ func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM
 			progress(ProgressEvent{Type: EventFetchReadmeComplete, ModelID: modelID})
 		}
 
-		// Fetch security scan tree (non-fatal)
+		// Fetch security scan tree (non-fatal).
 		var securityTree []fetcher.SecurityFileEntry
 		if !opts.SkipSecurityScan && fetchers.modelTree != nil {
 			if tree, err := fetchers.modelTree.Fetch(modelID); err == nil {
@@ -446,7 +446,7 @@ func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM
 
 		datasetCount := buildDatasetComponents(fetchers, bom, extractDatasetsFromModel(resp, readme), modelID, progress)
 
-		// Add dependencies from model to datasets
+		// Add dependencies from model to datasets.
 		builder.AddDependencies(bom)
 
 		progress(ProgressEvent{Type: EventModelComplete, ModelID: modelID, Datasets: datasetCount})

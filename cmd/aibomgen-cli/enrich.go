@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// enrichCmd represents the enrich command
+// enrichCmd represents the enrich command.
 var enrichCmd = &cobra.Command{
 	Use:   "enrich",
 	Short: "Enrich an existing AIBOM with additional metadata",
@@ -20,36 +20,31 @@ var enrichCmd = &cobra.Command{
 or by loading values from a configuration file. Optionally refetch model metadata
 from Hugging Face API and README before enrichment.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get strategy from viper (respects config file)
+		// Get strategy from viper (respects config file).
 		strategy := strings.ToLower(strings.TrimSpace(viper.GetString("enrich.strategy")))
 		if strategy == "" {
 			strategy = "interactive"
 		}
 		switch strategy {
 		case "interactive", "file":
-			// ok
+			// ok.
 		default:
 			return apperr.Userf("invalid strategy %q (expected interactive|file)", strategy)
 		}
 
-		// Get log level from viper
+		// Get log level from viper.
 		level := strings.ToLower(strings.TrimSpace(viper.GetString("enrich.log-level")))
 		if level == "" {
 			level = "standard"
 		}
 		switch level {
 		case "quiet", "standard", "debug":
-			// ok
+			// ok.
 		default:
 			return apperr.Userf("invalid --log-level %q (expected quiet|standard|debug)", level)
 		}
 
-		// Wire internal package logging
-		if level != "quiet" {
-			// Logging removed
-		}
-
-		// Read existing BOM
+		// Read existing BOM.
 		inputPath := viper.GetString("enrich.input")
 		if inputPath == "" {
 			return apperr.User("--input is required")
@@ -63,20 +58,20 @@ from Hugging Face API and README before enrichment.`,
 			return fmt.Errorf("failed to read input BOM: %w", err)
 		}
 
-		// Determine output path
+		// Determine output path.
 		outPath := viper.GetString("enrich.output")
 		if outPath == "" {
 			outPath = inputPath // overwrite by default
 		}
 
-		// Get settings from viper (respects config file)
+		// Get settings from viper (respects config file).
 		specVersion := strings.TrimSpace(viper.GetString("enrich.spec"))
 		outputFormat := viper.GetString("enrich.output-format")
 		if outputFormat == "" {
 			outputFormat = "auto"
 		}
 
-		// Build enricher configuration
+		// Build enricher configuration.
 		cfg := enricher.Config{
 			Strategy:     strategy,
 			ConfigFile:   viper.GetString("enrich.file"),
@@ -90,7 +85,7 @@ from Hugging Face API and README before enrichment.`,
 			HFTimeout:    viper.GetInt("enrich.hf-timeout"),
 		}
 
-		// Load config file values if using file strategy
+		// Load config file values if using file strategy.
 		var configViper *viper.Viper
 		if strategy == "file" {
 			configFile := cfg.ConfigFile
@@ -103,20 +98,20 @@ from Hugging Face API and README before enrichment.`,
 			}
 		}
 
-		// Create enricher
+		// Create enricher.
 		e := enricher.New(enricher.Options{
 			Reader: cmd.InOrStdin(),
 			Writer: cmd.OutOrStdout(),
 			Config: cfg,
 		})
 
-		// Run enrichment
+		// Run enrichment.
 		enriched, err := e.Enrich(bom, configViper)
 		if err != nil {
 			return fmt.Errorf("enrichment failed: %w", err)
 		}
 
-		// Write output
+		// Write output.
 		if err := bomio.WriteBOM(enriched, outPath, outputFormat, specVersion); err != nil {
 			return fmt.Errorf("failed to write output: %w", err)
 		}
@@ -167,7 +162,7 @@ func init() {
 	enrichCmd.Flags().StringVar(&enrichHFBaseURL, "hf-base-url", "", "Hugging Face base URL (for refetch)")
 	enrichCmd.Flags().IntVar(&enrichHFTimeout, "hf-timeout", 0, "Hugging Face API timeout in seconds (for refetch)")
 
-	// Bind all flags to viper for config file support
+	// Bind all flags to viper for config file support.
 	viper.BindPFlag("enrich.input", enrichCmd.Flags().Lookup("input"))
 	viper.BindPFlag("enrich.output", enrichCmd.Flags().Lookup("output"))
 	viper.BindPFlag("enrich.format", enrichCmd.Flags().Lookup("format"))
@@ -185,7 +180,7 @@ func init() {
 	viper.BindPFlag("enrich.hf-timeout", enrichCmd.Flags().Lookup("hf-timeout"))
 }
 
-// loadEnrichmentConfig loads enrichment values from a YAML config file
+// loadEnrichmentConfig loads enrichment values from a YAML config file.
 func loadEnrichmentConfig(path string) (*viper.Viper, error) {
 	v := viper.New()
 	v.SetConfigFile(path)

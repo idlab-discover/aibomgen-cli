@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// vulnScanCmd represents the vuln-scan command
+// vulnScanCmd represents the vuln-scan command.
 var vulnScanCmd = &cobra.Command{
 	Use:   "vuln-scan",
 	Short: "Scan an existing AIBOM for model/dataset security vulnerabilities",
@@ -59,7 +59,7 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 		timeout = 15
 	}
 
-	// ── Read AIBOM ──────────────────────────────────────────────────────────
+	// ── Read AIBOM ──────────────────────────────────────────────────────────.
 	bom, err := bomio.ReadBOM(inputPath, inputFormat)
 	if err != nil {
 		return fmt.Errorf("failed to read input BOM: %w", err)
@@ -77,7 +77,7 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 
 	w := cmd.OutOrStdout()
 
-	// ── Workflow / progress ──────────────────────────────────────────────────
+	// ── Workflow / progress ──────────────────────────────────────────────────.
 	var workflow *ui.Workflow
 	if logLevel != "quiet" {
 		workflow = ui.NewWorkflow(w, "Vulnerability Scan")
@@ -86,7 +86,7 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 		workflow.Start()
 	}
 
-	// ── Run scan ─────────────────────────────────────────────────────────────
+	// ── Run scan ─────────────────────────────────────────────────────────────.
 	if workflow != nil {
 		workflow.StartTask(0, "")
 	}
@@ -102,20 +102,20 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 		workflow.CompleteTask(0, "")
 		workflow.StartTask(1, "")
 		workflow.CompleteTask(1, "")
-		// Stop the spinner before printing the report or showing any interactive
+		// Stop the spinner before printing the report or showing any interactive.
 		// prompt – otherwise the background render goroutine corrupts the output.
 		workflow.Stop()
 	}
 
-	// ── Print report ─────────────────────────────────────────────────────────
+	// ── Print report ─────────────────────────────────────────────────────────.
 	printVulnReport(w, results)
 
-	// ── Optional enrichment ───────────────────────────────────────────────────
+	// ── Optional enrichment ───────────────────────────────────────────────────.
 	if !enrich {
 		return nil
 	}
 
-	// Count total vulnerabilities
+	// Count total vulnerabilities.
 	total := 0
 	for _, r := range results {
 		total += len(r.Vulnerabilities)
@@ -127,7 +127,7 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Interactive confirmation
+	// Interactive confirmation.
 	if interactive && !noPreview {
 		confirmed, err := confirmVulnEnrich(results)
 		if err != nil {
@@ -173,7 +173,7 @@ func printVulnReport(w io.Writer, results []vulnscan.ComponentScanResult) {
 			continue
 		}
 
-		// Summary counts
+		// Summary counts.
 		unsafe, caution, safe := 0, 0, 0
 		for _, e := range r.Entries {
 			if e.SecurityFileStatus == nil {
@@ -314,7 +314,7 @@ func confirmVulnEnrich(results []vulnscan.ComponentScanResult) (bool, error) {
 	return confirm, nil
 }
 
-// ── Flag vars ─────────────────────────────────────────────────────────────────
+// ── Flag vars ─────────────────────────────────────────────────────────────────.
 
 var (
 	vulnScanInput        string
@@ -347,7 +347,7 @@ func init() {
 	vulnScanCmd.Flags().StringVar(&vulnScanHFBaseURL, "hf-base-url", "", "Hugging Face base URL override")
 	vulnScanCmd.Flags().IntVar(&vulnScanHFTimeout, "hf-timeout", 15, "Hugging Face API timeout in seconds")
 
-	// Bind to viper
+	// Bind to viper.
 	viper.BindPFlag("vuln-scan.input", vulnScanCmd.Flags().Lookup("input"))
 	viper.BindPFlag("vuln-scan.output", vulnScanCmd.Flags().Lookup("output"))
 	viper.BindPFlag("vuln-scan.format", vulnScanCmd.Flags().Lookup("format"))

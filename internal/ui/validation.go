@@ -8,13 +8,13 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/validator"
 )
 
-// ValidationUI provides a rich UI for the validation command
+// ValidationUI provides a rich UI for the validation command.
 type ValidationUI struct {
 	writer io.Writer
 	quiet  bool
 }
 
-// NewValidationUI creates a new UI handler for the validation command
+// NewValidationUI creates a new UI handler for the validation command.
 func NewValidationUI(w io.Writer, quiet bool) *ValidationUI {
 	return &ValidationUI{
 		writer: w,
@@ -22,7 +22,7 @@ func NewValidationUI(w io.Writer, quiet bool) *ValidationUI {
 	}
 }
 
-// PrintReport renders a beautiful validation report
+// PrintReport renders a beautiful validation report.
 func (v *ValidationUI) PrintReport(report validator.ValidationResult) {
 	if v.quiet {
 		return
@@ -30,7 +30,7 @@ func (v *ValidationUI) PrintReport(report validator.ValidationResult) {
 
 	var output strings.Builder
 
-	// Header with validation status
+	// Header with validation status.
 	if report.Valid {
 		output.WriteString(Success.Bold(true).Render("✓ Validation Passed"))
 	} else {
@@ -38,28 +38,28 @@ func (v *ValidationUI) PrintReport(report validator.ValidationResult) {
 	}
 	output.WriteString("\n\n")
 
-	// Model Section
+	// Model Section.
 	output.WriteString(v.renderModelValidation(report))
 
-	// Errors Section
+	// Errors Section.
 	if len(report.Errors) > 0 {
 		output.WriteString("\n\n")
 		output.WriteString(v.renderErrors(report.Errors))
 	}
 
-	// Warnings Section
+	// Warnings Section.
 	if len(report.Warnings) > 0 {
 		output.WriteString("\n\n")
 		output.WriteString(v.renderWarnings(report.Warnings))
 	}
 
-	// Dataset Validation Section
+	// Dataset Validation Section.
 	if len(report.DatasetResults) > 0 {
 		output.WriteString("\n\n")
 		output.WriteString(v.renderDatasetValidation(report.DatasetResults))
 	}
 
-	// Wrap in appropriate box based on validation status
+	// Wrap in appropriate box based on validation status.
 	var boxed string
 	if report.Valid {
 		boxed = SuccessBox.Render(output.String())
@@ -69,26 +69,26 @@ func (v *ValidationUI) PrintReport(report validator.ValidationResult) {
 	fmt.Fprintln(v.writer, boxed)
 }
 
-// renderModelValidation creates the model validation section
+// renderModelValidation creates the model validation section.
 func (v *ValidationUI) renderModelValidation(report validator.ValidationResult) string {
 	var sb strings.Builder
 
 	sb.WriteString(SectionHeader.Render("Model Component"))
 	sb.WriteString("\n")
 
-	// Show model ID if available
+	// Show model ID if available.
 	if report.ModelID != "" {
 		sb.WriteString(FormatKeyValue("ID", Highlight.Render(report.ModelID)))
 		sb.WriteString("\n")
 	}
 
-	// Completeness score
+	// Completeness score.
 	scoreBar := v.renderProgressBar(report.CompletenessScore, 40)
 	scorePercent := v.renderScorePercentage(report.CompletenessScore)
 	sb.WriteString(FormatKeyValue("Completeness", scoreBar+" "+scorePercent))
 	sb.WriteString("\n")
 
-	// Missing fields summary
+	// Missing fields summary.
 	totalMissing := len(report.MissingRequired) + len(report.MissingOptional)
 	if totalMissing > 0 {
 		sb.WriteString(Dim.Render(fmt.Sprintf("(%d required, %d optional missing)", len(report.MissingRequired), len(report.MissingOptional))))
@@ -99,7 +99,7 @@ func (v *ValidationUI) renderModelValidation(report validator.ValidationResult) 
 	return sb.String()
 }
 
-// renderErrors creates the errors section
+// renderErrors creates the errors section.
 func (v *ValidationUI) renderErrors(errors []string) string {
 	var sb strings.Builder
 
@@ -116,7 +116,7 @@ func (v *ValidationUI) renderErrors(errors []string) string {
 	return strings.TrimRight(sb.String(), "\n")
 }
 
-// renderWarnings creates the warnings section
+// renderWarnings creates the warnings section.
 func (v *ValidationUI) renderWarnings(warnings []string) string {
 	var sb strings.Builder
 
@@ -133,7 +133,7 @@ func (v *ValidationUI) renderWarnings(warnings []string) string {
 	return strings.TrimRight(sb.String(), "\n")
 }
 
-// renderDatasetValidation creates the dataset validation section
+// renderDatasetValidation creates the dataset validation section.
 func (v *ValidationUI) renderDatasetValidation(datasets map[string]validator.DatasetValidationResult) string {
 	var sb strings.Builder
 
@@ -141,17 +141,17 @@ func (v *ValidationUI) renderDatasetValidation(datasets map[string]validator.Dat
 	sb.WriteString("\n")
 
 	for dsName, dsResult := range datasets {
-		// Dataset name with label
+		// Dataset name with label.
 		sb.WriteString(FormatKeyValue("ID", Highlight.Render(dsName)))
 		sb.WriteString("\n")
 
-		// Completeness score
+		// Completeness score.
 		scoreBar := v.renderProgressBar(dsResult.CompletenessScore, 40)
 		scorePercent := v.renderScorePercentage(dsResult.CompletenessScore)
 		sb.WriteString(FormatKeyValue("Completeness", scoreBar+" "+scorePercent))
 		sb.WriteString("\n")
 
-		// Missing fields summary
+		// Missing fields summary.
 		totalMissing := len(dsResult.MissingRequired) + len(dsResult.MissingOptional)
 		if totalMissing > 0 {
 			sb.WriteString(Dim.Render(fmt.Sprintf("(%d required, %d optional missing)", len(dsResult.MissingRequired), len(dsResult.MissingOptional))))
@@ -160,7 +160,7 @@ func (v *ValidationUI) renderDatasetValidation(datasets map[string]validator.Dat
 		}
 		sb.WriteString("\n")
 
-		// Dataset-specific errors
+		// Dataset-specific errors.
 		if len(dsResult.Errors) > 0 {
 			sb.WriteString("\n")
 			sb.WriteString(Error.Render(fmt.Sprintf("▼ Errors (%d)", len(dsResult.Errors))))
@@ -174,7 +174,7 @@ func (v *ValidationUI) renderDatasetValidation(datasets map[string]validator.Dat
 			}
 		}
 
-		// Dataset-specific warnings
+		// Dataset-specific warnings.
 		if len(dsResult.Warnings) > 0 {
 			if len(dsResult.Errors) > 0 {
 				sb.WriteString("\n")
@@ -198,14 +198,14 @@ func (v *ValidationUI) renderDatasetValidation(datasets map[string]validator.Dat
 	return strings.TrimRight(sb.String(), "\n")
 }
 
-// renderProgressBar creates a visual progress bar (same as completeness)
+// renderProgressBar creates a visual progress bar (same as completeness).
 func (v *ValidationUI) renderProgressBar(score float64, width int) string {
 	filled := int(score * float64(width))
 	empty := width - filled
 
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
 
-	// Color the bar based on score
+	// Color the bar based on score.
 	if score >= 0.8 {
 		return Success.Render(bar)
 	} else if score >= 0.5 {
@@ -214,7 +214,7 @@ func (v *ValidationUI) renderProgressBar(score float64, width int) string {
 	return Error.Render(bar)
 }
 
-// renderScorePercentage formats the score as a percentage (same as completeness)
+// renderScorePercentage formats the score as a percentage (same as completeness).
 func (v *ValidationUI) renderScorePercentage(score float64) string {
 	percentage := score * 100
 	formatted := fmt.Sprintf("%.1f%%", percentage)
@@ -227,7 +227,7 @@ func (v *ValidationUI) renderScorePercentage(score float64) string {
 	return Error.Render(formatted)
 }
 
-// PrintSimpleReport prints a minimal text report
+// PrintSimpleReport prints a minimal text report.
 func (v *ValidationUI) PrintSimpleReport(report validator.ValidationResult) {
 	if report.Valid {
 		fmt.Fprintf(v.writer, "%s Validation passed\n", GetCheckMark())

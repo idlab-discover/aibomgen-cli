@@ -163,8 +163,8 @@ func parseDataGovernance(value string) (*cdx.DataGovernance, error) {
 	governance := &cdx.DataGovernance{}
 	hasGovernance := false
 
-	// Parse format: "custodian:OrgName,steward:OrgName,owner:OrgName"
-	// Or simpler: single value assumes custodian
+	// Parse format: "custodian:OrgName,steward:OrgName,owner:OrgName".
+	// Or simpler: single value assumes custodian.
 	pairs := strings.Split(s, ",")
 	for _, pair := range pairs {
 		pair = strings.TrimSpace(pair)
@@ -178,7 +178,7 @@ func parseDataGovernance(value string) (*cdx.DataGovernance, error) {
 			role = strings.ToLower(strings.TrimSpace(parts[0]))
 			orgName = strings.TrimSpace(parts[1])
 		} else {
-			// No role specified, default to custodian
+			// No role specified, default to custodian.
 			role = "custodian"
 			orgName = strings.TrimSpace(pair)
 		}

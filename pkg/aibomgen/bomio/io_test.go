@@ -200,7 +200,7 @@ func TestWriteBOM_UnsupportedFormat(t *testing.T) {
 func TestWriteBOM_OpenError_WhenOutputIsDirectory(t *testing.T) {
 	dir := t.TempDir()
 
-	// Make a *directory* that still has a valid ".json" extension so we get past
+	// Make a *directory* that still has a valid ".json" extension so we get past.
 	// extension validation and hit the os.Create(...) error path.
 	outDir := filepath.Join(dir, "bom.json")
 	if err := os.Mkdir(outDir, 0o700); err != nil {

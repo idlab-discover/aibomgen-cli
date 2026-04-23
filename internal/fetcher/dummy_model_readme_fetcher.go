@@ -1,12 +1,12 @@
 package fetcher
 
-// DummyModelReadmeFetcher returns a fixed ModelReadmeCard for testing/demo purposes
+// DummyModelReadmeFetcher returns a fixed ModelReadmeCard for testing/demo purposes.
 // without making any HTTP requests.
 type DummyModelReadmeFetcher struct{}
 
 // Fetch returns a comprehensive dummy ModelReadmeCard with all fields populated.
 func (f *DummyModelReadmeFetcher) Fetch(modelID string) (*ModelReadmeCard, error) {
-	// Create a comprehensive dummy README card with all fields populated
+	// Create a comprehensive dummy README card with all fields populated.
 	return &ModelReadmeCard{
 		Raw: dummyReadmeContent,
 		FrontMatter: map[string]any{
@@ -18,14 +18,14 @@ func (f *DummyModelReadmeFetcher) Fetch(modelID string) (*ModelReadmeCard, error
 		},
 		Body: dummyReadmeContent,
 
-		// Common front matter fields
+		// Common front matter fields.
 		License:   "mit",
 		Tags:      []string{"text-generation", "pytorch", "gpt2"},
 		Datasets:  []string{"wikipedia", "bookcorpus"},
 		Metrics:   []string{"perplexity", "accuracy"},
 		BaseModel: "gpt2",
 
-		// Extracted from Markdown body (template-based)
+		// Extracted from Markdown body (template-based).
 		DevelopedBy:          "Dummy Organization",
 		PaperURL:             "https://arxiv.org/abs/1234.56789",
 		DemoURL:              "https://huggingface.co/spaces/dummy-org/dummy-demo",
@@ -35,14 +35,14 @@ func (f *DummyModelReadmeFetcher) Fetch(modelID string) (*ModelReadmeCard, error
 		BiasRecommendations:  "We recommend implementing content filtering, human review for sensitive applications, and regular bias audits when using this model in production.",
 		ModelCardContact:     "contact@dummy-org.example.com",
 
-		// Environmental Impact
+		// Environmental Impact.
 		EnvironmentalHardwareType:  "NVIDIA A100 GPU",
 		EnvironmentalHoursUsed:     "168",
 		EnvironmentalCloudProvider: "AWS",
 		EnvironmentalComputeRegion: "us-west-2",
 		EnvironmentalCarbonEmitted: "42.5 kg CO2eq",
 
-		// From model-index
+		// From model-index.
 		TaskType: "text-generation",
 		TaskName: "Text Generation",
 		ModelIndexMetrics: []ModelIndexMetric{
@@ -51,7 +51,7 @@ func (f *DummyModelReadmeFetcher) Fetch(modelID string) (*ModelReadmeCard, error
 			{Type: "bleu", Value: "32.4"},
 		},
 
-		// Quantitative Analysis sections
+		// Quantitative Analysis sections.
 		TestingMetrics: "The model was evaluated using perplexity on a held-out test set, achieving a score of 15.2. Additional metrics include accuracy (0.85) and BLEU score (32.4) on various benchmarks.",
 		Results:        "The model demonstrates strong performance on text generation tasks, with competitive results on standard benchmarks. It shows particular strength in maintaining coherence over longer sequences.",
 	}, nil

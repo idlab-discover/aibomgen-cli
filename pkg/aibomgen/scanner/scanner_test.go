@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ── helpers ──────────────────────────────────────────────────────────────────.
 
 func writeFile(t *testing.T, dir, name, content string) string {
 	t.Helper()
@@ -31,7 +31,7 @@ func findByID(comps []Discovery, id string) (Discovery, bool) {
 	return Discovery{}, false
 }
 
-// ── core scan tests ───────────────────────────────────────────────────────────
+// ── core scan tests ───────────────────────────────────────────────────────────.
 
 func TestScanDetectsModelsDedupesEvidence(t *testing.T) {
 	dir := t.TempDir()
@@ -52,9 +52,9 @@ func TestScanDetectsModelsDedupesEvidence(t *testing.T) {
 	}
 }
 
-// TestMultiLinePipelineNoOrgPrefix verifies that a pipeline() call spread over
+// TestMultiLinePipelineNoOrgPrefix verifies that a pipeline() call spread over.
 // 3+ lines is detected even when the model ID has no "org/" prefix.
-// Regression test for: pipeline(\n    "task",\n    model="single-segment-id"\n)
+// Regression test for: pipeline(\n    "task",\n    model="single-segment-id"\n).
 func TestMultiLinePipelineNoOrgPrefix(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "classify.py",
@@ -118,7 +118,7 @@ func TestScanSkipsGitDir(t *testing.T) {
 	}
 }
 
-// ── Python pattern tests ──────────────────────────────────────────────────────
+// ── Python pattern tests ──────────────────────────────────────────────────────.
 
 func TestPythonFromPretrainedDoubleQuote(t *testing.T) {
 	dir := t.TempDir()
@@ -282,7 +282,7 @@ func TestPythonLangchainHuggingFaceHub(t *testing.T) {
 	}
 }
 
-// ── YAML tests ────────────────────────────────────────────────────────────────
+// ── YAML tests ────────────────────────────────────────────────────────────────.
 
 func TestYAMLModelNameOrPath(t *testing.T) {
 	dir := t.TempDir()
@@ -333,7 +333,7 @@ func TestYAMLSingleSegmentNotDetected(t *testing.T) {
 	}
 }
 
-// ── JSON tests ────────────────────────────────────────────────────────────────
+// ── JSON tests ────────────────────────────────────────────────────────────────.
 
 func TestJSONNameOrPath(t *testing.T) {
 	dir := t.TempDir()
@@ -372,7 +372,7 @@ func TestJSONBaseModel(t *testing.T) {
 	}
 }
 
-// ── Markdown front-matter tests ───────────────────────────────────────────────
+// ── Markdown front-matter tests ───────────────────────────────────────────────.
 
 func TestMarkdownFrontmatterModel(t *testing.T) {
 	dir := t.TempDir()
@@ -410,7 +410,7 @@ func TestMarkdownBodyInlineSlash(t *testing.T) {
 	}
 }
 
-// ── Shell / Dockerfile tests ──────────────────────────────────────────────────
+// ── Shell / Dockerfile tests ──────────────────────────────────────────────────.
 
 func TestShellHFCliDownload(t *testing.T) {
 	dir := t.TempDir()
@@ -436,7 +436,7 @@ func TestDockerfileModelEnv(t *testing.T) {
 	}
 }
 
-// ── Jupyter Notebook tests ────────────────────────────────────────────────────
+// ── Jupyter Notebook tests ────────────────────────────────────────────────────.
 
 func TestNotebookCodeCell(t *testing.T) {
 	dir := t.TempDir()
@@ -499,7 +499,7 @@ func TestNotebookMultipleModels(t *testing.T) {
 	}
 }
 
-// ── JS / TS tests ─────────────────────────────────────────────────────────────
+// ── JS / TS tests ─────────────────────────────────────────────────────────────.
 
 func TestJSPipelinePositional(t *testing.T) {
 	dir := t.TempDir()
@@ -527,7 +527,7 @@ func TestTSFromPretrained(t *testing.T) {
 	}
 }
 
-// ── classifyFile / shouldScanForModelID ───────────────────────────────────────
+// ── classifyFile / shouldScanForModelID ───────────────────────────────────────.
 
 func TestClassifyFile(t *testing.T) {
 	tests := []struct {
@@ -578,7 +578,7 @@ func TestShouldScanForModelID(t *testing.T) {
 	}
 }
 
-// ── dedupe ────────────────────────────────────────────────────────────────────
+// ── dedupe ────────────────────────────────────────────────────────────────────.
 
 func TestDedupeMergesEvidence(t *testing.T) {
 	components := []Discovery{
@@ -610,13 +610,14 @@ func TestDedupeMergesEvidence(t *testing.T) {
 	}
 }
 
-// ── target-3 integration test ──────────────────────────────────────────────
+// ── target-3 integration test ──────────────────────────────────────────────.
 
-// TestScanRepoDifficult scans the targets/target-3 fixture and asserts:
-//   - All expected model IDs across Python, TS, Notebook, YAML, JSON,
+// TestScanRepoDifficult scans the targets/target-3 fixture and asserts:.
+//   - All expected model IDs across Python, TS, Notebook, YAML, JSON,.
 //     Markdown, Shell, and Dockerfile sources are found.
 //   - Local paths and variable-indirected IDs are NOT false-positives.
 //
+// .
 // Run with -v to see the full detection report.
 func TestScanRepoDifficult(t *testing.T) {
 	// Resolve the path from the package dir (internal/scanner → repo root → targets).
@@ -642,7 +643,7 @@ func TestScanRepoDifficult(t *testing.T) {
 		for id := range byID {
 			ids = append(ids, id)
 		}
-		// sort for stable output
+		// sort for stable output.
 		for i := 0; i < len(ids); i++ {
 			for j := i + 1; j < len(ids); j++ {
 				if ids[i] > ids[j] {
@@ -659,68 +660,68 @@ func TestScanRepoDifficult(t *testing.T) {
 		id     string
 		reason string
 	}{
-		// ── Python: from_pretrained (single-line, double-quote) ───────────────
+		// ── Python: from_pretrained (single-line, double-quote) ───────────────.
 		{"meta-llama/Llama-3.1-8B", "from_pretrained double-quote (train.py)"},
 		{"mistralai/Mistral-7B-v0.1", "from_pretrained single-quote (train.py)"},
-		// ── Python: from_pretrained (multi-line open-paren split) ────────────
+		// ── Python: from_pretrained (multi-line open-paren split) ────────────.
 		{"Qwen/Qwen2.5-7B-Instruct", "from_pretrained multi-line (train.py)"},
-		// ── Python: from_pretrained with explicit kwarg name ─────────────────
+		// ── Python: from_pretrained with explicit kwarg name ─────────────────.
 		{"google/flan-t5-xxl", "from_pretrained pretrained_model_name_or_path= (train.py)"},
-		// ── Python: pipeline() positional ────────────────────────────────────
+		// ── Python: pipeline() positional ────────────────────────────────────.
 		{"facebook/opt-1.3b", "pipeline positional (train.py)"},
-		// ── Python: pipeline() model= kwarg ──────────────────────────────────
+		// ── Python: pipeline() model= kwarg ──────────────────────────────────.
 		{"facebook/bart-large-mnli", "pipeline model= kwarg (train.py)"},
-		// ── Python: PeftModel.from_pretrained second positional arg ──────────
+		// ── Python: PeftModel.from_pretrained second positional arg ──────────.
 		{"timdettmers/guanaco-33b-merged", "PeftModel.from_pretrained second arg (train.py)"},
-		// ── Python: SentenceTransformer / CrossEncoder ───────────────────────
+		// ── Python: SentenceTransformer / CrossEncoder ───────────────────────.
 		{"BAAI/bge-large-en-v1.5", "SentenceTransformer (train.py)"},
 		{"cross-encoder/ms-marco-MiniLM-L-6-v2", "CrossEncoder (train.py)"},
-		// ── Python: hf_hub_download positional ───────────────────────────────
+		// ── Python: hf_hub_download positional ───────────────────────────────.
 		{"bartowski/Meta-Llama-3.1-8B-Instruct-GGUF", "hf_hub_download positional (train.py)"},
-		// ── Python: hf_hub_download repo_id= kwarg ───────────────────────────
+		// ── Python: hf_hub_download repo_id= kwarg ───────────────────────────.
 		{"google/gemma-2-9b-it", "hf_hub_download repo_id= (train.py)"},
-		// ── Python: snapshot_download positional ─────────────────────────────
+		// ── Python: snapshot_download positional ─────────────────────────────.
 		{"deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", "snapshot_download positional (train.py)"},
-		// ── Python: snapshot_download repo_id= kwarg ─────────────────────────
+		// ── Python: snapshot_download repo_id= kwarg ─────────────────────────.
 		{"microsoft/phi-4", "snapshot_download repo_id= (train.py)"},
-		// ── Python: HuggingFacePipeline.from_model_id model_id= kwarg ────────
+		// ── Python: HuggingFacePipeline.from_model_id model_id= kwarg ────────.
 		{"tiiuae/falcon-7b-instruct", "HuggingFacePipeline.from_model_id (train.py)"},
-		// ── Python: evaluate.load (org/model required) ───────────────────────
+		// ── Python: evaluate.load (org/model required) ───────────────────────.
 		{"lvwerra/stack-exchange-paired", "evaluate.load org/model (evaluate_models.py)"},
 		{"huggingface-course/mse-metric", "evaluate.load org/model (evaluate_models.py)"},
-		// ── Python: InferenceClient positional ───────────────────────────────
+		// ── Python: InferenceClient positional ───────────────────────────────.
 		{"meta-llama/Llama-3.1-70B-Instruct", "InferenceClient positional (evaluate_models.py)"},
-		// ── Python: InferenceClient model= kwarg ─────────────────────────────
+		// ── Python: InferenceClient model= kwarg ─────────────────────────────.
 		{"HuggingFaceH4/zephyr-7b-beta", "InferenceClient model= (evaluate_models.py)"},
-		// ── Python: HuggingFaceEndpoint repo_id= ─────────────────────────────
+		// ── Python: HuggingFaceEndpoint repo_id= ─────────────────────────────.
 		{"mistralai/Mistral-7B-Instruct-v0.3", "HuggingFaceEndpoint repo_id= (evaluate_models.py)"},
-		// ── Python: generic repo_id= kwarg (upload_file) ─────────────────────
+		// ── Python: generic repo_id= kwarg (upload_file) ─────────────────────.
 		{"my-org/my-fine-tuned-llama", "repo_id_kwarg_slash (evaluate_models.py)"},
-		// ── Python: generic model= kwarg ─────────────────────────────────────
+		// ── Python: generic model= kwarg ─────────────────────────────────────.
 		{"stabilityai/stable-diffusion-xl-base-1.0", "model_kwarg_slash (evaluate_models.py)"},
-		// ── TypeScript: pipeline positional ──────────────────────────────────
+		// ── TypeScript: pipeline positional ──────────────────────────────────.
 		{"distilbert/distilbert-base-uncased-finetuned-sst-2-english", "js_pipeline_positional (inference.ts)"},
-		// ── TypeScript: .from_pretrained ─────────────────────────────────────
+		// ── TypeScript: .from_pretrained ─────────────────────────────────────.
 		{"Xenova/bert-base-uncased", "js_from_pretrained (inference.ts)"},
-		// ── TypeScript: model: field ──────────────────────────────────────────
+		// ── TypeScript: model: field ──────────────────────────────────────────.
 		{"google/vit-base-patch16-224", "js_model_field (inference.ts)"},
-		// ── Jupyter: pipeline positional (code cell) ─────────────────────────
+		// ── Jupyter: pipeline positional (code cell) ─────────────────────────.
 		{"dslim/bert-base-NER", "notebook pipeline model= (exploration.ipynb)"},
-		// ── YAML: base_model / model_name_or_path / hub_model_id ─────────────
+		// ── YAML: base_model / model_name_or_path / hub_model_id ─────────────.
 		{"my-org/llama-3.1-8b-axolotl-ft", "yaml hub_model_id (axolotl.yaml)"},
 		{"my-org/qwen2.5-7b-sft", "yaml hub_model_id (trl_config.yaml)"},
 		{"Qwen/Qwen2.5-72B-Instruct", "yaml teacher_model_name_or_path (trl_config.yaml)"},
-		// ── JSON: adapter_config base_model ──────────────────────────────────
+		// ── JSON: adapter_config base_model ──────────────────────────────────.
 		{"meta-llama/Llama-3.1-8B-Instruct", "from_pretrained (train.py) or Dockerfile ENV"},
-		// ── JSON: model_config _name_or_path (single-segment OK for JSON) ────
+		// ── JSON: model_config _name_or_path (single-segment OK for JSON) ────.
 		{"distilbert-base-uncased", "json _name_or_path single-segment (model_config.json)"},
-		// ── Shell: huggingface-cli download ──────────────────────────────────
+		// ── Shell: huggingface-cli download ──────────────────────────────────.
 		{"mistralai/Mistral-7B-Instruct-v0.3", "hf_cli_download quoted (download.sh)"},
-		// ── Dockerfile: ENV MODEL_NAME= ──────────────────────────────────────
+		// ── Dockerfile: ENV MODEL_NAME= ──────────────────────────────────────.
 		{"meta-llama/Llama-3.1-8B-Instruct", "Dockerfile ENV MODEL_NAME (Dockerfile)"},
-		// ── Markdown: front-matter base_model ────────────────────────────────
+		// ── Markdown: front-matter base_model ────────────────────────────────.
 		{"my-org/llama-3.1-8b-arabic-sft", "markdown front-matter model_id (README.md)"},
-		// ── Markdown: inline body reference ──────────────────────────────────
+		// ── Markdown: inline body reference ──────────────────────────────────.
 		{"mistralai/Mistral-7B-v0.1", "markdown body inline (README.md)"},
 	}
 
@@ -762,7 +763,7 @@ func TestScanRepoDifficult(t *testing.T) {
 	}
 }
 
-// ── isPlausibleModelID ────────────────────────────────────────────────────────
+// ── isPlausibleModelID ────────────────────────────────────────────────────────.
 
 func TestIsPlausibleModelID(t *testing.T) {
 	valid := []string{

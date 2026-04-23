@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// AddMetaSerialNumber sets a serial number if not already set
+// AddMetaSerialNumber sets a serial number if not already set.
 func AddMetaSerialNumber(bom *cyclonedx.BOM) error {
 	if bom.SerialNumber == "" {
 		bom.SerialNumber = "urn:uuid:" + generateUUID()
@@ -16,12 +16,12 @@ func AddMetaSerialNumber(bom *cyclonedx.BOM) error {
 	return nil
 }
 
-// Generate UUID using google/uuid
+// Generate UUID using google/uuid.
 func generateUUID() string {
 	return uuid.New().String()
 }
 
-// AddMetaTimestamp sets the timestamp if not already set
+// AddMetaTimestamp sets the timestamp if not already set.
 func AddMetaTimestamp(bom *cyclonedx.BOM) error {
 	if bom.Metadata.Timestamp == "" {
 		bom.Metadata.Timestamp = CurrentTimestampRFC3339()
@@ -29,7 +29,7 @@ func AddMetaTimestamp(bom *cyclonedx.BOM) error {
 	return nil
 }
 
-// CurrentTimestamp returns now formatted as RFC3339 (e.g. 2026-01-22T10:41:24+01:00)
+// CurrentTimestamp returns now formatted as RFC3339 (e.g. 2026-01-22T10:41:24+01:00).
 func CurrentTimestampRFC3339() string {
 	return time.Now().Format(time.RFC3339)
 }
@@ -40,7 +40,7 @@ const (
 	DefaultToolVersion = "v0.0.0"
 )
 
-// DefaultToolAuthors
+// DefaultToolAuthors.
 var DefaultToolAuthors = []cyclonedx.OrganizationalContact{
 	{
 		Name:  "Wiebe Vandendriessche",
@@ -88,9 +88,9 @@ func AddMetaTools(bom *cyclonedx.BOM, toolName string, toolVersion string) error
 }
 
 // GeneratePurl generates a package URL (purl) for a given kind, id, and version.
-// URL-encode segments
+// URL-encode segments.
 func GeneratePurl(kind string, id string, version string) string {
-	// kind is model or dataset otherwise its unknown
+	// kind is model or dataset otherwise its unknown.
 	if kind != "model" && kind != "dataset" {
 		kind = "unknown"
 	}
@@ -100,10 +100,10 @@ func GeneratePurl(kind string, id string, version string) string {
 	var base string
 	switch kind {
 	case "model":
-		// models use pkg:huggingface/<namespace>/<name>
+		// models use pkg:huggingface/<namespace>/<name>.
 		base = "pkg:huggingface/" + id
 	case "dataset":
-		// datasets use plural 'datasets'
+		// datasets use plural 'datasets'.
 		base = "pkg:huggingface/datasets/" + id
 	default:
 		base = "pkg:huggingface/" + kind + "/" + id
@@ -115,7 +115,7 @@ func GeneratePurl(kind string, id string, version string) string {
 	return base + "@" + strings.ToLower(version)
 }
 
-// NormalizeSegment safe-encodes /, @, spaces, etc. in purl segments
+// NormalizeSegment safe-encodes /, @, spaces, etc. in purl segments.
 func NormalizeSegment(segment string) string {
 	normalized := ""
 	for _, ch := range segment {
@@ -131,10 +131,10 @@ func NormalizeSegment(segment string) string {
 	return normalized
 }
 
-// PurlFromComponentMeta generates a purl using HF fields in meta (owner/name, lastModified, sha)
-// Generated according to the purl-spec: https://github.com/package-url/purl-spec/blob/main/types-doc/huggingface-definition.md
+// PurlFromComponentMeta generates a purl using HF fields in meta (owner/name, lastModified, sha).
+// Generated according to the purl-spec: https://github.com/package-url/purl-spec/blob/main/types-doc/huggingface-definition.md.
 func PurlFromComponentMeta(kind string, id string, lastModified string, sha string) string {
-	// id may be "namespace/name"; encode each segment separately so the slash remains
+	// id may be "namespace/name"; encode each segment separately so the slash remains.
 	id = strings.TrimSpace(id)
 	var normID string
 	if id == "" {
@@ -147,12 +147,12 @@ func PurlFromComponentMeta(kind string, id string, lastModified string, sha stri
 		normID = strings.Join(parts, "/")
 	}
 
-	// version: prefer sha (lowercased) if present; otherwise omit
+	// version: prefer sha (lowercased) if present; otherwise omit.
 	version := strings.ToLower(strings.TrimSpace(sha))
 	return GeneratePurl(kind, normID, version)
 }
 
-// AddComponentPurl computes a deterministic pkg:huggingface purl from component metadata
+// AddComponentPurl computes a deterministic pkg:huggingface purl from component metadata.
 // and sets Component.PURL if not already set.
 func AddComponentPurl(c *cyclonedx.Component) {
 	if c == nil {
@@ -162,7 +162,7 @@ func AddComponentPurl(c *cyclonedx.Component) {
 		return
 	}
 
-	// determine kind
+	// determine kind.
 	kind := "unknown"
 	switch c.Type {
 	case cyclonedx.ComponentTypeMachineLearningModel:
@@ -171,32 +171,13 @@ func AddComponentPurl(c *cyclonedx.Component) {
 		kind = "dataset"
 	}
 
-	// id from Name
+	// id from Name.
 	id := ""
 	if c.Name != "" {
 		id = c.Name
 	}
 
-	// lastModified: check properties first, then tags (lastModified:...)
-	lastModified := ""
-	if c.Properties != nil {
-		for _, p := range *c.Properties {
-			if p.Name == "huggingface:lastModified" && p.Value != "" {
-				lastModified = p.Value
-				break
-			}
-		}
-	}
-	if lastModified == "" && c.Tags != nil {
-		for _, t := range *c.Tags {
-			if strings.HasPrefix(t, "lastModified:") {
-				lastModified = strings.TrimPrefix(t, "lastModified:")
-				break
-			}
-		}
-	}
-
-	// sha: use first hash value if available
+	// sha: use first hash value if available.
 	sha := ""
 	if c.Hashes != nil && len(*c.Hashes) > 0 {
 		if (*c.Hashes)[0].Value != "" {
@@ -204,7 +185,7 @@ func AddComponentPurl(c *cyclonedx.Component) {
 		}
 	}
 
-	// normalize id (preserve slash between namespace and name) and use sha as version
+	// normalize id (preserve slash between namespace and name) and use sha as version.
 	rawID := strings.TrimSpace(id)
 	var normID string
 	if rawID == "" {

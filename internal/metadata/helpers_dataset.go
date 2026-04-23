@@ -2,7 +2,7 @@ package metadata
 
 import cdx "github.com/CycloneDX/cyclonedx-go"
 
-// Helper functions for working with Component.Data slice
+// Helper functions for working with Component.Data slice.
 func ensureComponentData(comp *cdx.Component) *cdx.ComponentData {
 	if comp.Data == nil {
 		comp.Data = &[]cdx.ComponentData{{
@@ -13,7 +13,7 @@ func ensureComponentData(comp *cdx.Component) *cdx.ComponentData {
 			Type: cdx.ComponentDataTypeDataset,
 		}}
 	}
-	// Ensure Type is always set
+	// Ensure Type is always set.
 	data := &(*comp.Data)[0]
 	if data.Type == "" {
 		data.Type = cdx.ComponentDataTypeDataset

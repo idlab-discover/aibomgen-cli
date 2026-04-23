@@ -9,7 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// GenerateUI provides a rich UI for the generate command
+// GenerateUI provides a rich UI for the generate command.
 type GenerateUI struct {
 	writer       io.Writer
 	quiet        bool
@@ -18,7 +18,7 @@ type GenerateUI struct {
 	currentModel string
 }
 
-// NewGenerateUI creates a new UI handler for the generate command
+// NewGenerateUI creates a new UI handler for the generate command.
 func NewGenerateUI(w io.Writer, quiet bool) *GenerateUI {
 	return &GenerateUI{
 		writer:    w,
@@ -27,7 +27,7 @@ func NewGenerateUI(w io.Writer, quiet bool) *GenerateUI {
 	}
 }
 
-// StartWorkflow initializes and displays the workflow for generation
+// StartWorkflow initializes and displays the workflow for generation.
 func (g *GenerateUI) StartWorkflow(modelIDs []string, scanMode bool) {
 	if g.quiet {
 		return
@@ -52,7 +52,7 @@ func (g *GenerateUI) StartWorkflow(modelIDs []string, scanMode bool) {
 	g.workflow.Start()
 }
 
-// StartScanning marks the scanning step as running
+// StartScanning marks the scanning step as running.
 func (g *GenerateUI) StartScanning(path string) {
 	if g.quiet || g.workflow == nil {
 		return
@@ -60,7 +60,7 @@ func (g *GenerateUI) StartScanning(path string) {
 	g.workflow.StartTask(0, Dim.Render(path))
 }
 
-// CompleteScanningWithResults marks scanning as complete with results
+// CompleteScanningWithResults marks scanning as complete with results.
 func (g *GenerateUI) CompleteScanningWithResults(count int) {
 	if g.quiet || g.workflow == nil {
 		return
@@ -68,7 +68,7 @@ func (g *GenerateUI) CompleteScanningWithResults(count int) {
 	g.workflow.CompleteTask(0, fmt.Sprintf("found %d model(s)", count))
 }
 
-// StartFetching marks the fetching step as running
+// StartFetching marks the fetching step as running.
 func (g *GenerateUI) StartFetching(modelID string) {
 	if g.quiet || g.workflow == nil {
 		return
@@ -77,7 +77,7 @@ func (g *GenerateUI) StartFetching(modelID string) {
 	g.workflow.StartTask(1, Dim.Render(modelID))
 }
 
-// UpdateFetchingStatus updates the message during fetching
+// UpdateFetchingStatus updates the message during fetching.
 func (g *GenerateUI) UpdateFetchingStatus(message string) {
 	if g.quiet || g.workflow == nil {
 		return
@@ -85,7 +85,7 @@ func (g *GenerateUI) UpdateFetchingStatus(message string) {
 	g.workflow.UpdateMessage(1, Dim.Render(message))
 }
 
-// CompleteFetching marks fetching as complete
+// CompleteFetching marks fetching as complete.
 func (g *GenerateUI) CompleteFetching() {
 	if g.quiet || g.workflow == nil {
 		return
@@ -93,7 +93,7 @@ func (g *GenerateUI) CompleteFetching() {
 	g.workflow.CompleteTask(1, "metadata retrieved")
 }
 
-// StartBuilding marks the building step as running
+// StartBuilding marks the building step as running.
 func (g *GenerateUI) StartBuilding() {
 	if g.quiet || g.workflow == nil {
 		return
@@ -101,7 +101,7 @@ func (g *GenerateUI) StartBuilding() {
 	g.workflow.StartTask(2, "")
 }
 
-// CompleteBuilding marks building as complete
+// CompleteBuilding marks building as complete.
 func (g *GenerateUI) CompleteBuilding(componentCount int) {
 	if g.quiet || g.workflow == nil {
 		return
@@ -109,7 +109,7 @@ func (g *GenerateUI) CompleteBuilding(componentCount int) {
 	g.workflow.CompleteTask(2, fmt.Sprintf("%d component(s)", componentCount))
 }
 
-// StartWriting marks the writing step as running
+// StartWriting marks the writing step as running.
 func (g *GenerateUI) StartWriting() {
 	if g.quiet || g.workflow == nil {
 		return
@@ -121,7 +121,7 @@ func (g *GenerateUI) StartWriting() {
 	g.workflow.StartTask(taskIdx, "")
 }
 
-// CompleteWriting marks writing as complete
+// CompleteWriting marks writing as complete.
 func (g *GenerateUI) CompleteWriting(outputDir string, count int) {
 	if g.quiet || g.workflow == nil {
 		return
@@ -133,9 +133,9 @@ func (g *GenerateUI) CompleteWriting(outputDir string, count int) {
 	g.workflow.CompleteTask(taskIdx, fmt.Sprintf("%d file(s) → %s", count, outputDir))
 }
 
-// For model-id mode: process individual models
+// For model-id mode: process individual models.
 
-// StartModelProcessing marks a model as being processed (for model-id mode)
+// StartModelProcessing marks a model as being processed (for model-id mode).
 func (g *GenerateUI) StartModelProcessing(idx int, modelID string) {
 	if g.quiet || g.workflow == nil {
 		return
@@ -144,7 +144,7 @@ func (g *GenerateUI) StartModelProcessing(idx int, modelID string) {
 	g.workflow.StartTask(idx, "fetching metadata...")
 }
 
-// UpdateModelProcessing updates the status of a model being processed
+// UpdateModelProcessing updates the status of a model being processed.
 func (g *GenerateUI) UpdateModelProcessing(idx int, status string) {
 	if g.quiet || g.workflow == nil {
 		return
@@ -152,7 +152,7 @@ func (g *GenerateUI) UpdateModelProcessing(idx int, status string) {
 	g.workflow.UpdateMessage(idx, Dim.Render(status))
 }
 
-// CompleteModelProcessing marks a model as processed
+// CompleteModelProcessing marks a model as processed.
 func (g *GenerateUI) CompleteModelProcessing(idx int, details string) {
 	if g.quiet || g.workflow == nil {
 		return
@@ -160,7 +160,7 @@ func (g *GenerateUI) CompleteModelProcessing(idx int, details string) {
 	g.workflow.CompleteTask(idx, details)
 }
 
-// FailModelProcessing marks a model as failed
+// FailModelProcessing marks a model as failed.
 func (g *GenerateUI) FailModelProcessing(idx int, err string) {
 	if g.quiet || g.workflow == nil {
 		return
@@ -168,7 +168,7 @@ func (g *GenerateUI) FailModelProcessing(idx int, err string) {
 	g.workflow.FailTask(idx, err)
 }
 
-// FinishWorkflow completes the workflow display
+// FinishWorkflow completes the workflow display.
 func (g *GenerateUI) FinishWorkflow() {
 	if g.quiet || g.workflow == nil {
 		return
@@ -176,7 +176,7 @@ func (g *GenerateUI) FinishWorkflow() {
 	g.workflow.Stop()
 }
 
-// PrintSummary prints a final summary
+// PrintSummary prints a final summary.
 func (g *GenerateUI) PrintSummary(filesWritten int, outputDir, format string) {
 	if g.quiet {
 		return
@@ -186,7 +186,7 @@ func (g *GenerateUI) PrintSummary(filesWritten int, outputDir, format string) {
 
 	fmt.Fprintln(g.writer)
 
-	// Summary box
+	// Summary box.
 	var summary strings.Builder
 	summary.WriteString(Success.Bold(true).Render("Generation Complete"))
 	summary.WriteString("\n\n")
@@ -201,7 +201,7 @@ func (g *GenerateUI) PrintSummary(filesWritten int, outputDir, format string) {
 	fmt.Fprintln(g.writer, SuccessBox.Render(summary.String()))
 }
 
-// PrintNoModelsFound prints a message when no models are found
+// PrintNoModelsFound prints a message when no models are found.
 func (g *GenerateUI) PrintNoModelsFound() {
 	if g.quiet {
 		return
@@ -211,7 +211,7 @@ func (g *GenerateUI) PrintNoModelsFound() {
 	fmt.Fprintln(g.writer, Warning.Render(GetWarnMark()+" "+msg))
 }
 
-// LogStep prints a simple log message (non-workflow mode)
+// LogStep prints a simple log message (non-workflow mode).
 func (g *GenerateUI) LogStep(icon, message string) {
 	if g.quiet {
 		return
@@ -234,7 +234,7 @@ func (g *GenerateUI) LogStep(icon, message string) {
 	fmt.Fprintf(g.writer, "%s %s\n", iconStyled, message)
 }
 
-// LogModelStep logs a step for a specific model
+// LogModelStep logs a step for a specific model.
 func (g *GenerateUI) LogModelStep(modelID, action, detail string) {
 	if g.quiet {
 		return
@@ -249,7 +249,7 @@ func (g *GenerateUI) LogModelStep(modelID, action, detail string) {
 	fmt.Fprintf(g.writer, "%s %s %s\n", Secondary.Render("→"), modelStyled, actionStyled)
 }
 
-// PrintBanner prints the application banner
+// PrintBanner prints the application banner.
 func PrintBanner(w io.Writer) {
 	banner := `
   /$$$$$$  /$$$$$$ /$$$$$$$            /$$      /$$  /$$$$$$                                        /$$ /$$

@@ -66,14 +66,14 @@ func TestBOMBuilder_Build(t *testing.T) {
 			if got.Metadata.Component.Name != "mymodel" {
 				t.Errorf("expected component name mymodel, got %s", got.Metadata.Component.Name)
 			}
-			// Serial and timestamp should be set
+			// Serial and timestamp should be set.
 			if got.SerialNumber == "" {
 				t.Errorf("expected SerialNumber to be set")
 			}
 			if got.Metadata.Timestamp == "" {
 				t.Errorf("expected Metadata.Timestamp to be set")
 			}
-			// BOMRef or PackageURL should be set on component
+			// BOMRef or PackageURL should be set on component.
 			if got.Metadata.Component.PackageURL == "" && got.Metadata.Component.BOMRef == "" {
 				t.Errorf("expected PackageURL or BOMRef to be set on component")
 			}

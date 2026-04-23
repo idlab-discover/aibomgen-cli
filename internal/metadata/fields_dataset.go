@@ -13,7 +13,7 @@ type datasetExternalRefsSource struct {
 	DemoURL   string
 }
 
-// DatasetRegistry returns all dataset field specifications
+// DatasetRegistry returns all dataset field specifications.
 func DatasetRegistry() []DatasetFieldSpec {
 	return []DatasetFieldSpec{
 		{
@@ -309,11 +309,11 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Required: false,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
-					// First try API author (authors[0])
+					// First try API author (authors[0]).
 					if src.HF != nil && strings.TrimSpace(src.HF.Author) != "" {
 						return strings.TrimSpace(src.HF.Author), true
 					}
-					// Fallback to first AnnotationCreator from README (authors[1])
+					// Fallback to first AnnotationCreator from README (authors[1]).
 					if src.Readme != nil && len(src.Readme.AnnotationCreators) > 0 {
 						if trimmed := strings.TrimSpace(src.Readme.AnnotationCreators[0]); trimmed != "" {
 							return trimmed, true
@@ -358,12 +358,12 @@ func DatasetRegistry() []DatasetFieldSpec {
 				func(src DatasetSource) (any, bool) {
 					var allAuthors []string
 
-					// First, add API author if available
+					// First, add API author if available.
 					if src.HF != nil && strings.TrimSpace(src.HF.Author) != "" {
 						allAuthors = append(allAuthors, strings.TrimSpace(src.HF.Author))
 					}
 
-					// Then, add annotation creators from README
+					// Then, add annotation creators from README.
 					if src.Readme != nil && len(src.Readme.AnnotationCreators) > 0 {
 						for _, creator := range src.Readme.AnnotationCreators {
 							if trimmed := strings.TrimSpace(creator); trimmed != "" {
@@ -429,7 +429,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Required: false,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
-					// Extract group from DatasetID (part before /)
+					// Extract group from DatasetID (part before /).
 					var datasetID string
 					if src.HF != nil && strings.TrimSpace(src.HF.ID) != "" {
 						datasetID = strings.TrimSpace(src.HF.ID)

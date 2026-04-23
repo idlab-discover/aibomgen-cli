@@ -13,7 +13,7 @@ type BuildContext struct {
 	SecurityTree []fetcher.SecurityFileEntry
 }
 
-// DatasetBuildContext for dataset component building
+// DatasetBuildContext for dataset component building.
 type DatasetBuildContext struct {
 	DatasetID string
 	Scan      scanner.Discovery

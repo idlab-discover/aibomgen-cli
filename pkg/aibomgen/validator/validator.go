@@ -8,7 +8,7 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/completeness"
 )
 
-// ValidationResult is returned by [Validate] and summarises the outcome of
+// ValidationResult is returned by [Validate] and summarises the outcome of.
 // all checks performed on the BOM.
 type ValidationResult struct {
 	ModelID  string
@@ -16,16 +16,16 @@ type ValidationResult struct {
 	Errors   []string
 	Warnings []string
 
-	// AIBOM-specific metrics
+	// AIBOM-specific metrics.
 	CompletenessScore float64
 	MissingRequired   []metadata.Key
 	MissingOptional   []metadata.Key
 
-	// Dataset-specific results
+	// Dataset-specific results.
 	DatasetResults map[string]DatasetValidationResult // key is dataset name
 }
 
-// DatasetValidationResult holds validation results for a single dataset
+// DatasetValidationResult holds validation results for a single dataset.
 // component within the BOM.
 type DatasetValidationResult struct {
 	DatasetRef        string
@@ -44,7 +44,7 @@ type ValidationOptions struct {
 }
 
 // Validate checks the structural and completeness properties of bom.
-// It returns a [ValidationResult] with errors and warnings; Valid is false
+// It returns a [ValidationResult] with errors and warnings; Valid is false.
 // when any hard error is found or when strict-mode thresholds are not met.
 func Validate(bom *cdx.BOM, opts ValidationOptions) ValidationResult {
 
@@ -55,30 +55,30 @@ func Validate(bom *cdx.BOM, opts ValidationOptions) ValidationResult {
 		DatasetResults: make(map[string]DatasetValidationResult),
 	}
 
-	// 1. Basic structural validation
+	// 1. Basic structural validation.
 	if bom == nil {
 		result.Valid = false
 		result.Errors = append(result.Errors, "BOM is nil")
 		return result
 	}
 
-	// 2. Check metadata component exists
+	// 2. Check metadata component exists.
 	if bom.Metadata == nil || bom.Metadata.Component == nil {
 		result.Valid = false
 		result.Errors = append(result.Errors, "BOM missing metadata.component")
 	}
 
-	// 3. Validate spec version
+	// 3. Validate spec version.
 	validateSpecVersion(bom, &result)
 
-	// 4. Run completeness check (leverages existing package)
+	// 4. Run completeness check (leverages existing package).
 	completenessResult := completeness.Check(bom)
 	result.ModelID = completenessResult.ModelID
 	result.CompletenessScore = completenessResult.Score
 	result.MissingRequired = completenessResult.MissingRequired
 	result.MissingOptional = completenessResult.MissingOptional
 
-	// 5. Strict mode enforcement
+	// 5. Strict mode enforcement.
 	if opts.StrictMode {
 		if len(completenessResult.MissingRequired) > 0 {
 			result.Valid = false
@@ -95,18 +95,18 @@ func Validate(bom *cdx.BOM, opts ValidationOptions) ValidationResult {
 		}
 	}
 
-	// 6. Add warnings for optional fields
+	// 6. Add warnings for optional fields.
 	for _, key := range completenessResult.MissingOptional {
 		msg := fmt.Sprintf("optional field missing: %s", key)
 		result.Warnings = append(result.Warnings, msg)
 	}
 
-	// 7. Model card validation
+	// 7. Model card validation.
 	if opts.CheckModelCard {
 		validateModelCard(bom, &result)
 	}
 
-	// 8. Validate dataset components if they exist
+	// 8. Validate dataset components if they exist.
 	for dsName, dsCompletenessResult := range completenessResult.DatasetResults {
 		dsResult := DatasetValidationResult{
 			DatasetRef:        dsCompletenessResult.DatasetRef,
@@ -117,7 +117,7 @@ func Validate(bom *cdx.BOM, opts ValidationOptions) ValidationResult {
 			Warnings:          []string{},
 		}
 
-		// Strict mode for dataset components (optional fields only)
+		// Strict mode for dataset components (optional fields only).
 		if opts.StrictMode && len(dsCompletenessResult.MissingRequired) > 0 {
 			for _, key := range dsCompletenessResult.MissingRequired {
 				msg := fmt.Sprintf("required dataset field missing: %s", key)
@@ -126,7 +126,7 @@ func Validate(bom *cdx.BOM, opts ValidationOptions) ValidationResult {
 			}
 		}
 
-		// Add warnings for optional dataset fields
+		// Add warnings for optional dataset fields.
 		for _, key := range dsCompletenessResult.MissingOptional {
 			msg := fmt.Sprintf("optional dataset field missing: %s", key)
 			dsResult.Warnings = append(dsResult.Warnings, msg)
@@ -145,12 +145,12 @@ func validateSpecVersion(bom *cdx.BOM, result *ValidationResult) {
 		return
 	}
 
-	// Check if spec version is valid
+	// Check if spec version is valid.
 	switch bom.SpecVersion {
 	case cdx.SpecVersion1_0, cdx.SpecVersion1_1, cdx.SpecVersion1_2,
 		cdx.SpecVersion1_3, cdx.SpecVersion1_4, cdx.SpecVersion1_5,
 		cdx.SpecVersion1_6:
-		// Valid spec version
+		// Valid spec version.
 	default:
 		result.Valid = false
 		result.Errors = append(result.Errors,
@@ -158,7 +158,7 @@ func validateSpecVersion(bom *cdx.BOM, result *ValidationResult) {
 		return
 	}
 
-	// Warn about older spec versions (< 1.5 doesn't have full ML-BOM support)
+	// Warn about older spec versions (< 1.5 doesn't have full ML-BOM support).
 	if bom.SpecVersion < cdx.SpecVersion1_5 {
 		result.Warnings = append(result.Warnings,
 			fmt.Sprintf("spec version 1.%d predates ML-BOM support (consider upgrading to 1.5+)",

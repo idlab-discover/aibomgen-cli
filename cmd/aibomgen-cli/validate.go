@@ -26,42 +26,37 @@ var validateCmd = &cobra.Command{
 	Short: "Validate an existing AIBOM file",
 	Long:  "Validates that a CycloneDX AIBOM JSON is well-formed and optionally checks for required model card fields in strict mode.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get input from viper (respects config file and CLI flag)
+		// Get input from viper (respects config file and CLI flag).
 		inputPath := viper.GetString("validate.input")
 		if inputPath == "" {
 			return apperr.User("--input is required")
 		}
 
-		// Get log level from viper (respects config file)
+		// Get log level from viper (respects config file).
 		level := strings.ToLower(strings.TrimSpace(viper.GetString("validate.log-level")))
 		if level == "" {
 			level = "standard"
 		}
 		switch level {
 		case "quiet", "standard", "debug":
-			// ok
+			// ok.
 		default:
 			return apperr.Userf("invalid --log-level %q (expected quiet|standard|debug)", level)
 		}
 
-		// Wire internal package logging based on log level.
-		if level != "quiet" {
-			// Logging removed
-		}
-
-		// Get format from viper
+		// Get format from viper.
 		format := viper.GetString("validate.format")
 		if format == "" {
 			format = "auto"
 		}
 
-		// Read BOM
+		// Read BOM.
 		bom, err := bomio.ReadBOM(inputPath, format)
 		if err != nil {
 			return fmt.Errorf("failed to read BOM: %w", err)
 		}
 
-		// Get validation options from viper
+		// Get validation options from viper.
 		opts := validator.ValidationOptions{
 			StrictMode:           viper.GetBool("validate.strict"),
 			MinCompletenessScore: viper.GetFloat64("validate.min-score"),
@@ -70,7 +65,7 @@ var validateCmd = &cobra.Command{
 
 		result := validator.Validate(bom, opts)
 
-		// Use the new UI for rendering if not in quiet mode
+		// Use the new UI for rendering if not in quiet mode.
 		ui := ui.NewValidationUI(cmd.OutOrStdout(), level == "quiet")
 		ui.PrintReport(result)
 
@@ -90,7 +85,7 @@ func init() {
 	validateCmd.Flags().BoolVar(&validateCheckModelCard, "check-model-card", false, "Validate model card fields")
 	validateCmd.Flags().StringVar(&validateLogLevel, "log-level", "", "Log level: quiet|standard|debug")
 
-	// Bind all flags to viper for config file support
+	// Bind all flags to viper for config file support.
 	viper.BindPFlag("validate.input", validateCmd.Flags().Lookup("input"))
 	viper.BindPFlag("validate.format", validateCmd.Flags().Lookup("format"))
 	viper.BindPFlag("validate.strict", validateCmd.Flags().Lookup("strict"))

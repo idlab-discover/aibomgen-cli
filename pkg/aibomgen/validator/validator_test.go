@@ -7,10 +7,10 @@ import (
 	cdx "github.com/CycloneDX/cyclonedx-go"
 )
 
-// Test Strategy (same as completeness package):
-// - Uses calculated score values instead of hardcoded floats to avoid precision issues
-// - Implements tolerance-based comparison (1e-9) for floating point scores
-// - Best practice: never hardcode floating point literals in test expectations
+// Test Strategy (same as completeness package):.
+// - Uses calculated score values instead of hardcoded floats to avoid precision issues.
+// - Implements tolerance-based comparison (1e-9) for floating point scores.
+// - Best practice: never hardcode floating point literals in test expectations.
 
 const floatTolerance = 1e-9 // Tolerance for floating point comparison
 

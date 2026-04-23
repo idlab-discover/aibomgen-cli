@@ -59,13 +59,13 @@ func TestAddDependencies(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			AddDependencies(tt.args.bom)
 
-			// Handle nil input case
+			// Handle nil input case.
 			if tt.args.bom == nil {
-				// function should not panic and simply return
+				// function should not panic and simply return.
 				return
 			}
 
-			// Special-case: missing modelRef should leave Dependencies nil
+			// Special-case: missing modelRef should leave Dependencies nil.
 			if tt.name == "missing modelRef" {
 				if tt.args.bom.Dependencies != nil {
 					t.Fatalf("expected Dependencies to remain nil when modelRef missing")
@@ -73,7 +73,7 @@ func TestAddDependencies(t *testing.T) {
 				return
 			}
 
-			// dataset with empty BOMRef should result in only the model dependency
+			// dataset with empty BOMRef should result in only the model dependency.
 			if tt.name == "dataset with empty BOMRef ignored" {
 				if tt.args.bom.Dependencies == nil {
 					t.Fatalf("bom.Dependencies is nil, want non-nil")
@@ -91,14 +91,14 @@ func TestAddDependencies(t *testing.T) {
 				return
 			}
 
-			// Default (original) assertions for the first test case
+			// Default (original) assertions for the first test case.
 
 			deps := *tt.args.bom.Dependencies
 			if len(deps) != 3 {
 				t.Fatalf("len(bom.Dependencies) = %d, want 3", len(deps))
 			}
 
-			// Verify model dependency
+			// Verify model dependency.
 			var modelDep *cdx.Dependency
 			for i := range deps {
 				if deps[i].Ref == "model-ref" {
@@ -122,7 +122,7 @@ func TestAddDependencies(t *testing.T) {
 				}
 			}
 
-			// Verify dataset dependencies
+			// Verify dataset dependencies.
 			for _, dsRef := range []string{"dataset-ref-1", "dataset-ref-2"} {
 				var dsDep *cdx.Dependency
 				for i := range deps {

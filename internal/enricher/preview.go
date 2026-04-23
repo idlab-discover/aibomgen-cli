@@ -11,7 +11,7 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/completeness"
 )
 
-// ShowPreviewWithConfirm shows a preview of changes and asks for confirmation using huh
+// ShowPreviewWithConfirm shows a preview of changes and asks for confirmation using huh.
 func ShowPreviewWithConfirm(
 	initial completeness.Result,
 	postRefetch completeness.Result,
@@ -20,14 +20,14 @@ func ShowPreviewWithConfirm(
 	datasetChanges map[string]map[metadata.DatasetKey]string,
 ) (bool, error) {
 
-	// Build preview content
+	// Build preview content.
 	var sb strings.Builder
 
-	// Header
+	// Header.
 	sb.WriteString(ui.Bold.Render("Preview Changes"))
 	sb.WriteString("\n\n")
 
-	// Model changes
+	// Model changes.
 	if len(modelChanges) > 0 {
 		sb.WriteString(ui.Primary.Render("Model Fields:"))
 		sb.WriteString("\n")
@@ -40,7 +40,7 @@ func ShowPreviewWithConfirm(
 		sb.WriteString("\n")
 	}
 
-	// Dataset changes
+	// Dataset changes.
 	if len(datasetChanges) > 0 {
 		sb.WriteString(ui.Primary.Render("Dataset Fields:"))
 		sb.WriteString("\n")
@@ -56,7 +56,7 @@ func ShowPreviewWithConfirm(
 		sb.WriteString("\n")
 	}
 
-	// Completeness progression
+	// Completeness progression.
 	finalResult := completeness.Check(enriched)
 	sb.WriteString(ui.Primary.Render("Completeness Progress:"))
 	sb.WriteString("\n")
@@ -85,7 +85,7 @@ func ShowPreviewWithConfirm(
 		scoreStyle(finalResult.Score),
 		finalResult.Passed, finalResult.Total))
 
-	// Show dataset completeness
+	// Show dataset completeness.
 	if len(finalResult.DatasetResults) > 0 {
 		sb.WriteString("\n")
 		sb.WriteString(ui.Primary.Render("Datasets:"))
@@ -98,12 +98,12 @@ func ShowPreviewWithConfirm(
 		}
 	}
 
-	// Render preview in a box using UI styles
+	// Render preview in a box using UI styles.
 	previewBox := ui.Box.Render(sb.String())
 
 	fmt.Println(previewBox)
 
-	// Confirmation prompt
+	// Confirmation prompt.
 	var confirm bool
 	form := huh.NewForm(
 		huh.NewGroup(

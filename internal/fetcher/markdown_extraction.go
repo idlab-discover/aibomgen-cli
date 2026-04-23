@@ -9,7 +9,7 @@ import (
 	yaml "go.yaml.in/yaml/v3"
 )
 
-// ---- Markdown extraction helpers (shared with model_readme_fetcher and dataset_readme_fetcher) ----
+// ---- Markdown extraction helpers (shared with model_readme_fetcher and dataset_readme_fetcher) ----.
 
 func splitFrontMatter(raw string) (map[string]any, string) {
 	raw = strings.TrimSpace(raw)
@@ -21,7 +21,7 @@ func splitFrontMatter(raw string) (map[string]any, string) {
 	rest := strings.TrimPrefix(raw, "---\n")
 	idx := strings.Index(rest, "\n---\n")
 	if idx < 0 {
-		// allow file ending marker
+		// allow file ending marker.
 		idx = strings.Index(rest, "\n---")
 		if idx < 0 {
 			return nil, raw
@@ -120,12 +120,12 @@ func parseModelIndex(mi any, card *ModelReadmeCard) {
 	if !ok {
 		return
 	}
-	// task
+	// task.
 	if taskAny, ok := res["task"].(map[string]any); ok {
 		card.TaskType = strings.TrimSpace(stringFromAny(taskAny["type"]))
 		card.TaskName = strings.TrimSpace(stringFromAny(taskAny["name"]))
 	}
-	// metrics
+	// metrics.
 	if metricsAny, ok := res["metrics"].([]any); ok {
 		out := make([]ModelIndexMetric, 0, len(metricsAny))
 		for _, m := range metricsAny {
@@ -151,9 +151,9 @@ func extractSection(markdown string, heading string) string {
 	lines := strings.Split(markdown, "\n")
 
 	// Find a level-2 or level-3 heading with the requested text.
-	// Example matches:
-	//   "## Bias, Risks, and Limitations"
-	//   "### Direct Use"
+	// Example matches:.
+	//   "## Bias, Risks, and Limitations".
+	//   "### Direct Use".
 	headingRe := regexp.MustCompile(fmt.Sprintf(`^#{2,3}\s+%s\s*$`, regexp.QuoteMeta(heading)))
 	nextHeadingRe := regexp.MustCompile(`^#+\s+.+$`)
 
@@ -167,7 +167,7 @@ func extractSection(markdown string, heading string) string {
 			}
 			continue
 		}
-		// Stop at the next heading (any level)
+		// Stop at the next heading (any level).
 		if nextHeadingRe.MatchString(line) {
 			break
 		}
@@ -177,12 +177,12 @@ func extractSection(markdown string, heading string) string {
 }
 
 func extractBulletValue(markdown string, label string) string {
-	// Extract values like:
+	// Extract values like:.
 	// - **Paper [optional]:** https://...
-	// - **Developed by:** org
-	// - **Carbon Emitted** *(additional text)*: 149.2 kg eq. CO2
+	// - **Developed by:** org.
+	// - **Carbon Emitted** *(additional text)*: 149.2 kg eq. CO2.
 	// Supports optional bracketed qualifiers in the label part and text between the label and colon.
-	// Pattern handles both: **Label:** (colon inside) and **Label** text: (colon outside)
+	// Pattern handles both: **Label:** (colon inside) and **Label** text: (colon outside).
 	pat := fmt.Sprintf(`(?m)^-\s+\*\*%s(?:\s*\[[^\]]+\])?(?::\*\*|\*\*[^:\n]*:)\s*(.+?)\s*$`, regexp.QuoteMeta(label))
 	re := regexp.MustCompile(pat)
 	m := re.FindStringSubmatch(markdown)

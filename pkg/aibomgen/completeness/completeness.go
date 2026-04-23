@@ -6,7 +6,7 @@ import (
 	cdx "github.com/CycloneDX/cyclonedx-go"
 )
 
-// Result holds the completeness score for the model component of a BOM and
+// Result holds the completeness score for the model component of a BOM and.
 // all linked dataset components.
 type Result struct {
 	ModelID string  // Model identifier/name
@@ -18,7 +18,7 @@ type Result struct {
 	MissingRequired []metadata.Key
 	MissingOptional []metadata.Key
 
-	// Dataset-specific tracking
+	// Dataset-specific tracking.
 	DatasetResults map[string]DatasetResult // key is dataset name/ref
 }
 
@@ -34,12 +34,12 @@ type DatasetResult struct {
 	MissingOptional []metadata.DatasetKey
 }
 
-// Check checks the completeness of a BOM using the default metadata registry
+// Check checks the completeness of a BOM using the default metadata registry.
 func Check(bom *cdx.BOM) Result {
 	return checkWithRegistry(bom, metadata.Registry(), metadata.DatasetRegistry())
 }
 
-// checkWithRegistry allows injecting custom registries for testing
+// checkWithRegistry allows injecting custom registries for testing.
 func checkWithRegistry(bom *cdx.BOM, modelRegistry []metadata.FieldSpec, datasetRegistry []metadata.DatasetFieldSpec) Result {
 	var (
 		earned, max float64
@@ -49,7 +49,7 @@ func checkWithRegistry(bom *cdx.BOM, modelRegistry []metadata.FieldSpec, dataset
 		missingOpt  []metadata.Key
 	)
 
-	// Check if datasets are referenced in model
+	// Check if datasets are referenced in model.
 	datasetsReferenced := hasDatasetsReferenced(bom)
 
 	for _, spec := range modelRegistry {
@@ -57,9 +57,9 @@ func checkWithRegistry(bom *cdx.BOM, modelRegistry []metadata.FieldSpec, dataset
 			continue
 		}
 
-		// Skip dataset field if no datasets are referenced
+		// Skip dataset field if no datasets are referenced.
 		if spec.Key == metadata.ModelCardModelParametersDatasets && !datasetsReferenced {
-			// Only count as missing if no datasets are referenced
+			// Only count as missing if no datasets are referenced.
 			total++
 			max += spec.Weight
 			if spec.Required {
@@ -96,7 +96,7 @@ func checkWithRegistry(bom *cdx.BOM, modelRegistry []metadata.FieldSpec, dataset
 		score = earned / max
 	}
 
-	// Extract model ID from BOM
+	// Extract model ID from BOM.
 	modelID := "(unknown)"
 	if bom != nil && bom.Metadata != nil && bom.Metadata.Component != nil && bom.Metadata.Component.Name != "" {
 		modelID = bom.Metadata.Component.Name
@@ -112,7 +112,7 @@ func checkWithRegistry(bom *cdx.BOM, modelRegistry []metadata.FieldSpec, dataset
 		DatasetResults:  make(map[string]DatasetResult),
 	}
 
-	// Check dataset components if they exist
+	// Check dataset components if they exist.
 	if bom.Components != nil && datasetsReferenced {
 		for _, comp := range *bom.Components {
 			if comp.Type == cdx.ComponentTypeData {
@@ -125,7 +125,7 @@ func checkWithRegistry(bom *cdx.BOM, modelRegistry []metadata.FieldSpec, dataset
 	return result
 }
 
-// hasDatasetsReferenced checks if the model references any datasets
+// hasDatasetsReferenced checks if the model references any datasets.
 func hasDatasetsReferenced(bom *cdx.BOM) bool {
 	if bom == nil || bom.Metadata == nil || bom.Metadata.Component == nil {
 		return false
@@ -138,7 +138,7 @@ func hasDatasetsReferenced(bom *cdx.BOM) bool {
 	if mp.Datasets == nil || len(*mp.Datasets) == 0 {
 		return false
 	}
-	// Check if any dataset ref is non-empty
+	// Check if any dataset ref is non-empty.
 	for _, ds := range *mp.Datasets {
 		if ds.Ref != "" {
 			return true
@@ -147,12 +147,12 @@ func hasDatasetsReferenced(bom *cdx.BOM) bool {
 	return false
 }
 
-// CheckDataset checks completeness of a single dataset component using the default registry
+// CheckDataset checks completeness of a single dataset component using the default registry.
 func CheckDataset(comp *cdx.Component) DatasetResult {
 	return checkDatasetWithRegistry(comp, metadata.DatasetRegistry())
 }
 
-// checkDatasetWithRegistry allows injecting custom registry for testing
+// checkDatasetWithRegistry allows injecting custom registry for testing.
 func checkDatasetWithRegistry(comp *cdx.Component, datasetRegistry []metadata.DatasetFieldSpec) DatasetResult {
 	var (
 		earned, max float64

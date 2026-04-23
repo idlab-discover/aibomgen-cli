@@ -1,6 +1,6 @@
 package fetcher
 
-// DummyDatasetTreeFetcher returns an empty tree response for testing/demo
+// DummyDatasetTreeFetcher returns an empty tree response for testing/demo.
 // purposes without making any HTTP requests.
 type DummyDatasetTreeFetcher struct{}
 

@@ -34,7 +34,16 @@ Before opening a pull request, make sure you have run:
 ```bash
 go test ./...
 go build ./...
+golangci-lint run
 ```
+
+The repository enforces [golangci-lint](https://golangci-lint.run/) in CI. All lint issues must be resolved before a pull request can be merged. To install it locally:
+
+```bash
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+```
+
+The active linter configuration is in [`.golangci.yml`](../.golangci.yml) at the repository root. Key rules in use include `errcheck`, `staticcheck`, `godot` (top-level comments must end with a period), `noctx`, `bodyclose`, and `unused`. Running the linter locally before pushing saves CI round-trips.
 
 If your change affects docs, examples, or command output, update the relevant files in the same pull request.
 

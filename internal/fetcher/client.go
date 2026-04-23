@@ -26,7 +26,7 @@ func (t *hfTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 func NewHFClient(timeout time.Duration, token string) *http.Client {
 	token = strings.TrimSpace(token)
 	base := http.DefaultTransport
-	var transport http.RoundTripper = base
+	transport := base
 	if token != "" {
 		transport = &hfTransport{base: base, token: token}
 	}

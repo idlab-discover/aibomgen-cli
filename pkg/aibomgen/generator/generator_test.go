@@ -13,7 +13,7 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/scanner"
 )
 
-// Mock BOM Builder for testing
+// Mock BOM Builder for testing.
 type mockBOMBuilder struct {
 	buildFunc        func(builder.BuildContext) (*cdx.BOM, error)
 	buildDatasetFunc func(builder.DatasetBuildContext) (*cdx.Component, error)
@@ -33,7 +33,7 @@ func (m *mockBOMBuilder) BuildDataset(ctx builder.DatasetBuildContext) (*cdx.Com
 	return &cdx.Component{Name: ctx.DatasetID}, nil
 }
 
-// Mock Fetchers for testing
+// Mock Fetchers for testing.
 type mockModelAPIFetcher struct {
 	fetchFunc func(string) (*fetcher.ModelAPIResponse, error)
 }
@@ -79,7 +79,7 @@ func (m *mockDatasetReadmeFetcher) Fetch(id string) (*fetcher.DatasetReadmeCard,
 }
 
 func TestBuildDummyBOM(t *testing.T) {
-	// Save originals
+	// Save originals.
 	originalDummyFetcherSet := newDummyFetcherSet
 	originalBuilder := newBOMBuilder
 
@@ -105,7 +105,7 @@ func TestBuildDummyBOM(t *testing.T) {
 				if got[0].Discovery.ID != "dummy-org/dummy-model" {
 					t.Errorf("Expected discovery ID 'dummy-org/dummy-model', got %q", got[0].Discovery.ID)
 				}
-				// Should have datasets from dummy data
+				// Should have datasets from dummy data.
 				if got[0].BOM.Components != nil && len(*got[0].BOM.Components) > 0 {
 					t.Logf("BOM has %d dataset components", len(*got[0].BOM.Components))
 				}
@@ -182,7 +182,7 @@ func TestBuildDummyBOM(t *testing.T) {
 					t.Errorf("Expected 1 BOM, got %d", len(got))
 					return
 				}
-				// Dataset fetch failed, should have no dataset components
+				// Dataset fetch failed, should have no dataset components.
 			},
 		},
 		{
@@ -207,7 +207,7 @@ func TestBuildDummyBOM(t *testing.T) {
 					t.Errorf("Expected 1 BOM, got %d", len(got))
 					return
 				}
-				// Dataset readme fetch failed but should still have dataset component (from API data)
+				// Dataset readme fetch failed but should still have dataset component (from API data).
 				if got[0].BOM.Components == nil || len(*got[0].BOM.Components) == 0 {
 					t.Error("Expected dataset components despite readme failure")
 				}
@@ -216,7 +216,7 @@ func TestBuildDummyBOM(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Restore originals before each test case
+			// Restore originals before each test case.
 			newDummyFetcherSet = originalDummyFetcherSet
 			newBOMBuilder = originalBuilder
 
@@ -236,7 +236,7 @@ func TestBuildDummyBOM(t *testing.T) {
 }
 
 func TestBuildPerDiscovery(t *testing.T) {
-	// Save originals and restore after each test
+	// Save originals and restore after each test.
 	originalBuilder := newBOMBuilder
 	originalFetcherSet := newFetcherSet
 	defer func() {
@@ -518,7 +518,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 					t.Errorf("Expected 1 BOM, got %d", len(got))
 					return
 				}
-				// 2 datasets succeed (test-dataset, readme-dataset); failing-dataset is skipped
+				// 2 datasets succeed (test-dataset, readme-dataset); failing-dataset is skipped.
 				if got[0].BOM.Components == nil || len(*got[0].BOM.Components) != 2 {
 					t.Errorf("Expected 2 dataset components (1 failed), got %v", got[0].BOM.Components)
 				}
@@ -733,7 +733,7 @@ func Test_extractDatasetsFromModel(t *testing.T) {
 }
 
 func TestBuildFromModelIDs(t *testing.T) {
-	// Save originals and restore after each test
+	// Save originals and restore after each test.
 	originalBuilder := newBOMBuilder
 	originalFetcherSet := newFetcherSet
 	defer func() {
@@ -925,7 +925,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 					t.Errorf("Expected 1 BOM, got %d", len(got))
 					return
 				}
-				// dataset1, dataset2, dataset3
+				// dataset1, dataset2, dataset3.
 				if got[0].BOM.Components == nil || len(*got[0].BOM.Components) != 3 {
 					t.Errorf("Expected 3 dataset components, got %v", got[0].BOM.Components)
 				}

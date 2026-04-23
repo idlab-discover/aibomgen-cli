@@ -63,8 +63,6 @@ func modelCardFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				mp := bomModelParameters(b)
 				ok := mp != nil && strings.TrimSpace(mp.Task) != ""
-				if c := bomComponent(b); c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeSelect,
@@ -110,8 +108,6 @@ func modelCardFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				mp := bomModelParameters(b)
 				ok := mp != nil && strings.TrimSpace(mp.ArchitectureFamily) != ""
-				if c := bomComponent(b); c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeText,
@@ -160,8 +156,6 @@ func modelCardFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				mp := bomModelParameters(b)
 				ok := mp != nil && strings.TrimSpace(mp.ModelArchitecture) != ""
-				if c := bomComponent(b); c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeText,
@@ -231,18 +225,12 @@ func modelCardFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				mp := bomModelParameters(b)
 				if mp == nil || mp.Datasets == nil || len(*mp.Datasets) == 0 {
-					if c := bomComponent(b); c != nil {
-					}
 					return false
 				}
 				for _, d := range *mp.Datasets {
 					if strings.TrimSpace(d.Ref) != "" {
-						if c := bomComponent(b); c != nil {
-						}
 						return true
 					}
-				}
-				if c := bomComponent(b); c != nil {
 				}
 				return false
 			},
@@ -297,8 +285,6 @@ func modelCardFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				ok := c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.UseCases != nil && len(*c.ModelCard.Considerations.UseCases) > 0
-				if c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeMultiText,
@@ -345,8 +331,6 @@ func modelCardFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				ok := c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.TechnicalLimitations != nil && len(*c.ModelCard.Considerations.TechnicalLimitations) > 0
-				if c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeTextArea,
@@ -398,8 +382,6 @@ func modelCardFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				ok := c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.EthicalConsiderations != nil && len(*c.ModelCard.Considerations.EthicalConsiderations) > 0
-				if c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeTextArea,
@@ -485,8 +467,6 @@ func modelCardFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				ok := c != nil && c.ModelCard != nil && c.ModelCard.QuantitativeAnalysis != nil && c.ModelCard.QuantitativeAnalysis.PerformanceMetrics != nil && len(*c.ModelCard.QuantitativeAnalysis.PerformanceMetrics) > 0
-				if c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeTextArea,
@@ -552,8 +532,6 @@ func modelCardFields() []FieldSpec {
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				ok := c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.EnvironmentalConsiderations != nil && c.ModelCard.Considerations.EnvironmentalConsiderations.Properties != nil && len(*c.ModelCard.Considerations.EnvironmentalConsiderations.Properties) > 0
-				if c != nil {
-				}
 				return ok
 			},
 			InputType:   InputTypeTextArea,

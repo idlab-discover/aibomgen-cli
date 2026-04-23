@@ -14,7 +14,7 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/completeness"
 )
 
-// Config holds enrichment configuration
+// Config holds enrichment configuration.
 type Config struct {
 	Strategy     string  // "interactive" or "file"
 	ConfigFile   string  // path to config file (for file strategy)
@@ -28,14 +28,14 @@ type Config struct {
 	HFTimeout    int     // timeout in seconds
 }
 
-// Options for creating an Enricher
+// Options for creating an Enricher.
 type Options struct {
 	Reader io.Reader
 	Writer io.Writer
 	Config Config
 }
 
-// Enricher handles AIBOM enrichment
+// Enricher handles AIBOM enrichment.
 type Enricher struct {
 	reader io.Reader
 	writer io.Writer
@@ -43,7 +43,7 @@ type Enricher struct {
 	scan   *bufio.Scanner
 }
 
-// New creates a new Enricher
+// New creates a new Enricher.
 func New(opts Options) *Enricher {
 	return &Enricher{
 		reader: opts.Reader,
@@ -53,33 +53,33 @@ func New(opts Options) *Enricher {
 	}
 }
 
-// Enrich enriches a BOM with additional metadata
+// Enrich enriches a BOM with additional metadata.
 func (e *Enricher) Enrich(bom *cdx.BOM, configViper interface{}) (*cdx.BOM, error) {
 	if bom == nil {
 		return nil, fmt.Errorf("nil BOM")
 	}
 
-	// Get model ID from BOM
+	// Get model ID from BOM.
 	modelID := extractModelID(bom)
 	if modelID == "" {
 		fmt.Fprintf(e.writer, "warning: no model ID found in BOM; enrichment will proceed without a model ID\n")
 	}
 
-	// Run initial completeness check
+	// Run initial completeness check.
 	initialResult := completeness.Check(bom)
 
-	// Refetch metadata if requested and apply it to BOM
+	// Refetch metadata if requested and apply it to BOM.
 	var hfAPI *fetcher.ModelAPIResponse
 	var hfReadme *fetcher.ModelReadmeCard
 	var postRefetchResult completeness.Result
 	if e.config.Refetch && modelID != "" {
 		hfAPI, hfReadme = e.refetchMetadata(modelID)
 
-		// Apply refetched metadata to BOM
+		// Apply refetched metadata to BOM.
 		if hfAPI != nil || hfReadme != nil {
 			e.applyRefetchedMetadata(bom, modelID, hfAPI, hfReadme)
 
-			// Check completeness after refetch
+			// Check completeness after refetch.
 			postRefetchResult = completeness.Check(bom)
 		} else {
 			postRefetchResult = initialResult
@@ -88,13 +88,13 @@ func (e *Enricher) Enrich(bom *cdx.BOM, configViper interface{}) (*cdx.BOM, erro
 		postRefetchResult = initialResult
 	}
 
-	// STEP 1: Enrich model fields
+	// STEP 1: Enrich model fields.
 	modelChanges, err := e.enrichModel(bom, modelID, hfAPI, hfReadme, postRefetchResult, configViper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to enrich model: %w", err)
 	}
 
-	// STEP 2: Enrich dataset components if they exist
+	// STEP 2: Enrich dataset components if they exist.
 	datasetChanges := make(map[string]map[metadata.DatasetKey]string)
 	if bom.Components != nil {
 		for i := range *bom.Components {
@@ -112,7 +112,7 @@ func (e *Enricher) Enrich(bom *cdx.BOM, configViper interface{}) (*cdx.BOM, erro
 		}
 	}
 
-	// Show preview if requested
+	// Show preview if requested.
 	if !e.config.NoPreview && (len(modelChanges) > 0 || len(datasetChanges) > 0) {
 		confirm, err := ShowPreviewWithConfirm(initialResult, postRefetchResult, bom, modelChanges, datasetChanges)
 		if err != nil {
@@ -126,22 +126,22 @@ func (e *Enricher) Enrich(bom *cdx.BOM, configViper interface{}) (*cdx.BOM, erro
 	return bom, nil
 }
 
-// enrichModel enriches the main model component
+// enrichModel enriches the main model component.
 func (e *Enricher) enrichModel(bom *cdx.BOM, modelID string, hfAPI *fetcher.ModelAPIResponse, hfReadme *fetcher.ModelReadmeCard, result completeness.Result, configViper interface{}) (map[metadata.Key]string, error) {
-	// Collect missing fields based on config (using post-refetch state)
+	// Collect missing fields based on config (using post-refetch state).
 	missingFields := e.collectMissingFields(result)
 	if len(missingFields) == 0 {
 		return nil, nil
 	}
 
-	// Prepare enrichment source
+	// Prepare enrichment source.
 	src := metadata.Source{
 		ModelID: modelID,
 		HF:      hfAPI,
 		Readme:  hfReadme,
 	}
 
-	// Prepare enrichment target - modify the BOM directly
+	// Prepare enrichment target - modify the BOM directly.
 	tgt := metadata.Target{
 		BOM:                bom,
 		Component:          bomComponent(bom),
@@ -156,7 +156,7 @@ func (e *Enricher) enrichModel(bom *cdx.BOM, modelID string, hfAPI *fetcher.Mode
 	case "file":
 		changes, err = e.enrichModelFromFile(missingFields, src, tgt, configViper)
 	case "interactive":
-		// Use new interactive enricher
+		// Use new interactive enricher.
 		ie := NewInteractiveEnricher(e)
 		changes, err = ie.EnrichInteractive(bom, missingFields, src, tgt)
 	default:
@@ -170,7 +170,7 @@ func (e *Enricher) enrichModel(bom *cdx.BOM, modelID string, hfAPI *fetcher.Mode
 	return changes, nil
 }
 
-// enrichModelFromFile handles file-based enrichment
+// enrichModelFromFile handles file-based enrichment.
 func (e *Enricher) enrichModelFromFile(
 	missingFields []metadata.FieldSpec,
 	src metadata.Source,
@@ -197,7 +197,7 @@ func (e *Enricher) enrichModelFromFile(
 	return changes, nil
 }
 
-// enrichDatasetFromFile handles file-based dataset enrichment
+// enrichDatasetFromFile handles file-based dataset enrichment.
 func (e *Enricher) enrichDatasetFromFile(
 	missingFields []metadata.DatasetFieldSpec,
 	src metadata.DatasetSource,
@@ -224,34 +224,34 @@ func (e *Enricher) enrichDatasetFromFile(
 	return changes, nil
 }
 
-// enrichDataset enriches a single dataset component
+// enrichDataset enriches a single dataset component.
 func (e *Enricher) enrichDataset(bom *cdx.BOM, comp *cdx.Component, configViper interface{}) (map[metadata.DatasetKey]string, error) {
 	datasetID := comp.Name
 
-	// Check dataset completeness
+	// Check dataset completeness.
 	dsReport := completeness.CheckDataset(comp)
 
-	// Collect missing dataset fields
+	// Collect missing dataset fields.
 	missingFields := e.collectMissingDatasetFields(dsReport)
 	if len(missingFields) == 0 {
 		return nil, nil
 	}
 
-	// Refetch dataset metadata if requested
+	// Refetch dataset metadata if requested.
 	var hfAPI *fetcher.DatasetAPIResponse
 	var hfReadme *fetcher.DatasetReadmeCard
 	if e.config.Refetch && datasetID != "" {
 		hfAPI, hfReadme = e.refetchDatasetMetadata(datasetID)
 	}
 
-	// Prepare enrichment source
+	// Prepare enrichment source.
 	src := metadata.DatasetSource{
 		DatasetID: datasetID,
 		HF:        hfAPI,
 		Readme:    hfReadme,
 	}
 
-	// Prepare enrichment target
+	// Prepare enrichment target.
 	tgt := metadata.DatasetTarget{
 		Component:                 comp,
 		IncludeEvidenceProperties: false,
@@ -265,7 +265,7 @@ func (e *Enricher) enrichDataset(bom *cdx.BOM, comp *cdx.Component, configViper 
 	case "file":
 		changes, err = e.enrichDatasetFromFile(missingFields, src, tgt, configViper)
 	case "interactive":
-		// Use new interactive enricher
+		// Use new interactive enricher.
 		ie := NewInteractiveEnricher(e)
 		changes, err = ie.EnrichDatasetInteractive(comp, missingFields, src, tgt)
 	default:
@@ -279,17 +279,17 @@ func (e *Enricher) enrichDataset(bom *cdx.BOM, comp *cdx.Component, configViper 
 	return changes, nil
 }
 
-// collectMissingFields returns fields that need enrichment based on config
+// collectMissingFields returns fields that need enrichment based on config.
 func (e *Enricher) collectMissingFields(result completeness.Result) []metadata.FieldSpec {
 	var fields []metadata.FieldSpec
 
 	for _, spec := range metadata.Registry() {
-		// Skip if weight is 0 or below threshold
+		// Skip if weight is 0 or below threshold.
 		if spec.Weight <= 0 || spec.Weight < e.config.MinWeight {
 			continue
 		}
 
-		// Check if field is missing
+		// Check if field is missing.
 		isMissing := false
 		for _, k := range result.MissingRequired {
 			if k == spec.Key {
@@ -314,7 +314,7 @@ func (e *Enricher) collectMissingFields(result completeness.Result) []metadata.F
 	return fields
 }
 
-// refetchMetadata fetches fresh metadata from Hugging Face
+// refetchMetadata fetches fresh metadata from Hugging Face.
 func (e *Enricher) refetchMetadata(modelID string) (*fetcher.ModelAPIResponse, *fetcher.ModelReadmeCard) {
 	client := fetcher.NewHFClient(time.Duration(e.config.HFTimeout)*time.Second, e.config.HFToken)
 
@@ -339,7 +339,7 @@ func (e *Enricher) refetchMetadata(modelID string) (*fetcher.ModelAPIResponse, *
 	return apiResp, readme
 }
 
-// applyRefetchedMetadata applies all available metadata from HuggingFace to the BOM
+// applyRefetchedMetadata applies all available metadata from HuggingFace to the BOM.
 func (e *Enricher) applyRefetchedMetadata(bom *cdx.BOM, modelID string, hfAPI *fetcher.ModelAPIResponse, hfReadme *fetcher.ModelReadmeCard) {
 	src := metadata.Source{
 		ModelID: modelID,
@@ -354,7 +354,7 @@ func (e *Enricher) applyRefetchedMetadata(bom *cdx.BOM, modelID string, hfAPI *f
 		HuggingFaceBaseURL: e.config.HFBaseURL,
 	}
 
-	// Apply all field specs that have Apply functions
+	// Apply all field specs that have Apply functions.
 	totalSpecs := 0
 	specsWithWeight := 0
 	for _, spec := range metadata.Registry() {
@@ -367,14 +367,14 @@ func (e *Enricher) applyRefetchedMetadata(bom *cdx.BOM, modelID string, hfAPI *f
 
 }
 
-// getValueFromFile extracts a value from the config file
+// getValueFromFile extracts a value from the config file.
 func (e *Enricher) getValueFromFile(spec metadata.FieldSpec, configViper interface{}) (interface{}, error) {
-	// If no config provided, return nil
+	// If no config provided, return nil.
 	if configViper == nil {
 		return nil, nil
 	}
 
-	// Type assert to viper.Viper
+	// Type assert to viper.Viper.
 	type viperGetter interface {
 		Get(key string) interface{}
 	}
@@ -384,7 +384,7 @@ func (e *Enricher) getValueFromFile(spec metadata.FieldSpec, configViper interfa
 		return nil, fmt.Errorf("invalid config type")
 	}
 
-	// Use the full key - viper will handle the nested lookup and lowercasing
+	// Use the full key - viper will handle the nested lookup and lowercasing.
 	key := string(spec.Key)
 	val := v.Get(key)
 
@@ -395,11 +395,11 @@ func (e *Enricher) getValueFromFile(spec metadata.FieldSpec, configViper interfa
 	return nil, nil
 }
 
-// applyValue applies a user-provided value to the BOM using the FieldSpec's SetUserValue function
+// applyValue applies a user-provided value to the BOM using the FieldSpec's SetUserValue function.
 func (e *Enricher) applyValue(spec metadata.FieldSpec, src *metadata.Source, tgt *metadata.Target, value interface{}) error {
 	strValue := fmt.Sprintf("%v", value)
 
-	// Use the FieldSpec's SetUserValue if available
+	// Use the FieldSpec's SetUserValue if available.
 	err := metadata.ApplyUserValue(spec, strValue, *tgt)
 	if err != nil {
 		return fmt.Errorf("failed to set user value for %s: %w", spec.Key, err)
@@ -407,60 +407,7 @@ func (e *Enricher) applyValue(spec metadata.FieldSpec, src *metadata.Source, tgt
 	return nil
 }
 
-// showPreviewAndConfirm shows changes and asks for confirmation
-func (e *Enricher) showPreviewAndConfirm(initial completeness.Result, postRefetch completeness.Result, enriched *cdx.BOM, modelChanges map[metadata.Key]string, datasetChanges map[string]map[metadata.DatasetKey]string) bool {
-	fmt.Fprintf(e.writer, "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	fmt.Fprintf(e.writer, "Preview Changes\n")
-	fmt.Fprintf(e.writer, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
-
-	// Show model changes
-	if len(modelChanges) > 0 {
-		fmt.Fprintf(e.writer, "Model fields:\n")
-		for key, value := range modelChanges {
-			fmt.Fprintf(e.writer, "  + %s: %s\n", key, value)
-		}
-		fmt.Fprintf(e.writer, "\n")
-	}
-
-	// Show dataset changes
-	if len(datasetChanges) > 0 {
-		for dsName, changes := range datasetChanges {
-			fmt.Fprintf(e.writer, "Dataset '%s' fields:\n", dsName)
-			for key, value := range changes {
-				fmt.Fprintf(e.writer, "  + %s: %s\n", key, value)
-			}
-			fmt.Fprintf(e.writer, "\n")
-		}
-	}
-
-	// Show completeness progression
-	finalReport := completeness.Check(enriched)
-	fmt.Fprintf(e.writer, "Completeness Progress:\n")
-	fmt.Fprintf(e.writer, "  Model Initial:        %.2f%% (%d/%d fields)\n", initial.Score*100, initial.Passed, initial.Total)
-	if postRefetch.Score != initial.Score {
-		fmt.Fprintf(e.writer, "  Model After refetch:  %.2f%% (%d/%d fields)\n", postRefetch.Score*100, postRefetch.Passed, postRefetch.Total)
-	}
-	fmt.Fprintf(e.writer, "  Model After enrichment: %.2f%% (%d/%d fields)\n", finalReport.Score*100, finalReport.Passed, finalReport.Total)
-
-	// Show dataset completeness
-	if len(finalReport.DatasetResults) > 0 {
-		fmt.Fprintf(e.writer, "\n  Datasets:\n")
-		for dsName, dsReport := range finalReport.DatasetResults {
-			fmt.Fprintf(e.writer, "    %s: %.2f%% (%d/%d fields)\n", dsName, dsReport.Score*100, dsReport.Passed, dsReport.Total)
-		}
-	}
-
-	fmt.Fprintf(e.writer, "\nSave changes? [Y/n]: ")
-
-	if !e.scan.Scan() {
-		return false
-	}
-
-	response := strings.ToLower(strings.TrimSpace(e.scan.Text()))
-	return response == "" || response == "y" || response == "yes"
-}
-
-// Helper functions
+// Helper functions.
 
 func extractModelID(bom *cdx.BOM) string {
 	if c := bomComponent(bom); c != nil {
@@ -484,12 +431,6 @@ func bomModelCard(bom *cdx.BOM) *cdx.MLModelCard {
 	return c.ModelCard
 }
 
-func configKeyFromSpec(key metadata.Key) string {
-	// Use the full key to avoid ambiguity
-	// e.g. "BOM.metadata.component.properties.huggingface:baseModel" stays as-is
-	return string(key)
-}
-
 func formatValue(v interface{}) string {
 	switch val := v.(type) {
 	case string:
@@ -503,19 +444,19 @@ func formatValue(v interface{}) string {
 	}
 }
 
-// Dataset-specific helper functions
+// Dataset-specific helper functions.
 
-// collectMissingDatasetFields returns dataset fields that need enrichment
+// collectMissingDatasetFields returns dataset fields that need enrichment.
 func (e *Enricher) collectMissingDatasetFields(result completeness.DatasetResult) []metadata.DatasetFieldSpec {
 	var fields []metadata.DatasetFieldSpec
 
 	for _, spec := range metadata.DatasetRegistry() {
-		// Skip if weight is 0 or below threshold
+		// Skip if weight is 0 or below threshold.
 		if spec.Weight <= 0 || spec.Weight < e.config.MinWeight {
 			continue
 		}
 
-		// Check if field is missing
+		// Check if field is missing.
 		isMissing := false
 		for _, k := range result.MissingRequired {
 			if k == spec.Key {
@@ -540,7 +481,7 @@ func (e *Enricher) collectMissingDatasetFields(result completeness.DatasetResult
 	return fields
 }
 
-// refetchDatasetMetadata fetches fresh metadata for a dataset from Hugging Face
+// refetchDatasetMetadata fetches fresh metadata for a dataset from Hugging Face.
 func (e *Enricher) refetchDatasetMetadata(datasetID string) (*fetcher.DatasetAPIResponse, *fetcher.DatasetReadmeCard) {
 	client := fetcher.NewHFClient(time.Duration(e.config.HFTimeout)*time.Second, e.config.HFToken)
 
@@ -565,7 +506,7 @@ func (e *Enricher) refetchDatasetMetadata(datasetID string) (*fetcher.DatasetAPI
 	return apiResp, readme
 }
 
-// getDatasetValueFromFile extracts a dataset value from the config file
+// getDatasetValueFromFile extracts a dataset value from the config file.
 func (e *Enricher) getDatasetValueFromFile(spec metadata.DatasetFieldSpec, configViper interface{}) (interface{}, error) {
 	if configViper == nil {
 		return nil, nil
@@ -590,51 +531,7 @@ func (e *Enricher) getDatasetValueFromFile(spec metadata.DatasetFieldSpec, confi
 	return nil, nil
 }
 
-// getDatasetValueInteractive prompts the user for a dataset value
-func (e *Enricher) getDatasetValueInteractive(spec metadata.DatasetFieldSpec, src metadata.DatasetSource, comp *cdx.Component) (interface{}, error) {
-	// Print field info
-	required := ""
-	if spec.Required {
-		required = " [REQUIRED]"
-	}
-	fmt.Fprintf(e.writer, "\n%s (weight: %.1f)%s\n", spec.Key, spec.Weight, required)
-
-	// Show suggestions if available
-	suggestions := e.getDatasetSuggestions(spec)
-	if len(suggestions) > 0 {
-		fmt.Fprintf(e.writer, "  Suggestions: %s\n", strings.Join(suggestions, ", "))
-	}
-
-	// Prompt for input
-	fmt.Fprintf(e.writer, "  Enter value (or press Enter to skip): ")
-
-	if !e.scan.Scan() {
-		return nil, e.scan.Err()
-	}
-
-	input := strings.TrimSpace(e.scan.Text())
-	if input == "" {
-		return nil, nil
-	}
-
-	return input, nil
-}
-
-// getDatasetSuggestions returns suggested values for a dataset field
-func (e *Enricher) getDatasetSuggestions(spec metadata.DatasetFieldSpec) []string {
-	switch spec.Key {
-	case metadata.DatasetLicenses:
-		return []string{"MIT", "Apache-2.0", "CC-BY-4.0", "CC0-1.0"}
-	case metadata.DatasetTags:
-		return []string{"Comma-separated (e.g., 'nlp, text, classification')"}
-	case metadata.DatasetClassification:
-		return []string{"text-classification", "image-classification", "question-answering", "translation"}
-	default:
-		return nil
-	}
-}
-
-// applyDatasetValue applies a user-provided value to a dataset component
+// applyDatasetValue applies a user-provided value to a dataset component.
 func (e *Enricher) applyDatasetValue(spec metadata.DatasetFieldSpec, src *metadata.DatasetSource, tgt *metadata.DatasetTarget, value interface{}) error {
 	strValue := fmt.Sprintf("%v", value)
 

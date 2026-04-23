@@ -19,24 +19,19 @@ var completenessCmd = &cobra.Command{
 	Long:  "Reads an existing CycloneDX AIBOM (json/xml) and scores it against the configured field registry.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		// Get log level from viper (respects config file and CLI flag)
+		// Get log level from viper (respects config file and CLI flag).
 		level := strings.ToLower(strings.TrimSpace(viper.GetString("completeness.log-level")))
 		if level == "" {
 			level = "standard"
 		}
 		switch level {
 		case "quiet", "standard", "debug":
-			// ok
+			// ok.
 		default:
 			return apperr.Userf("invalid --log-level %q (expected quiet|standard|debug)", level)
 		}
 
-		// Wire internal package logging based on log level.
-		if level != "quiet" {
-			// Logging removed
-		}
-
-		// Get input path and format from viper
+		// Get input path and format from viper.
 		inputPath := viper.GetString("completeness.input")
 		if inputPath == "" {
 			return apperr.User("--input is required")
@@ -53,18 +48,18 @@ var completenessCmd = &cobra.Command{
 
 		res := completeness.Check(bom)
 
-		// If plain-summary requested, print a machine-readable plain summary (no styling)
+		// If plain-summary requested, print a machine-readable plain summary (no styling).
 		if completenessPlainSummary {
-			// Model summary line
+			// Model summary line.
 			fmt.Printf("Model: %s | Score: %.1f%% | Fields: %d/%d\n", res.ModelID, res.Score*100, res.Passed, res.Total)
-			// Dataset summary lines (if any)
+			// Dataset summary lines (if any).
 			for dsName, ds := range res.DatasetResults {
 				fmt.Printf("Dataset: %s | Score: %.1f%% | Fields: %d/%d\n", dsName, ds.Score*100, ds.Passed, ds.Total)
 			}
 			return nil
 		}
 
-		// Use the new UI for rendering if not in quiet mode
+		// Use the new UI for rendering if not in quiet mode.
 		ui := ui.NewCompletenessUI(cmd.OutOrStdout(), level == "quiet")
 		ui.PrintReport(res)
 
@@ -85,7 +80,7 @@ func init() {
 	completenessCmd.Flags().StringVar(&completenessLogLevel, "log-level", "", "Log level: quiet|standard|debug")
 	completenessCmd.Flags().BoolVar(&completenessPlainSummary, "plain-summary", false, "Print a single-line plain summary (no styling)")
 
-	// Bind all flags to viper for config file support
+	// Bind all flags to viper for config file support.
 	viper.BindPFlag("completeness.input", completenessCmd.Flags().Lookup("input"))
 	viper.BindPFlag("completeness.format", completenessCmd.Flags().Lookup("format"))
 	viper.BindPFlag("completeness.log-level", completenessCmd.Flags().Lookup("log-level"))

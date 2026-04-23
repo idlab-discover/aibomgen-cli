@@ -11,7 +11,7 @@ func TestMergeAIBOMsWithSBOM_NormalizesLegacyToolsForMarshal(t *testing.T) {
 	sbom := &cdx.BOM{
 		Metadata: &cdx.Metadata{
 			Tools: &cdx.ToolsChoice{
-				Tools: &[]cdx.Tool{{
+				Tools: &[]cdx.Tool{{ //nolint:staticcheck // cdx.Tool deprecated; used to test legacy-tool normalisation
 					Vendor:  "syft",
 					Name:    "syft",
 					Version: "1.0.0",
@@ -56,7 +56,7 @@ func TestMergeAIBOMsWithSBOM_DeduplicatesLegacyAndComponentTools(t *testing.T) {
 	sbom := &cdx.BOM{
 		Metadata: &cdx.Metadata{
 			Tools: &cdx.ToolsChoice{
-				Tools: &[]cdx.Tool{{
+				Tools: &[]cdx.Tool{{ //nolint:staticcheck // cdx.Tool deprecated; used to test legacy-tool normalisation
 					Vendor:  "idlab-discover",
 					Name:    "aibomgen-cli",
 					Version: "0.1.0",

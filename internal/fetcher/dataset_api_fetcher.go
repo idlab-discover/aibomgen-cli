@@ -1,13 +1,14 @@
 package fetcher
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 )
 
-// DatasetAPIResponse is the decoded response from GET https://huggingface.co/api/datasets/:id
+// DatasetAPIResponse is the decoded response from GET https://huggingface.co/api/datasets/:id.
 type DatasetAPIResponse struct {
 	ID          string         `json:"id"`
 	Author      string         `json:"author"`
@@ -46,7 +47,7 @@ func (f *DatasetAPIFetcher) Fetch(datasetID string) (*DatasetAPIResponse, error)
 	}
 
 	url := fmt.Sprintf("%s/api/datasets/%s", baseURL, trimmedDatasetID)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}

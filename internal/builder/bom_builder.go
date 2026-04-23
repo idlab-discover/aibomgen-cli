@@ -23,11 +23,17 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 	bom := cdx.NewBOM()
 	bom.Metadata = &cdx.Metadata{Component: comp}
 
-	AddMetaSerialNumber(bom)
-	AddMetaTimestamp(bom)
-	AddMetaTools(bom, "", GetAIBoMGenVersion())
+	if err := AddMetaSerialNumber(bom); err != nil {
+		return nil, err
+	}
+	if err := AddMetaTimestamp(bom); err != nil {
+		return nil, err
+	}
+	if err := AddMetaTools(bom, "", GetAIBoMGenVersion()); err != nil {
+		return nil, err
+	}
 
-	// Apply registry exactly once (no duplication)
+	// Apply registry exactly once (no duplication).
 	src := metadata.Source{
 		ModelID:      strings.TrimSpace(ctx.ModelID),
 		Scan:         ctx.Scan,
@@ -47,22 +53,22 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 		metadata.ApplyFromSources(spec, src, tgt)
 	}
 
-	// Now properties, hashes and tags are populated — compute deterministic PURL and BOMRef
+	// Now properties, hashes and tags are populated — compute deterministic PURL and BOMRef.
 	AddComponentPurl(comp)
 	AddComponentBOMRef(comp)
 
-	// Inject security scan findings as Component.Properties and BOM.Vulnerabilities
+	// Inject security scan findings as Component.Properties and BOM.Vulnerabilities.
 	InjectSecurityData(bom, comp, ctx.SecurityTree, strings.TrimSpace(ctx.ModelID))
 
 	return bom, nil
 }
 
-// BuildDataset builds a dataset component into BOM.components
+// BuildDataset builds a dataset component into BOM.components.
 func (b BOMBuilder) BuildDataset(ctx DatasetBuildContext) (*cdx.Component, error) {
 
 	comp := buildDatasetComponent(ctx)
 
-	// Apply dataset registry
+	// Apply dataset registry.
 	src := metadata.DatasetSource{
 		DatasetID: strings.TrimSpace(ctx.DatasetID),
 		Scan:      ctx.Scan,
@@ -85,7 +91,7 @@ func (b BOMBuilder) BuildDataset(ctx DatasetBuildContext) (*cdx.Component, error
 }
 
 func buildMetadataComponent(ctx BuildContext) *cdx.Component {
-	// Minimal skeleton; registry fills the rest
+	// Minimal skeleton; registry fills the rest.
 	name := strings.TrimSpace(ctx.ModelID)
 	if name == "" && strings.TrimSpace(ctx.Scan.Name) != "" {
 		name = strings.TrimSpace(ctx.Scan.Name)
@@ -101,7 +107,7 @@ func buildMetadataComponent(ctx BuildContext) *cdx.Component {
 	}
 }
 
-// buildDatasetComponent creates skeleton for DATASET component (DATA type)
+// buildDatasetComponent creates skeleton for DATASET component (DATA type).
 func buildDatasetComponent(ctx DatasetBuildContext) *cdx.Component {
 	name := strings.TrimSpace(ctx.DatasetID)
 	if name == "" && strings.TrimSpace(ctx.Scan.Name) != "" {

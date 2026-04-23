@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// helper writes a small executable "git" script into dir with the provided content
+// helper writes a small executable "git" script into dir with the provided content.
 func writeFakeGit(t *testing.T, dir, content string) {
 	t.Helper()
 	gitPath := filepath.Join(dir, "git")
@@ -40,7 +40,7 @@ func TestGetAIBoMGenVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// reset globals
+			// reset globals.
 			Version = ""
 			Commit = ""
 			Version = tt.version
@@ -66,7 +66,7 @@ func TestGetAIBoMGenVersion_DevUsesGitDescribe(t *testing.T) {
 	origPath := os.Getenv("PATH")
 	defer func() { _ = os.Setenv("PATH", origPath) }()
 
-	// put a fake git that returns a tag for describe
+	// put a fake git that returns a tag for describe.
 	tmp, err := os.MkdirTemp("", "fake-git")
 	if err != nil {
 		t.Fatalf("tempdir: %v", err)

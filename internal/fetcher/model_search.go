@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,7 +9,7 @@ import (
 	"strings"
 )
 
-// ModelSearchResult represents a single model in search results
+// ModelSearchResult represents a single model in search results.
 type ModelSearchResult struct {
 	ID          string   `json:"id"`
 	ModelID     string   `json:"modelId"`
@@ -21,13 +22,13 @@ type ModelSearchResult struct {
 	Gated       bool     `json:"gated"`
 }
 
-// ModelSearcher searches for models on Hugging Face
+// ModelSearcher searches for models on Hugging Face.
 type ModelSearcher struct {
 	Client  *http.Client
 	BaseURL string // optional; defaults to "https://huggingface.co"
 }
 
-// Search queries Hugging Face for models matching the search term
+// Search queries Hugging Face for models matching the search term.
 func (s *ModelSearcher) Search(query string, limit int) ([]ModelSearchResult, error) {
 	client := s.Client
 	if client == nil {
@@ -43,7 +44,7 @@ func (s *ModelSearcher) Search(query string, limit int) ([]ModelSearchResult, er
 		limit = 20
 	}
 
-	// Build the search URL with parameters
+	// Build the search URL with parameters.
 	searchURL := fmt.Sprintf("%s/api/models", baseURL)
 	params := url.Values{}
 
@@ -57,7 +58,7 @@ func (s *ModelSearcher) Search(query string, limit int) ([]ModelSearchResult, er
 		searchURL = searchURL + "?" + params.Encode()
 	}
 
-	req, err := http.NewRequest(http.MethodGet, searchURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, searchURL, nil)
 	if err != nil {
 		return nil, err
 	}

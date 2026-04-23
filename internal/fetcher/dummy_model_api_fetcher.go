@@ -1,12 +1,12 @@
 package fetcher
 
-// DummyModelAPIFetcher returns a fixed ModelAPIResponse for testing/demo purposes
+// DummyModelAPIFetcher returns a fixed ModelAPIResponse for testing/demo purposes.
 // without making any HTTP requests.
 type DummyModelAPIFetcher struct{}
 
 // Fetch returns a comprehensive dummy ModelAPIResponse with all fields populated.
 func (f *DummyModelAPIFetcher) Fetch(modelID string) (*ModelAPIResponse, error) {
-	// Create a fixed comprehensive response with all fields populated
+	// Create a fixed comprehensive response with all fields populated.
 	gatedBool := false
 	gated := BoolOrString{Bool: &gatedBool}
 

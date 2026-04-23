@@ -1,9 +1,9 @@
 package fetcher
 
-// DummyDatasetReadmeFetcher returns a fixed DatasetReadmeCard for testing/demo purposes
+// DummyDatasetReadmeFetcher returns a fixed DatasetReadmeCard for testing/demo purposes.
 type DummyDatasetReadmeFetcher struct{}
 
-// Fetch returns a dummy dataset README card
+// Fetch returns a dummy dataset README card.
 func (f *DummyDatasetReadmeFetcher) Fetch(datasetID string) (*DatasetReadmeCard, error) {
 	return &DatasetReadmeCard{
 		Raw: "# " + datasetID + " Dataset\n\nDummy dataset card for testing.",

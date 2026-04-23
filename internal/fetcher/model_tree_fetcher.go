@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -71,8 +72,8 @@ type ModelTreeFetcher struct {
 // maxTreePages caps the number of paginated requests to avoid unbounded fetching.
 const maxTreePages = 10
 
-// Fetch returns all file entries for the given modelID from the HF tree API
-// (branch: main, expand=true, recursive=true). It follows cursor-based
+// Fetch returns all file entries for the given modelID from the HF tree API.
+// (branch: main, expand=true, recursive=true). It follows cursor-based.
 // pagination up to maxTreePages pages (1 000 files maximum).
 func (f *ModelTreeFetcher) Fetch(modelID string) ([]SecurityFileEntry, error) {
 	base := strings.TrimRight(f.BaseURL, "/")
@@ -88,7 +89,7 @@ func (f *ModelTreeFetcher) Fetch(modelID string) ([]SecurityFileEntry, error) {
 	cursor := ""
 
 	for page := 0; page < maxTreePages; page++ {
-		// Construct paginated URL: /api/models/{modelID}/tree/main
+		// Construct paginated URL: /api/models/{modelID}/tree/main.
 		apiURL := fmt.Sprintf("%s/api/models/%s/tree/main", base, modelID)
 		u, err := url.Parse(apiURL)
 		if err != nil {
@@ -102,7 +103,7 @@ func (f *ModelTreeFetcher) Fetch(modelID string) ([]SecurityFileEntry, error) {
 		}
 		u.RawQuery = q.Encode()
 
-		req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, u.String(), nil)
 		if err != nil {
 			return nil, fmt.Errorf("build tree request: %w", err)
 		}
@@ -145,7 +146,7 @@ func (f *ModelTreeFetcher) Fetch(modelID string) ([]SecurityFileEntry, error) {
 }
 
 // parseLinkNext extracts the URL from a Link header's rel="next" entry.
-// Example: `<https://huggingface.co/...?cursor=abc>; rel="next"`
+// Example: `<https://huggingface.co/...?cursor=abc>; rel="next"`.
 func parseLinkNext(header string) string {
 	for _, part := range strings.Split(header, ",") {
 		part = strings.TrimSpace(part)

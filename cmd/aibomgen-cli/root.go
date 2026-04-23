@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// rootCmd represents the base command
+// rootCmd represents the base command.
 var rootCmd = &cobra.Command{
 	Use:   "aibomgen-cli",
 	Short: "BOM Generator for Software Projects using AI {}",
@@ -21,7 +21,7 @@ var rootCmd = &cobra.Command{
 		initUIAndBanner(cmd)
 	},
 
-	// When invoked without a subcommand, show help (with banner) instead of
+	// When invoked without a subcommand, show help (with banner) instead of.
 	// printing a plain usage output.
 	RunE: func(cmd *cobra.Command, args []string) error {
 		initUIAndBanner(cmd)
@@ -30,23 +30,21 @@ var rootCmd = &cobra.Command{
 }
 
 var cfgFile string
-var version string
 var renderedBanner string
 
-// SetVersion sets the version for the CLI
+// SetVersion sets the version for the CLI.
 func SetVersion(v string) {
-	version = v
 	rootCmd.Version = v
 }
 
-// GetRootCmd returns the root command for use with fang
+// GetRootCmd returns the root command for use with fang.
 func GetRootCmd() *cobra.Command {
 	return rootCmd
 }
 
 func init() {
 	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
+	// Cobra supports persistent flags, which, if defined here,.
 	// will be global for your application.
 
 	cobra.OnInitialize(initConfig)
@@ -60,11 +58,11 @@ func init() {
 		defaultHelp(cmd, args)
 	})
 
-	// Suppress usage output on errors – it is noise for a large CLI; the user
+	// Suppress usage output on errors – it is noise for a large CLI; the user.
 	// should run the subcommand with --help to see usage when needed.
 	rootCmd.SilenceUsage = true
 
-	// Add subcommands
+	// Add subcommands.
 	rootCmd.AddCommand(generateCmd, scanCmd, enrichCmd, validateCmd, completenessCmd, mergeCmd, vulnScanCmd)
 }
 
@@ -81,11 +79,11 @@ func initConfig() {
 		viper.AddConfigPath(home)
 		viper.AddConfigPath("./config")
 
-		// Try .aibomgen-cli first
+		// Try .aibomgen-cli first.
 		viper.SetConfigName(".aibomgen-cli")
 		err = viper.ReadInConfig()
 
-		// If not found, try defaults.yaml
+		// If not found, try defaults.yaml.
 		notFound := &viper.ConfigFileNotFoundError{}
 		if err != nil && errors.As(err, notFound) {
 			viper.SetConfigName("defaults")
@@ -104,8 +102,8 @@ func initConfig() {
 		return
 	}
 
-	// Enable environment variable support (e.g., AIBOMGEN_HUGGINGFACE_TOKEN)
-	// Replace dots with underscores: huggingface.token -> AIBOMGEN_HUGGINGFACE_TOKEN
+	// Enable environment variable support (e.g., AIBOMGEN_HUGGINGFACE_TOKEN).
+	// Replace dots with underscores: huggingface.token -> AIBOMGEN_HUGGINGFACE_TOKEN.
 	viper.SetEnvPrefix("AIBOMGEN")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
@@ -117,7 +115,7 @@ func initConfig() {
 	case err != nil && !errors.As(err, notFound):
 		cobra.CheckErr(err)
 	case err != nil && errors.As(err, notFound):
-		// The config file is optional, we shouldn't exit when the config is not found
+		// The config file is optional, we shouldn't exit when the config is not found.
 		break
 	default:
 		configMsg := ui.Dim.Render("Using config file: ") + ui.Secondary.Render(viper.ConfigFileUsed())

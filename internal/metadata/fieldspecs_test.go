@@ -113,7 +113,7 @@ func TestRegistryApplyAndPresent(t *testing.T) {
 	if comp.Manufacturer == nil || comp.Manufacturer.Name != "hf-author" {
 		t.Fatalf("manufacturer mismatch")
 	}
-	// Group is now extracted from ModelID (first part before /)
+	// Group is now extracted from ModelID (first part before /).
 	if comp.Group != "hf-org" {
 		t.Fatalf("group mismatch: expected 'hf-org', got %q", comp.Group)
 	}
@@ -264,12 +264,12 @@ func TestModelCardSpecsSkipEmptyValues(t *testing.T) {
 	})
 	t.Run("model architecture guards", func(t *testing.T) {
 		card := &cdx.MLModelCard{}
-		// len(architectures) == 0
+		// len(architectures) == 0.
 		ApplyFromSources(specFor(t, ModelCardModelParametersModelArchitecture), Source{HF: &fetcher.ModelAPIResponse{}}, Target{ModelCard: card})
 		if card.ModelParameters != nil {
 			t.Fatalf("expected model parameters to remain nil for empty list")
 		}
-		// blank first architecture
+		// blank first architecture.
 		card2 := &cdx.MLModelCard{}
 		hf := &fetcher.ModelAPIResponse{}
 		hf.Config.Architectures = []string{" "}

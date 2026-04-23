@@ -45,7 +45,7 @@ Example:
   # Merge multiple AIBOMs with one SBOM
   ./aibomgen-cli merge --aibom model1_aibom.json --aibom model2_aibom.json --sbom sbom.json -o merged.json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get inputs from viper (respects config file and CLI flag)
+		// Get inputs from viper (respects config file and CLI flag).
 		aibomPaths := viper.GetStringSlice("merge.aiboms")
 		if len(aibomPaths) == 0 {
 			return apperr.User("at least one --aibom is required")
@@ -61,30 +61,30 @@ Example:
 			return apperr.User("--output is required")
 		}
 
-		// Get log level from viper
+		// Get log level from viper.
 		level := strings.ToLower(strings.TrimSpace(viper.GetString("merge.log-level")))
 		if level == "" {
 			level = "standard"
 		}
 		switch level {
 		case "quiet", "standard", "debug":
-			// ok
+			// ok.
 		default:
 			return apperr.Userf("invalid --log-level %q (expected quiet|standard|debug)", level)
 		}
 
-		// Get format from viper or detect from output path
+		// Get format from viper or detect from output path.
 		format := viper.GetString("merge.format")
 		if format == "" {
 			format = "auto"
 		}
 
-		// Initialize UI
+		// Initialize UI.
 		quiet := level == "quiet"
 		mergerUI := ui.NewMergerUI(os.Stdout, quiet)
 		mergerUI.StartWorkflow(len(aibomPaths))
 
-		// Read SBOM (this will be the base)
+		// Read SBOM (this will be the base).
 		mergerUI.StartReadingSBOM(sbomPath)
 		sbom, err := bomio.ReadBOM(sbomPath, "auto")
 		if err != nil {
@@ -98,7 +98,7 @@ Example:
 		}
 		mergerUI.CompleteReadingSBOM(sbomComponentCount)
 
-		// Read all AIBOMs
+		// Read all AIBOMs.
 		mergerUI.StartReadingAIBOMs(len(aibomPaths))
 		var aiboms []*cdx.BOM
 		for i, aibomPath := range aibomPaths {
@@ -112,12 +112,12 @@ Example:
 		}
 		mergerUI.CompleteReadingAIBOMs(len(aiboms))
 
-		// Prepare merge options
+		// Prepare merge options.
 		opts := merger.MergeOptions{
 			DeduplicateComponents: viper.GetBool("merge.deduplicate"),
 		}
 
-		// Perform merge
+		// Perform merge.
 		mergerUI.StartMerging()
 		result, err := merger.MergeAIBOMsWithSBOM(sbom, aiboms, opts)
 		if err != nil {
@@ -126,7 +126,7 @@ Example:
 		}
 		mergerUI.CompleteMerging(result.SBOMComponentCount, result.AIBOMComponentCount)
 
-		// Write merged BOM
+		// Write merged BOM.
 		mergerUI.StartWriting(outputPath)
 		if err := bomio.WriteBOM(result.MergedBOM, outputPath, format, ""); err != nil {
 			mergerUI.PrintError(fmt.Errorf("failed to write merged BOM: %w", err))
@@ -134,7 +134,7 @@ Example:
 		}
 		mergerUI.CompleteWriting()
 
-		// Print summary
+		// Print summary.
 		mergerUI.PrintSummary(result, outputPath, len(aiboms), opts.DeduplicateComponents)
 
 		return nil
@@ -149,7 +149,7 @@ func init() {
 	mergeCmd.Flags().BoolVar(&mergeDeduplicate, "deduplicate", true, "Remove duplicate components based on BOM-ref")
 	mergeCmd.Flags().StringVar(&mergeLogLevel, "log-level", "", "Log level: quiet|standard|debug")
 
-	// Bind all flags to viper for config file support
+	// Bind all flags to viper for config file support.
 	viper.BindPFlag("merge.aiboms", mergeCmd.Flags().Lookup("aibom"))
 	viper.BindPFlag("merge.sbom", mergeCmd.Flags().Lookup("sbom"))
 	viper.BindPFlag("merge.output", mergeCmd.Flags().Lookup("output"))

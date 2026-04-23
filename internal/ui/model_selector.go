@@ -13,13 +13,13 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/internal/fetcher"
 )
 
-// ModelSelectorConfig configures the model selector
+// ModelSelectorConfig configures the model selector.
 type ModelSelectorConfig struct {
 	HFToken string
 	Timeout time.Duration
 }
 
-// modelItem represents a model in the list
+// modelItem represents a model in the list.
 type modelItem struct {
 	id        string
 	author    string
@@ -49,7 +49,7 @@ func (i modelItem) Description() string {
 
 func (i modelItem) FilterValue() string { return i.id }
 
-// modelSelectorModel is the Bubble Tea model for the interactive selector
+// modelSelectorModel is the Bubble Tea model for the interactive selector.
 type modelSelectorModel struct {
 	textInput textinput.Model
 	list      list.Model
@@ -73,7 +73,7 @@ type searchResultMsg struct {
 
 type searchDebounceMsg struct{}
 
-// NewModelSelector creates a new interactive model selector
+// NewModelSelector creates a new interactive model selector.
 func NewModelSelector(config ModelSelectorConfig) *modelSelectorModel {
 	ti := textinput.New()
 	ti.Placeholder = "Search Hugging Face models..."
@@ -89,7 +89,7 @@ func NewModelSelector(config ModelSelectorConfig) *modelSelectorModel {
 	delegate.SetHeight(3)
 	delegate.SetSpacing(0)
 
-	// Customize delegate styles
+	// Customize delegate styles.
 	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
 		Foreground(ColorHighlight).
 		BorderForeground(ColorPrimary)
@@ -117,22 +117,22 @@ func NewModelSelector(config ModelSelectorConfig) *modelSelectorModel {
 	}
 }
 
-// Init initializes the model
+// Init initializes the model.
 func (m *modelSelectorModel) Init() tea.Cmd {
-	// Perform initial search with empty query to get popular models
+	// Perform initial search with empty query to get popular models.
 	return tea.Batch(
 		textinput.Blink,
 		m.performSearch(""),
 	)
 }
 
-// Update handles messages
+// Update handles messages.
 func (m *modelSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Don't match space when typing in text input
+		// Don't match space when typing in text input.
 		if m.textInput.Focused() {
 			switch msg.String() {
 			case "ctrl+c", "esc":
@@ -140,12 +140,12 @@ func (m *modelSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			case "enter":
 				if m.textInput.Value() != "" {
-					// Unfocus text input and focus list
+					// Unfocus text input and focus list.
 					m.textInput.Blur()
 					return m, nil
 				}
 			case "down", "up":
-				// If we have items, switch to list navigation
+				// If we have items, switch to list navigation.
 				if len(m.filteredItems) > 0 {
 					m.textInput.Blur()
 					var cmd tea.Cmd
@@ -153,21 +153,21 @@ func (m *modelSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, cmd
 				}
 			default:
-				// Update text input and trigger debounced search
+				// Update text input and trigger debounced search.
 				var cmd tea.Cmd
 				m.textInput, cmd = m.textInput.Update(msg)
 
 				query := m.textInput.Value()
 				if query != m.searchQuery {
 					m.searchQuery = query
-					// Debounce search: wait 300ms after last keystroke
+					// Debounce search: wait 300ms after last keystroke.
 					cmds = append(cmds, m.debounceSearch())
 				}
 				cmds = append(cmds, cmd)
 				return m, tea.Batch(cmds...)
 			}
 		} else {
-			// List is focused
+			// List is focused.
 			switch msg.String() {
 			case "ctrl+c", "esc":
 				m.quitting = true
@@ -177,18 +177,18 @@ func (m *modelSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.quitting = true
 				return m, tea.Quit
 			case "s":
-				// Toggle selection
+				// Toggle selection.
 				if i, ok := m.list.SelectedItem().(modelItem); ok {
 					m.selected[i.id] = !m.selected[i.id]
 					m.updateItemSelection(i.id, m.selected[i.id])
 				}
 				return m, nil
 			case "/", "i":
-				// Focus back on search input
+				// Focus back on search input.
 				m.textInput.Focus()
 				return m, textinput.Blink
 			default:
-				// Let list handle other keys (arrow keys, etc.)
+				// Let list handle other keys (arrow keys, etc.).
 				var cmd tea.Cmd
 				m.list, cmd = m.list.Update(msg)
 				return m, cmd
@@ -202,7 +202,7 @@ func (m *modelSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case searchDebounceMsg:
-		// Perform the search
+		// Perform the search.
 		return m, m.performSearch(m.searchQuery)
 
 	case searchResultMsg:
@@ -212,7 +212,7 @@ func (m *modelSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Convert results to list items
+		// Convert results to list items.
 		items := make([]list.Item, len(msg.results))
 		for i, result := range msg.results {
 			items[i] = modelItem{
@@ -229,7 +229,7 @@ func (m *modelSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Update list
+	// Update list.
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	cmds = append(cmds, cmd)
@@ -237,7 +237,7 @@ func (m *modelSelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// View renders the model
+// View renders the model.
 func (m *modelSelectorModel) View() tea.View {
 	if m.quitting {
 		return tea.NewView("")
@@ -245,7 +245,7 @@ func (m *modelSelectorModel) View() tea.View {
 
 	var b strings.Builder
 
-	// Title
+	// Title.
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(ColorPrimary).
@@ -253,7 +253,7 @@ func (m *modelSelectorModel) View() tea.View {
 	b.WriteString(titleStyle.Render("🤗 Hugging Face Model Selector"))
 	b.WriteString("\n\n")
 
-	// Search input
+	// Search input.
 	searchLabel := Dim.Render("Search: ")
 	b.WriteString(searchLabel)
 	b.WriteString(m.textInput.View())
@@ -263,11 +263,11 @@ func (m *modelSelectorModel) View() tea.View {
 	}
 	b.WriteString("\n\n")
 
-	// List of models
+	// List of models.
 	b.WriteString(m.list.View())
 	b.WriteString("\n\n")
 
-	// Selected models
+	// Selected models.
 	var selectedIDs []string
 	for id, selected := range m.selected {
 		if selected {
@@ -281,7 +281,7 @@ func (m *modelSelectorModel) View() tea.View {
 			Highlight.Render(fmt.Sprintf("%d model(s)", len(selectedIDs)))))
 	}
 
-	// Help text
+	// Help text.
 	helpStyle := lipgloss.NewStyle().Foreground(ColorTextDim)
 	if m.textInput.Focused() {
 		b.WriteString(helpStyle.Render("↑/↓: move to list · enter: finish search · esc: cancel"))
@@ -289,7 +289,7 @@ func (m *modelSelectorModel) View() tea.View {
 		b.WriteString(helpStyle.Render("s: select · ↑/↓: navigate · enter: confirm · /: search · esc: cancel"))
 	}
 
-	// Error display
+	// Error display.
 	if m.err != nil {
 		b.WriteString("\n\n")
 		b.WriteString(Error.Render(fmt.Sprintf("Error: %v", m.err)))
@@ -298,7 +298,7 @@ func (m *modelSelectorModel) View() tea.View {
 	return tea.NewView(b.String())
 }
 
-// debounceSearch returns a command that triggers search after a delay
+// debounceSearch returns a command that triggers search after a delay.
 func (m *modelSelectorModel) debounceSearch() tea.Cmd {
 	return func() tea.Msg {
 		time.Sleep(300 * time.Millisecond)
@@ -306,7 +306,7 @@ func (m *modelSelectorModel) debounceSearch() tea.Cmd {
 	}
 }
 
-// performSearch executes the search
+// performSearch executes the search.
 func (m *modelSelectorModel) performSearch(query string) tea.Cmd {
 	m.searching = true
 	return func() tea.Msg {
@@ -315,7 +315,7 @@ func (m *modelSelectorModel) performSearch(query string) tea.Cmd {
 	}
 }
 
-// updateItemSelection updates the selected state of an item
+// updateItemSelection updates the selected state of an item.
 func (m *modelSelectorModel) updateItemSelection(id string, selected bool) {
 	for i, item := range m.filteredItems {
 		if mi, ok := item.(modelItem); ok && mi.id == id {
@@ -333,7 +333,7 @@ func (m *modelSelectorModel) updateItemSelection(id string, selected bool) {
 	m.list.SetItems(m.filteredItems)
 }
 
-// GetSelectedModels returns the list of selected model IDs
+// GetSelectedModels returns the list of selected model IDs.
 func (m *modelSelectorModel) GetSelectedModels() []string {
 	var models []string
 	for id, selected := range m.selected {
@@ -344,12 +344,12 @@ func (m *modelSelectorModel) GetSelectedModels() []string {
 	return models
 }
 
-// WasConfirmed returns true if the user confirmed the selection
+// WasConfirmed returns true if the user confirmed the selection.
 func (m *modelSelectorModel) WasConfirmed() bool {
 	return m.confirmed
 }
 
-// RunModelSelector runs the interactive model selector and returns selected model IDs
+// RunModelSelector runs the interactive model selector and returns selected model IDs.
 func RunModelSelector(config ModelSelectorConfig) ([]string, error) {
 	p := tea.NewProgram(NewModelSelector(config))
 	m, err := p.Run()
@@ -365,7 +365,7 @@ func RunModelSelector(config ModelSelectorConfig) ([]string, error) {
 	return model.GetSelectedModels(), nil
 }
 
-// formatNumber formats a number with commas for thousands
+// formatNumber formats a number with commas for thousands.
 func formatNumber(n int) string {
 	if n < 1000 {
 		return fmt.Sprintf("%d", n)

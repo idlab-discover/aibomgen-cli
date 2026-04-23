@@ -29,11 +29,11 @@ func ReadBOM(path string, format string) (*cdx.BOM, error) {
 		case ".json":
 			actual = "json"
 		default:
-			// keep existing behavior: default to JSON when not .xml
+			// keep existing behavior: default to JSON when not .xml.
 			actual = "json"
 		}
 	case "json", "xml":
-		// ok
+		// ok.
 	default:
 		return nil, fmt.Errorf("unsupported BOM format: %q", format)
 	}
@@ -68,12 +68,12 @@ func WriteBOM(bom *cdx.BOM, outputPath string, format string, spec string) error
 			actual = "json"
 		}
 	case "json", "xml":
-		// ok
+		// ok.
 	default:
 		return fmt.Errorf("unsupported BOM format: %q", format)
 	}
 
-	// Validate extension matches format
+	// Validate extension matches format.
 	switch actual {
 	case "xml":
 		if ext != ".xml" {
@@ -108,11 +108,11 @@ func WriteBOM(bom *cdx.BOM, outputPath string, format string, spec string) error
 		return fmt.Errorf("unsupported CycloneDX spec version: %q", spec)
 	}
 
-	// WORKAROUND: Manually strip tags for spec < 1.6
-	// Tags were introduced in spec 1.6, but cyclonedx-go doesn't remove them
-	// when encoding to earlier versions (unlike manufacturer, authors, etc.)
-	// See: https://github.com/CycloneDX/cyclonedx-go/issues/248
-	// TODO: Remove this workaround once issue #248 is fixed
+	// WORKAROUND: Manually strip tags for spec < 1.6.
+	// Tags were introduced in spec 1.6, but cyclonedx-go doesn't remove them.
+	// when encoding to earlier versions (unlike manufacturer, authors, etc.).
+	// See: https://github.com/CycloneDX/cyclonedx-go/issues/248.
+	// TODO: Remove this workaround once issue #248 is fixed.
 	if sv < cdx.SpecVersion1_6 {
 		stripTagsFromBOM(bom)
 	}
@@ -121,21 +121,21 @@ func WriteBOM(bom *cdx.BOM, outputPath string, format string, spec string) error
 }
 
 // stripTagsFromBOM removes tags from all components in the BOM.
-// WORKAROUND for cyclonedx-go issue #248: Tags are not automatically removed
+// WORKAROUND for cyclonedx-go issue #248: Tags are not automatically removed.
 // when encoding to spec versions < 1.6, even though tags were introduced in 1.6.
 // This function manually strips tags to ensure spec compliance.
-// TODO: Remove this workaround once https://github.com/CycloneDX/cyclonedx-go/issues/248 is fixed
+// TODO: Remove this workaround once https://github.com/CycloneDX/cyclonedx-go/issues/248 is fixed.
 func stripTagsFromBOM(bom *cdx.BOM) {
 	if bom == nil {
 		return
 	}
 
-	// Strip tags from metadata component
+	// Strip tags from metadata component.
 	if bom.Metadata != nil && bom.Metadata.Component != nil {
 		stripTagsFromComponent(bom.Metadata.Component)
 	}
 
-	// Strip tags from all components
+	// Strip tags from all components.
 	if bom.Components != nil {
 		for i := range *bom.Components {
 			stripTagsFromComponent(&(*bom.Components)[i])
@@ -151,7 +151,7 @@ func stripTagsFromComponent(comp *cdx.Component) {
 
 	comp.Tags = nil
 
-	// Recursively process child components
+	// Recursively process child components.
 	if comp.Components != nil {
 		for i := range *comp.Components {
 			stripTagsFromComponent(&(*comp.Components)[i])
@@ -188,7 +188,7 @@ func ParseSpecVersion(s string) (cdx.SpecVersion, bool) {
 func WriteOutputFiles(discoveredBOMs []generator.DiscoveredBOM, outputDir, fileExt, format, specVersion string) ([]string, error) {
 	written := make([]string, 0, len(discoveredBOMs))
 	for _, d := range discoveredBOMs {
-		// Extract component name from BOM metadata
+		// Extract component name from BOM metadata.
 		var name string
 		if d.BOM != nil && d.BOM.Metadata != nil && d.BOM.Metadata.Component != nil {
 			name = d.BOM.Metadata.Component.Name
@@ -203,7 +203,7 @@ func WriteOutputFiles(discoveredBOMs []generator.DiscoveredBOM, outputDir, fileE
 			}
 		}
 
-		// Sanitize component name for use in filename
+		// Sanitize component name for use in filename.
 		if name == "" {
 			name = "model"
 		}

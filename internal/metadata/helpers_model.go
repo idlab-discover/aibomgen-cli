@@ -35,7 +35,7 @@ func normalizeDatasetRef(s string) string {
 	if strings.HasPrefix(s, "dataset:") {
 		return s
 	}
-	// If it already looks like a namespaced identifier (e.g., "org/ds"), still prefix with dataset:
+	// If it already looks like a namespaced identifier (e.g., "org/ds"), still prefix with dataset:.
 	return "dataset:" + s
 }
 
@@ -91,7 +91,7 @@ func bomModelParameters(b *cdx.BOM) *cdx.MLModelParameters {
 }
 
 func extractLicense(cardData map[string]any, tags []string) string {
-	// cardData.license
+	// cardData.license.
 	if cardData != nil {
 		if v, ok := cardData["license"]; ok {
 			if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
@@ -99,7 +99,7 @@ func extractLicense(cardData map[string]any, tags []string) string {
 			}
 		}
 	}
-	// tag license:apache-2.0
+	// tag license:apache-2.0.
 	for _, t := range tags {
 		t = strings.TrimSpace(t)
 		if strings.HasPrefix(t, "license:") {
@@ -155,7 +155,7 @@ func extractDatasets(cardData map[string]any, tags []string) []string {
 		out = append(out, raw)
 	}
 
-	// cardData.datasets: string or array
+	// cardData.datasets: string or array.
 	if cardData != nil {
 		if v, ok := cardData["datasets"]; ok && v != nil {
 			switch t := v.(type) {
@@ -171,7 +171,7 @@ func extractDatasets(cardData map[string]any, tags []string) []string {
 		}
 	}
 
-	// tags: dataset:NAME
+	// tags: dataset:NAME.
 	for _, t := range tags {
 		t = strings.TrimSpace(t)
 		if strings.HasPrefix(t, "dataset:") {

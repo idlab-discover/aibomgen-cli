@@ -17,7 +17,26 @@ linters:
       scope: toplevel   # only top-level declarations (doc comments)
       period: true
 
+  exclusions:
+    rules:
+      # Ignoring Close() errors on defer is idiomatic Go — the body is already consumed.
+      - linters: [errcheck]
+        text: "Error return value of `(.*\\.Close|.*\\.Body\\.Close)` is not checked"
+
+      # fmt.Fprint* to io.Writer in CLI output: errors are not actionable.
+      - linters: [errcheck]
+        text: "Error return value of `fmt\\.Fprint"
+
+      # viper.BindPFlag only errors when a flag name is misspelled — a programming error
+      # caught at startup; panic via init() is the idiomatic Cobra/Viper response.
+      - linters: [errcheck]
+        text: "Error return value of `viper\\.BindPFlag` is not checked"
+
+      # QF1012 is a stylistic quick-fix suggestion (WriteString+Sprintf → Fprintf).
+      # The code is correct as written; suppressing globally to avoid churn.
+      - linters: [staticcheck]
+        text: "QF1012:"
+
 issues:
-  # Keep output readable
   max-issues-per-linter: 30
   max-same-issues: 5
