@@ -43,12 +43,33 @@ Ensure `$HOME/go/bin` is in your `PATH`, then verify:
 aibomgen-cli --help
 ```
 
-### From release archive
+**Uninstall:**
 
 ```bash
-tar -xzf aibomgen-cli_<version>_linux_amd64.tar.gz
+rm "$(go env GOPATH)/bin/aibomgen-cli"
+hash -r  # refresh shell command cache
+```
+
+### From release archive (preferred)
+
+```bash
+VERSION=0.2.0                      # replace with the desired version (without leading 'v')
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')  # linux, darwin
+ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')  # amd64, arm64
+curl -L -o aibomgen-cli_${VERSION}_${OS}_${ARCH}.tar.gz \
+  https://github.com/idlab-discover/aibomgen-cli/releases/download/v${VERSION}/aibomgen-cli_${VERSION}_${OS}_${ARCH}.tar.gz
+tar -xzf aibomgen-cli_${VERSION}_${OS}_${ARCH}.tar.gz
 chmod +x aibomgen-cli
 sudo mv aibomgen-cli /usr/local/bin/aibomgen-cli
+hash -r  # refresh shell command cache without opening a new terminal
+```
+
+**Uninstall:**
+
+```bash
+sudo rm /usr/local/bin/aibomgen-cli
+rm -f ~/.local/share/bash-completion/completions/aibomgen-cli
+hash -r  # refresh shell command cache
 ```
 
 ### From source
@@ -57,6 +78,12 @@ sudo mv aibomgen-cli /usr/local/bin/aibomgen-cli
 go test ./...
 go build -o aibomgen-cli .
 aibomgen-cli --help
+```
+
+**Uninstall:**
+
+```bash
+rm ./aibomgen-cli
 ```
 
 ## Commands
