@@ -35,6 +35,7 @@ Thumbs.db
 *.pem
 .vscode
 layout.json
+.github/prompts/
 
 # Generated SBOM/release artifacts (produced in CI, not committed)
 sbom-binary.json
