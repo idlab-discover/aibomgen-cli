@@ -1,0 +1,54 @@
+name: Documentation Issue
+description: Report missing, incorrect, or unclear documentation — including the README, metadata field registry, enrichment config, or godoc.
+labels: ["documentation"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Documentation area
+      options:
+        - README
+        - Metadata field registry / enrichment config
+        - Command reference (--help output)
+        - godoc / package-level comments
+        - docs/ folder
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: File or URL
+      description: Link to the specific file, section, or page that has the issue.
+      placeholder: "e.g. docs/draft/mapping/config.md, README.md#installation"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Issue kind
+      options:
+        - Incorrect information
+        - Missing information
+        - Outdated information
+        - Unclear or confusing
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What is wrong or missing
+      description: Describe the specific gap or error. Quote the problematic text if applicable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: What should the documentation say instead, or what should be added?
+    validations:
+      required: false

@@ -10,7 +10,6 @@ jobs:
   build:
     permissions:
       contents: read
-      id-token: write
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -111,17 +110,6 @@ jobs:
             echo "No results from grype" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Install Cosign
-        if: ${{ matrix.go-version == '1.25.x' }}
-        uses: sigstore/cosign-installer@v4.0.0
-
-      - name: Sign SBOM (Keyless)
-        if: ${{ matrix.go-version == '1.25.x' }}
-        run: |
-          cosign sign-blob --yes \
-            --bundle=sbom.bundle.json \
-            sbom-binary-vulnerabilities.json
-
       - name: Fail if vulnerabilities found
         if: ${{ matrix.go-version == '1.25.x' }}
         run: |
@@ -133,12 +121,4 @@ jobs:
             echo "Found $count vulnerabilities in SBOM"; exit 1
           fi
 
-      - name: Upload SBOM artifacts
-        if: ${{ matrix.go-version == '1.25.x' }}
-        uses: actions/upload-artifact@v6
-        with:
-          name: sbom-artifacts
-          path: |
-            sbom-binary.json
-            sbom-binary-vulnerabilities.json
-            sbom.bundle.json
+
