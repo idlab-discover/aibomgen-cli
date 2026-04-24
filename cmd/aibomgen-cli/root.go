@@ -67,6 +67,16 @@ func init() {
 }
 
 func initConfig() {
+	// Enable environment variable support (e.g. AIBOMGEN_HUGGINGFACE_TOKEN)
+	// up-front so overrides apply regardless of how (or whether) the config
+	// file is located below. Previously this block only ran in the
+	// `cfgFile != ""` branch, so users without `--config` silently lost all
+	// AIBOMGEN_* env vars (issue #9). Replace dots with underscores:
+	// huggingface.token -> AIBOMGEN_HUGGINGFACE_TOKEN.
+	viper.SetEnvPrefix("AIBOMGEN")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
+
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
@@ -101,12 +111,6 @@ func initConfig() {
 
 		return
 	}
-
-	// Enable environment variable support (e.g., AIBOMGEN_HUGGINGFACE_TOKEN).
-	// Replace dots with underscores: huggingface.token -> AIBOMGEN_HUGGINGFACE_TOKEN.
-	viper.SetEnvPrefix("AIBOMGEN")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.AutomaticEnv()
 
 	err := viper.ReadInConfig()
 
