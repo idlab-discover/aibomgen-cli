@@ -201,14 +201,14 @@ func (g *GenerateUI) PrintSummary(filesWritten int, outputDir, format string) {
 	fmt.Fprintln(g.writer, SuccessBox.Render(summary.String()))
 }
 
-// PrintNoModelsFound prints a message when no models are found.
-func (g *GenerateUI) PrintNoModelsFound() {
+// PrintNoBOMsWritten prints a message when no BOMs were written.
+func (g *GenerateUI) PrintNoBOMsWritten() {
 	if g.quiet {
 		return
 	}
 
-	msg := "No models detected; no AIBOM files written."
-	fmt.Fprintln(g.writer, Warning.Render(GetWarnMark()+" "+msg))
+	msg := "No BOMs written."
+	fmt.Fprintln(g.writer, Error.Render(GetCrossMark()+" "+msg))
 }
 
 // LogStep prints a simple log message (non-workflow mode).

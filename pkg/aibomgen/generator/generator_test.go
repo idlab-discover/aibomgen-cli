@@ -78,6 +78,32 @@ func (m *mockDatasetReadmeFetcher) Fetch(id string) (*fetcher.DatasetReadmeCard,
 	return &fetcher.DatasetReadmeCard{}, nil
 }
 
+func successFetcherSet() fetcherSet {
+	return fetcherSet{
+		modelAPI: &mockModelAPIFetcher{
+			fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
+				return &fetcher.ModelAPIResponse{ID: id}, nil
+			},
+		},
+		modelReadme: &mockModelReadmeFetcher{
+			fetchFunc: func(id string) (*fetcher.ModelReadmeCard, error) {
+				return &fetcher.ModelReadmeCard{}, nil
+			},
+		},
+		datasetAPI: &mockDatasetAPIFetcher{
+			fetchFunc: func(id string) (*fetcher.DatasetAPIResponse, error) {
+				return &fetcher.DatasetAPIResponse{ID: id}, nil
+			},
+		},
+		datasetReadme: &mockDatasetReadmeFetcher{
+			fetchFunc: func(id string) (*fetcher.DatasetReadmeCard, error) {
+				return &fetcher.DatasetReadmeCard{}, nil
+			},
+		},
+		modelTree: &fetcher.DummyModelTreeFetcher{},
+	}
+}
+
 func TestBuildDummyBOM(t *testing.T) {
 	// Save originals.
 	originalDummyFetcherSet := newDummyFetcherSet
@@ -271,6 +297,9 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
+				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+					return successFetcherSet()
+				}
 			},
 			wantErr: false,
 			check: func(t *testing.T, got []DiscoveredBOM) {
@@ -311,6 +340,9 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
+				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+					return successFetcherSet()
+				}
 			},
 			wantErr: false,
 			check: func(t *testing.T, got []DiscoveredBOM) {
@@ -334,6 +366,9 @@ func TestBuildPerDiscovery(t *testing.T) {
 							return &cdx.BOM{}, nil
 						},
 					}
+				}
+				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+					return successFetcherSet()
 				}
 			},
 			wantErr: false,
@@ -361,6 +396,9 @@ func TestBuildPerDiscovery(t *testing.T) {
 							return &cdx.BOM{SerialNumber: "test-serial"}, nil
 						},
 					}
+				}
+				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+					return successFetcherSet()
 				}
 			},
 			wantErr: false,
@@ -613,6 +651,42 @@ func TestBuildPerDiscovery(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "skips model when API returns 401 (unauthorized) (model not found is also 401)",
+			args: args{
+				discoveries: []scanner.Discovery{
+					{ID: "private-or-missing-model", Name: "private-or-missing-model", Type: "huggingface"},
+				},
+				opts: GenerateOptions{Timeout: 1 * time.Second},
+			},
+			setup: func() {
+				newBOMBuilder = func() bomBuilder {
+					return &mockBOMBuilder{
+						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
+							return &cdx.BOM{}, nil
+						},
+					}
+				}
+				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+					return fetcherSet{
+						modelAPI: &mockModelAPIFetcher{
+							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
+								return nil, &fetcher.HFError{StatusCode: 401}
+							},
+						},
+						modelReadme:   &mockModelReadmeFetcher{},
+						datasetAPI:    &mockDatasetAPIFetcher{},
+						datasetReadme: &mockDatasetReadmeFetcher{},
+					}
+				}
+			},
+			wantErr: false,
+			check: func(t *testing.T, got []DiscoveredBOM) {
+				if len(got) != 0 {
+					t.Errorf("Expected 0 BOMs for model unauthorized on HF (401), got %d", len(got))
+				}
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -766,6 +840,9 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
+				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+					return successFetcherSet()
+				}
 			},
 			wantErr: false,
 			check: func(t *testing.T, got []DiscoveredBOM) {
@@ -791,6 +868,9 @@ func TestBuildFromModelIDs(t *testing.T) {
 							return &cdx.BOM{}, nil
 						},
 					}
+				}
+				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+					return successFetcherSet()
 				}
 			},
 			wantErr: false,
@@ -833,6 +913,9 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
+				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+					return successFetcherSet()
+				}
 			},
 			wantErr: false,
 			check: func(t *testing.T, got []DiscoveredBOM) {
@@ -859,6 +942,9 @@ func TestBuildFromModelIDs(t *testing.T) {
 							return &cdx.BOM{}, nil
 						},
 					}
+				}
+				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+					return successFetcherSet()
 				}
 			},
 			wantErr: false,
@@ -979,6 +1065,74 @@ func TestBuildFromModelIDs(t *testing.T) {
 				}
 				if got[0].BOM.Components == nil || len(*got[0].BOM.Components) != 1 {
 					t.Errorf("Expected 1 dataset component (readme failure is ignored), got %v", got[0].BOM.Components)
+				}
+			},
+		},
+		{
+			name: "skips model when API returns 404 (not found)",
+			args: args{
+				modelIDs: []string{"org/nonexistent-model"},
+				opts:     GenerateOptions{Timeout: 1 * time.Second},
+			},
+			setup: func() {
+				newBOMBuilder = func() bomBuilder {
+					return &mockBOMBuilder{
+						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
+							return &cdx.BOM{}, nil
+						},
+					}
+				}
+				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+					return fetcherSet{
+						modelAPI: &mockModelAPIFetcher{
+							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
+								return nil, &fetcher.HFError{StatusCode: 404}
+							},
+						},
+						modelReadme:   &mockModelReadmeFetcher{},
+						datasetAPI:    &mockDatasetAPIFetcher{},
+						datasetReadme: &mockDatasetReadmeFetcher{},
+					}
+				}
+			},
+			wantErr: false,
+			check: func(t *testing.T, got []DiscoveredBOM) {
+				if len(got) != 0 {
+					t.Errorf("Expected 0 BOMs for model not found on HF (404), got %d", len(got))
+				}
+			},
+		},
+		{
+			name: "skips model when API returns 401 (unauthorized)",
+			args: args{
+				modelIDs: []string{"org/private-or-missing-model"},
+				opts:     GenerateOptions{Timeout: 1 * time.Second},
+			},
+			setup: func() {
+				newBOMBuilder = func() bomBuilder {
+					return &mockBOMBuilder{
+						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
+							return &cdx.BOM{}, nil
+						},
+					}
+				}
+				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+					return fetcherSet{
+						modelAPI: &mockModelAPIFetcher{
+							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
+								return nil, &fetcher.HFError{StatusCode: 401}
+							},
+						},
+						modelReadme:   &mockModelReadmeFetcher{},
+						datasetAPI:    &mockDatasetAPIFetcher{},
+						datasetReadme: &mockDatasetReadmeFetcher{},
+					}
+				}
+			},
+			wantErr: false,
+			check: func(t *testing.T, got []DiscoveredBOM) {
+				if len(got) != 0 {
+					t.Errorf("Expected 0 BOMs for model unauthorized on HF (401), got %d", len(got))
 				}
 			},
 		},
