@@ -202,8 +202,8 @@ func runScanDirectory(inputPath, mode, hfToken string, timeout time.Duration, qu
 
 	if !quiet {
 		workflow = ui.NewWorkflow(os.Stdout, "")
-		scanTaskIdx = workflow.AddTask("Scanning for AI imports")
-		processTaskIdx = workflow.AddTask("Processing models")
+		scanTaskIdx = workflow.AddTask("Scanning for possible AI imports")
+		processTaskIdx = workflow.AddTask("Processing possible models")
 		writeTaskIdx = workflow.AddTask("Writing output")
 		workflow.Start()
 	}
@@ -223,7 +223,7 @@ func runScanDirectory(inputPath, mode, hfToken string, timeout time.Duration, qu
 	}
 
 	if !quiet && workflow != nil {
-		workflow.CompleteTask(scanTaskIdx, fmt.Sprintf("found %d model(s)", len(discoveries)))
+		workflow.CompleteTask(scanTaskIdx, fmt.Sprintf("found %d possible model(s)", len(discoveries)))
 	}
 
 	if len(discoveries) == 0 {
@@ -309,7 +309,7 @@ func runScanDirectory(inputPath, mode, hfToken string, timeout time.Duration, qu
 	}
 
 	if !quiet && workflow != nil {
-		workflow.CompleteTask(processTaskIdx, fmt.Sprintf("%d model(s)", len(boms)))
+		workflow.CompleteTask(processTaskIdx, fmt.Sprintf("%d possible model(s)", len(discoveries)))
 		workflow.StartTask(writeTaskIdx, "")
 		workflow.CompleteTask(writeTaskIdx, fmt.Sprintf("%d file(s)", len(boms)))
 		workflow.Stop()

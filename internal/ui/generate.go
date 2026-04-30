@@ -207,8 +207,8 @@ func (g *GenerateUI) PrintNoModelsFound() {
 		return
 	}
 
-	msg := "No models detected; no AIBOM files written."
-	fmt.Fprintln(g.writer, Warning.Render(GetWarnMark()+" "+msg))
+	msg := "No BOMs written."
+	fmt.Fprintln(g.writer, Error.Render(GetCrossMark()+" "+msg))
 }
 
 // LogStep prints a simple log message (non-workflow mode).

@@ -203,12 +203,16 @@ func BuildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([
 
 		var resp *fetcher.ModelAPIResponse
 		var readme *fetcher.ModelReadmeCard
+		var apiNotFound bool
 
 		if modelID != "" {
 			if r, err := fetchers.modelAPI.Fetch(modelID); err == nil {
 				resp = r
 				progress(ProgressEvent{Type: EventFetchAPIComplete, ModelID: modelID})
 			} else {
+				if fetcher.IsNotFound(err) || fetcher.IsUnauthorized(err) {
+					apiNotFound = true
+				}
 				progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: fetchErrMessage("API", err)})
 			}
 
@@ -218,6 +222,11 @@ func BuildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([
 			} else {
 				progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: fetchErrMessage("README", err)})
 			}
+		}
+
+		// Skip BOM generation if API fetch returned 404 (model not found on HF)
+		if apiNotFound {
+			continue
 		}
 
 		var securityTree []fetcher.SecurityFileEntry
@@ -391,11 +400,20 @@ func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM
 
 		// Fetch API metadata.
 		resp, err := fetchers.modelAPI.Fetch(modelID)
+		var apiNotFound bool
 		if err != nil {
+			if fetcher.IsNotFound(err) || fetcher.IsUnauthorized(err) {
+				apiNotFound = true
+			}
 			progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: "API fetch failed"})
 			resp = nil
 		} else {
 			progress(ProgressEvent{Type: EventFetchAPIComplete, ModelID: modelID})
+		}
+
+		// Skip BOM generation if API fetch returned 404 (model not found on HF)
+		if apiNotFound {
+			continue
 		}
 
 		// Fetch README.

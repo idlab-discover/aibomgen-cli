@@ -245,7 +245,7 @@ func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode, hfToken strin
 
 	if !quiet {
 		workflow = ui.NewWorkflow(os.Stdout, "")
-		processTaskIdx = workflow.AddTask("Processing models")
+		processTaskIdx = workflow.AddTask("Processing possible models")
 		writeTaskIdx = workflow.AddTask("Writing output")
 		workflow.Start()
 	}
@@ -327,7 +327,7 @@ func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode, hfToken strin
 	}
 
 	if !quiet && workflow != nil {
-		workflow.CompleteTask(processTaskIdx, fmt.Sprintf("%d model(s)", len(boms)))
+		workflow.CompleteTask(processTaskIdx, fmt.Sprintf("%d possible model(s)", len(modelIDs)))
 		workflow.StartTask(writeTaskIdx, "")
 		workflow.CompleteTask(writeTaskIdx, fmt.Sprintf("%d file(s)", len(boms)))
 		workflow.Stop()
@@ -389,14 +389,17 @@ type modelTracker struct {
 // detail is empty for a clean success (datasets are shown on sub-lines instead).
 func modelOutcome(t *modelTracker, hasToken bool) (mark, detail string) {
 	switch {
-	case t == nil || !t.complete:
+	case t == nil:
 		return ui.GetCrossMark(), ui.Error.Render("→ BOM build failed")
 
-	case !t.apiOK && t.notFound:
+	case t.notFound && !t.apiOK:
 		if hasToken {
-			return ui.GetWarnMark(), ui.Warning.Render("→ not found on HF Hub")
+			return ui.GetCrossMark(), ui.Error.Render("→ not found on HF Hub; no BOM written")
 		}
-		return ui.GetWarnMark(), ui.Warning.Render("→ not found on HF Hub (or private – set --hf-token)")
+		return ui.GetCrossMark(), ui.Error.Render("→ not found (or private – set --hf-token); no BOM written")
+
+	case !t.complete:
+		return ui.GetCrossMark(), ui.Error.Render("→ BOM build failed")
 
 	case t.fetchErr:
 		if fetcher.IsUnauthorized(t.fetchErrVal) {
