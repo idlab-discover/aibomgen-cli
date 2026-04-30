@@ -163,7 +163,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// Print summary.
 	if len(written) == 0 {
 		genUI := ui.NewGenerateUI(cmd.OutOrStdout(), quiet)
-		genUI.PrintNoModelsFound()
+		genUI.PrintNoBOMsWritten()
 		return nil
 	}
 

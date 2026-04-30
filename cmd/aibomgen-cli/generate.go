@@ -210,7 +210,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 
 	// Print summary.
 	if len(written) == 0 {
-		genUI.PrintNoModelsFound()
+		genUI.PrintNoBOMsWritten()
 		return nil
 	}
 

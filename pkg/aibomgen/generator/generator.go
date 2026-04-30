@@ -218,6 +218,7 @@ func BuildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([
 
 			// Skip BOM generation if API fetch returned not found or unauthorized (model not accessible on HF)
 			if apiNotFound {
+				progress(ProgressEvent{Type: EventModelComplete, ModelID: modelID, Message: "model skipped: API not found or unauthorized"})
 				continue
 			}
 
@@ -394,8 +395,6 @@ func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM
 			continue
 		}
 
-		bomBuilder := newBOMBuilder()
-
 		progress(ProgressEvent{Type: EventFetchStart, ModelID: modelID, Index: i, Total: len(modelIDs)})
 
 		// Fetch API metadata.
@@ -413,8 +412,11 @@ func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM
 
 		// Skip BOM generation if API fetch returned not found or unauthorized (model not accessible on HF)
 		if apiNotFound {
+			progress(ProgressEvent{Type: EventModelComplete, ModelID: modelID, Message: "model skipped: API not found or unauthorized"})
 			continue
 		}
+
+		bomBuilder := newBOMBuilder()
 
 		// Fetch README.
 		readme, err := fetchers.modelReadme.Fetch(modelID)
