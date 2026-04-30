@@ -201,13 +201,13 @@ func (g *GenerateUI) PrintSummary(filesWritten int, outputDir, format string) {
 	fmt.Fprintln(g.writer, SuccessBox.Render(summary.String()))
 }
 
-// PrintNoModelsFound prints a message when no models are found.
+// PrintNoModelsFound prints a message when no models at all are found.
 func (g *GenerateUI) PrintNoModelsFound() {
 	if g.quiet {
 		return
 	}
 
-	msg := "No BOMs written."
+	msg := "No models found → No BOMs written."
 	fmt.Fprintln(g.writer, Error.Render(GetCrossMark()+" "+msg))
 }
 

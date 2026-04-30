@@ -216,17 +216,17 @@ func BuildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([
 				progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: fetchErrMessage("API", err)})
 			}
 
+			// Skip BOM generation if API fetch returned not found or unauthorized (model not accessible on HF)
+			if apiNotFound {
+				continue
+			}
+
 			if c, err := fetchers.modelReadme.Fetch(modelID); err == nil {
 				readme = c
 				progress(ProgressEvent{Type: EventFetchReadmeComplete, ModelID: modelID})
 			} else {
 				progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: fetchErrMessage("README", err)})
 			}
-		}
-
-		// Skip BOM generation if API fetch returned 404 (model not found on HF)
-		if apiNotFound {
-			continue
 		}
 
 		var securityTree []fetcher.SecurityFileEntry
@@ -411,7 +411,7 @@ func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM
 			progress(ProgressEvent{Type: EventFetchAPIComplete, ModelID: modelID})
 		}
 
-		// Skip BOM generation if API fetch returned 404 (model not found on HF)
+		// Skip BOM generation if API fetch returned not found or unauthorized (model not accessible on HF)
 		if apiNotFound {
 			continue
 		}
