@@ -8,7 +8,6 @@
 [![Go Report Card](https://img.shields.io/badge/go%20report-A%2B-brightgreen?logo=go&logoColor=white)](https://goreportcard.com/report/github.com/idlab-discover/aibomgen-cli)
 [![GitHub release](https://img.shields.io/github/v/release/idlab-discover/aibomgen-cli)](https://github.com/idlab-discover/aibomgen-cli/releases)
 [![License](https://img.shields.io/github/license/idlab-discover/aibomgen-cli)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/idlab-discover/aibomgen-cli)](https://goreportcard.com/report/github.com/idlab-discover/aibomgen-cli)
 
 
 Go CLI tool that scans a repository for **Hugging Face model and dataset usage** and emits a **CycloneDX AI Bill of Materials (AIBOM)**.
