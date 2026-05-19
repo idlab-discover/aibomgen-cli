@@ -12,6 +12,18 @@
 
 Go CLI tool that scans a repository for **Hugging Face model and dataset usage** and emits a **CycloneDX AI Bill of Materials (AIBOM)**.
 
+## AIBoMGen Ecosystem
+
+This repository is part of the broader AIBoMGen ecosystem for generating, analyzing, and validating AI/ML Bills of Materials (AIBOMs).
+
+| Repository | Purpose |
+|---|---|
+| [AIBoMGen CLI](https://github.com/idlab-discover/aibomgen-cli) | Command-line tool for generating AIBOMs from source code and ML artifacts |
+| [AIBoMGen CLI Action](https://github.com/CRA-tools/AIBoMGen-cli-action) | GitHub Action for automated AIBOM generation in CI/CD pipelines |
+| [AIBoMGen CLI Dashboard](https://github.com/CRA-tools/aibomgen-cli-dashboard) | Demo dashboard using [AIBoMGen CLI](https://github.com/idlab-discover/aibomgen-cli) |
+| [AIBoMGen](https://github.com/idlab-discover/AIBoMGen) | Proof of concept research repository |
+| [AIBoMGen Experiments](https://github.com/idlab-discover/AIBoMGen-experiments) | Experimental evaluations of [AIBoMGen](https://github.com/idlab-discover/AIBoMGen)|
+
 ## Installation
 
 ### Using `go install`
@@ -298,4 +310,21 @@ Any flag not passed on the CLI falls back to the config file value. CLI flags al
 - `docs/` — design notes and field mapping documentation (drafts)
 - [`config/defaults.yaml`](config/defaults.yaml) — full reference of all config file keys
 
+## Contact
 
+For inquiries, feel free to reach out
+
+Maintained by:
+
+Wiebe Vandendriessche  
+[wiebe.vandendriessche@ugent.be](mailto:wiebe.vandendriessche@ugent.be)  
+[LinkedIn](https://www.linkedin.com/in/wiebe-vandendriessche/?locale=en_US)  
+[DISCOVER: IDLab, Ghent University – imec](https://idlab.ugent.be/research-teams/discover).
+
+## License
+
+This project is licensed under the terms described in the [LICENSE](./LICENSE) file.
+
+## Acknowledgements
+
+This work has been partially supported by the [CRACY project](https://cra-cy.eu/), funded by the European Union’s Digital Europe Programme under grant agreement No 101190492.
