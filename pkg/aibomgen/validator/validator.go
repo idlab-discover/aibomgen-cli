@@ -149,7 +149,7 @@ func validateSpecVersion(bom *cdx.BOM, result *ValidationResult) {
 	switch bom.SpecVersion {
 	case cdx.SpecVersion1_0, cdx.SpecVersion1_1, cdx.SpecVersion1_2,
 		cdx.SpecVersion1_3, cdx.SpecVersion1_4, cdx.SpecVersion1_5,
-		cdx.SpecVersion1_6:
+		cdx.SpecVersion1_6, cdx.SpecVersion1_7:
 		// Valid spec version.
 	default:
 		result.Valid = false
