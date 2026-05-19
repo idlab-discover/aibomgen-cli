@@ -24,6 +24,10 @@ This repository is part of the broader AIBoMGen ecosystem for generating, analyz
 | [AIBoMGen](https://github.com/idlab-discover/AIBoMGen) | Proof of concept research repository |
 | [AIBoMGen Experiments](https://github.com/idlab-discover/AIBoMGen-experiments) | Experimental evaluations of [AIBoMGen](https://github.com/idlab-discover/AIBoMGen)|
 
+## Demo
+
+![demo](docs/draft/demo.gif)
+
 ## Installation
 
 ### Using `go install`
