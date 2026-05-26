@@ -165,7 +165,8 @@ func idFromPURL(purl string) string {
 
 // datasetIDFromPURL extracts the dataset owner/name from a pkg:huggingface/datasets/... PURL.
 // e.g. "pkg:huggingface/datasets/bookcorpus@sha" → "bookcorpus".
-//.
+// .
+//
 //	"pkg:huggingface/datasets/allenai/c4@sha"  → "allenai/c4".
 func datasetIDFromPURL(purl string) string {
 	const prefix = "pkg:huggingface/datasets/"

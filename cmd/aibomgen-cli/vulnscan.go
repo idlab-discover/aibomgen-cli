@@ -11,8 +11,8 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
 	"github.com/idlab-discover/aibomgen-cli/internal/fetcher"
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
-	"github.com/idlab-discover/aibomgen-cli/internal/vulnscan"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/bomio"
+	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/vulnscan"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
