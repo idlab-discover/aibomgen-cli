@@ -149,3 +149,137 @@ func TestMerge_PreservesVulnerabilities(t *testing.T) {
 		t.Fatalf("expected 2 vulnerabilities, got %d", got)
 	}
 }
+
+func TestMergeAIBOMsWithSBOM_LinksModelsAsDependenciesOfAppComponent(t *testing.T) {
+	appRef := "pkg:app/my-service@1.0.0"
+	modelRef := "machine-learning-model/bert-base/1.0"
+
+	sbom := &cdx.BOM{
+		Metadata: &cdx.Metadata{
+			Component: &cdx.Component{
+				BOMRef:  appRef,
+				Type:    cdx.ComponentTypeApplication,
+				Name:    "my-service",
+				Version: "1.0.0",
+			},
+		},
+	}
+
+	aibom := &cdx.BOM{
+		Metadata: &cdx.Metadata{
+			Component: &cdx.Component{
+				BOMRef:  modelRef,
+				Type:    cdx.ComponentTypeMachineLearningModel,
+				Name:    "bert-base",
+				Version: "1.0",
+			},
+		},
+	}
+
+	result, err := MergeAIBOMsWithSBOM(sbom, []*cdx.BOM{aibom}, MergeOptions{})
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+
+	if result.MergedBOM.Dependencies == nil {
+		t.Fatal("expected merged BOM to have dependencies")
+	}
+
+	var appDeps *cdx.Dependency
+	for i := range *result.MergedBOM.Dependencies {
+		if (*result.MergedBOM.Dependencies)[i].Ref == appRef {
+			appDeps = &(*result.MergedBOM.Dependencies)[i]
+			break
+		}
+	}
+
+	if appDeps == nil {
+		t.Fatalf("expected a dependency entry for app component %q", appRef)
+	}
+	if appDeps.Dependencies == nil {
+		t.Fatal("expected app component dependency entry to list model refs")
+	}
+
+	found := false
+	for _, ref := range *appDeps.Dependencies {
+		if ref == modelRef {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected model ref %q in app component dependencies, got %v", modelRef, *appDeps.Dependencies)
+	}
+}
+
+func TestMergeAIBOMsWithSBOM_LinksModelsPreservesExistingDeps(t *testing.T) {
+	appRef := "pkg:app/my-service@1.0.0"
+	libRef := "pkg:lib/some-lib@2.0"
+	modelRef := "machine-learning-model/gpt2/1.0"
+
+	sbom := &cdx.BOM{
+		Metadata: &cdx.Metadata{
+			Component: &cdx.Component{
+				BOMRef:  appRef,
+				Type:    cdx.ComponentTypeApplication,
+				Name:    "my-service",
+				Version: "1.0.0",
+			},
+		},
+		Dependencies: &[]cdx.Dependency{
+			{Ref: appRef, Dependencies: &[]string{libRef}},
+		},
+	}
+
+	aibom := &cdx.BOM{
+		Metadata: &cdx.Metadata{
+			Component: &cdx.Component{
+				BOMRef:  modelRef,
+				Type:    cdx.ComponentTypeMachineLearningModel,
+				Name:    "gpt2",
+				Version: "1.0",
+			},
+		},
+	}
+
+	result, err := MergeAIBOMsWithSBOM(sbom, []*cdx.BOM{aibom}, MergeOptions{})
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+
+	if result.MergedBOM.Dependencies == nil {
+		t.Fatal("expected merged BOM to have dependencies")
+	}
+
+	var appDeps *cdx.Dependency
+	for i := range *result.MergedBOM.Dependencies {
+		if (*result.MergedBOM.Dependencies)[i].Ref == appRef {
+			appDeps = &(*result.MergedBOM.Dependencies)[i]
+			break
+		}
+	}
+
+	if appDeps == nil {
+		t.Fatalf("expected a dependency entry for app component %q", appRef)
+	}
+	if appDeps.Dependencies == nil {
+		t.Fatal("expected app component dependency entry to have refs")
+	}
+
+	refs := *appDeps.Dependencies
+	hasLib, hasModel := false, false
+	for _, r := range refs {
+		if r == libRef {
+			hasLib = true
+		}
+		if r == modelRef {
+			hasModel = true
+		}
+	}
+	if !hasLib {
+		t.Errorf("existing library dep %q was lost", libRef)
+	}
+	if !hasModel {
+		t.Errorf("model dep %q was not added", modelRef)
+	}
+}

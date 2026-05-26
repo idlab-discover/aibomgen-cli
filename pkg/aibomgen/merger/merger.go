@@ -244,6 +244,10 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 		}
 	}
 
+	// Collect BOM-refs of all added model components so they can be linked as
+	// dependencies of the SBOM application component after the loop.
+	var modelBOMRefs []string
+
 	// Add components from all AIBOMs (models and datasets).
 	for _, aibom := range aiboms {
 		// Add the AIBOM's metadata component (the ML model) to components list.
@@ -265,9 +269,12 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 				mergedComponents = append(mergedComponents, *comp)
 				result.AIBOMComponentCount++
 
-				// Track ML model component name.
+				// Track ML model component name and BOM-ref for dependency linking.
 				if comp.Type == cdx.ComponentTypeMachineLearningModel {
 					result.ModelComponents = append(result.ModelComponents, comp.Name)
+					if bomRef != "" {
+						modelBOMRefs = append(modelBOMRefs, bomRef)
+					}
 				}
 			}
 		}
@@ -340,6 +347,18 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 	}
 	if len(allDependencies) > 0 {
 		result.MergedBOM.Dependencies = mergeDependenciesMultiple(allDependencies...)
+	}
+
+	// Link model components as dependencies of the SBOM application component.
+	// This ensures the dependency graph reflects that the application uses those models.
+	if len(modelBOMRefs) > 0 && sbom.Metadata != nil && sbom.Metadata.Component != nil {
+		appRef := sbom.Metadata.Component.BOMRef
+		if appRef == "" {
+			appRef = getBOMRef(sbom.Metadata.Component)
+		}
+		if appRef != "" {
+			result.MergedBOM.Dependencies = linkDependencies(result.MergedBOM.Dependencies, appRef, modelBOMRefs)
+		}
 	}
 
 	// Merge compositions from SBOM and AIBOMs.
@@ -850,4 +869,40 @@ func mergeExternalReferencesMultiple(refs ...*[]cdx.ExternalReference) *[]cdx.Ex
 	}
 
 	return &merged
+}
+
+// linkDependencies ensures that all refs in newDeps appear as dependencies of ownerRef
+// in the provided dependency list. If no entry exists for ownerRef, one is created.
+func linkDependencies(deps *[]cdx.Dependency, ownerRef string, newDeps []string) *[]cdx.Dependency {
+	if len(newDeps) == 0 {
+		return deps
+	}
+
+	if deps == nil {
+		deps = &[]cdx.Dependency{}
+	}
+
+	// Find the existing entry for ownerRef.
+	for i := range *deps {
+		if (*deps)[i].Ref == ownerRef {
+			combined := mergeDependencyRefs(derefStrings((*deps)[i].Dependencies), newDeps)
+			(*deps)[i].Dependencies = &combined
+			return deps
+		}
+	}
+
+	// No entry found — create one.
+	refsCopy := make([]string, len(newDeps))
+	copy(refsCopy, newDeps)
+	*deps = append(*deps, cdx.Dependency{Ref: ownerRef, Dependencies: &refsCopy})
+
+	return deps
+}
+
+// derefStrings safely dereferences a *[]string, returning nil if the pointer is nil.
+func derefStrings(s *[]string) []string {
+	if s == nil {
+		return nil
+	}
+	return *s
 }
