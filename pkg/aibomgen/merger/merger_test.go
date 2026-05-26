@@ -94,3 +94,58 @@ func TestMergeAIBOMsWithSBOM_DeduplicatesLegacyAndComponentTools(t *testing.T) {
 		t.Fatalf("expected merged BOM to marshal cleanly, got error: %v", err)
 	}
 }
+
+func TestMergeAIBOMsWithSBOM_PreservesVulnerabilities(t *testing.T) {
+	sbom := &cdx.BOM{
+		Vulnerabilities: &[]cdx.Vulnerability{
+			{ID: "CVE-2024-0001", Description: "SBOM vuln"},
+		},
+	}
+
+	aibom := &cdx.BOM{
+		Metadata: &cdx.Metadata{},
+		Vulnerabilities: &[]cdx.Vulnerability{
+			{ID: "CVE-2024-0002", Description: "AIBOM vuln"},
+			{ID: "CVE-2024-0001", Description: "duplicate — should be deduplicated"},
+		},
+	}
+
+	result, err := MergeAIBOMsWithSBOM(sbom, []*cdx.BOM{aibom}, MergeOptions{})
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+
+	if result.MergedBOM.Vulnerabilities == nil {
+		t.Fatal("expected merged BOM to contain vulnerabilities, got nil")
+	}
+
+	if got := len(*result.MergedBOM.Vulnerabilities); got != 2 {
+		t.Fatalf("expected 2 vulnerabilities after deduplication, got %d", got)
+	}
+}
+
+func TestMerge_PreservesVulnerabilities(t *testing.T) {
+	primary := &cdx.BOM{
+		Vulnerabilities: &[]cdx.Vulnerability{
+			{ID: "CVE-2024-0001", Description: "primary vuln"},
+		},
+	}
+	secondary := &cdx.BOM{
+		Vulnerabilities: &[]cdx.Vulnerability{
+			{ID: "CVE-2024-0002", Description: "secondary vuln"},
+		},
+	}
+
+	result, err := Merge(primary, secondary, MergeOptions{})
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+
+	if result.MergedBOM.Vulnerabilities == nil {
+		t.Fatal("expected merged BOM to contain vulnerabilities, got nil")
+	}
+
+	if got := len(*result.MergedBOM.Vulnerabilities); got != 2 {
+		t.Fatalf("expected 2 vulnerabilities, got %d", got)
+	}
+}

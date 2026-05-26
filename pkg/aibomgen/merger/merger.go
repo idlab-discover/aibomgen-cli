@@ -126,6 +126,9 @@ func Merge(primary, secondary *cdx.BOM, opts MergeOptions) (*MergeResult, error)
 		secondary.ExternalReferences,
 	)
 
+	// Merge vulnerabilities from both BOMs.
+	result.MergedBOM.Vulnerabilities = mergeVulnerabilitiesMultiple(primary.Vulnerabilities, secondary.Vulnerabilities)
+
 	return result, nil
 }
 
@@ -386,6 +389,20 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 	}
 	if len(allExternalRefs) > 0 {
 		result.MergedBOM.ExternalReferences = mergeExternalReferencesMultiple(allExternalRefs...)
+	}
+
+	// Merge vulnerabilities from SBOM and all AIBOMs.
+	var allVulnerabilities []*[]cdx.Vulnerability
+	if sbom.Vulnerabilities != nil {
+		allVulnerabilities = append(allVulnerabilities, sbom.Vulnerabilities)
+	}
+	for _, aibom := range aiboms {
+		if aibom.Vulnerabilities != nil {
+			allVulnerabilities = append(allVulnerabilities, aibom.Vulnerabilities)
+		}
+	}
+	if len(allVulnerabilities) > 0 {
+		result.MergedBOM.Vulnerabilities = mergeVulnerabilitiesMultiple(allVulnerabilities...)
 	}
 
 	return result, nil
@@ -768,6 +785,42 @@ func mergeServicesMultiple(services ...*[]cdx.Service) *[]cdx.Service {
 				serviceMap[bomRef] = svc
 			}
 			merged = append(merged, *svc)
+		}
+	}
+
+	if len(merged) == 0 {
+		return nil
+	}
+
+	return &merged
+}
+
+// mergeVulnerabilitiesMultiple combines vulnerabilities from multiple BOMs, deduplicating by ID.
+func mergeVulnerabilitiesMultiple(vulnLists ...*[]cdx.Vulnerability) *[]cdx.Vulnerability {
+	if len(vulnLists) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var merged []cdx.Vulnerability
+
+	for _, vulnList := range vulnLists {
+		if vulnList == nil {
+			continue
+		}
+		for i := range *vulnList {
+			v := (*vulnList)[i]
+			key := v.ID
+			if key == "" {
+				key = v.BOMRef
+			}
+			if key != "" && seen[key] {
+				continue
+			}
+			if key != "" {
+				seen[key] = true
+			}
+			merged = append(merged, v)
 		}
 	}
 
