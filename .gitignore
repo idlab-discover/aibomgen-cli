@@ -3,6 +3,8 @@ aibomgen-cra
 
 aibomgen-cli
 
+test-app/
+
 # not cmd/aibomgen-cli
 !cmd/aibomgen-cli
 
