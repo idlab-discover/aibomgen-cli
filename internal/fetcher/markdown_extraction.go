@@ -29,9 +29,12 @@ func splitFrontMatter(raw string) (map[string]any, string) {
 	}
 
 	y := rest[:idx]
-	body := strings.TrimSpace(rest[idx:])
-	body = strings.TrimPrefix(body, "\n---\n")
-	body = strings.TrimPrefix(body, "\n---")
+	body := rest[idx:]
+	if strings.HasPrefix(body, "\n---\n") {
+		body = strings.TrimPrefix(body, "\n---\n")
+	} else {
+		body = strings.TrimPrefix(body, "\n---")
+	}
 	body = strings.TrimSpace(body)
 
 	m := map[string]any{}
