@@ -110,6 +110,17 @@ jobs:
             echo "No results from grype" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Upload vulnerability reports
+        if: ${{ matrix.go-version == '1.25.x' && (success() || failure()) }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: vulnerability-reports
+          path: |
+            sbom-binary-vulnerabilities.json
+            grype.table
+            sbom-binary.json
+          retention-days: 30
+
       - name: Fail if vulnerabilities found
         if: ${{ matrix.go-version == '1.25.x' }}
         run: |
