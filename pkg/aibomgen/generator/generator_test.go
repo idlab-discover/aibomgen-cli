@@ -36,6 +36,12 @@ func (m *mockBOMBuilder) BuildDataset(ctx builder.DatasetBuildContext) (*cdx.Com
 // Mock Fetchers for testing.
 type mockModelAPIFetcher struct {
 	fetchFunc func(string) (*fetcher.ModelAPIResponse, error)
+	revisions []string // revisions passed to FetchRevision, in call order
+}
+
+func (m *mockModelAPIFetcher) FetchRevision(id, revision string) (*fetcher.ModelAPIResponse, error) {
+	m.revisions = append(m.revisions, revision)
+	return m.Fetch(id)
 }
 
 func (m *mockModelAPIFetcher) Fetch(id string) (*fetcher.ModelAPIResponse, error) {
@@ -47,6 +53,10 @@ func (m *mockModelAPIFetcher) Fetch(id string) (*fetcher.ModelAPIResponse, error
 
 type mockModelReadmeFetcher struct {
 	fetchFunc func(string) (*fetcher.ModelReadmeCard, error)
+}
+
+func (m *mockModelReadmeFetcher) FetchRevision(id, _ string) (*fetcher.ModelReadmeCard, error) {
+	return m.Fetch(id)
 }
 
 func (m *mockModelReadmeFetcher) Fetch(id string) (*fetcher.ModelReadmeCard, error) {

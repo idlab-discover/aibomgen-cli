@@ -140,7 +140,7 @@ Options:
 - `--input, -i <path>`: directory to scan (default: current directory; cannot be used with `--hf-mode=dummy`)
 - `--output, -o <path>`: output file path (directory portion is used)
 - `--format, -f json|xml|auto` (default: `auto`)
-- `--spec <version>`: CycloneDX spec version for output (e.g., `1.4`, `1.5`, `1.6`)
+- `--spec <version>`: CycloneDX spec version for output (e.g., `1.5`, `1.6`, `1.7`; default `1.7`)
 - `--hf-mode online|dummy` (default: `online`)
 - `--hf-token <token>`: for gated/private models
 - `--hf-timeout <seconds>`
@@ -159,11 +159,11 @@ aibomgen-cli generate --interactive
 
 Options:
 
-- `--model-id, -m <id>`: Hugging Face model ID (can be specified multiple times or comma-separated)
+- `--model-id, -m <id>`: Hugging Face model ID, optionally with a revision as `org/name@revision` (can be specified multiple times or comma-separated)
 - `--interactive`: open an interactive model selector (cannot be used with `--model-id`)
 - `--output, -o <path>`: output file path (directory portion is used)
 - `--format, -f json|xml|auto` (default: `auto`)
-- `--spec <version>`: CycloneDX spec version for output (e.g., `1.4`, `1.5`, `1.6`)
+- `--spec <version>`: CycloneDX spec version for output (e.g., `1.5`, `1.6`, `1.7`; default `1.7`)
 - `--hf-mode online|dummy` (default: `online`)
 - `--hf-token <token>`: for gated/private models
 - `--hf-timeout <seconds>`
@@ -311,7 +311,8 @@ Any flag not passed on the CLI falls back to the config file value. CLI flags al
 
 - API reference: [pkg.go.dev/github.com/idlab-discover/aibomgen-cli](https://pkg.go.dev/github.com/idlab-discover/aibomgen-cli)
 - `targets/` — small repositories used in integration tests and examples
-- `docs/` — design notes and field mapping documentation (drafts)
+- [`docs/mapping/`](docs/mapping/README.md) — field mapping: where every AIBOM value comes from
+- `docs/draft/` — examples and the demo recording
 - [`config/defaults.yaml`](config/defaults.yaml) — full reference of all config file keys
 
 ## Contact

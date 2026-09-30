@@ -32,10 +32,10 @@ var newBOMBuilder = func() bomBuilder {
 // Fetcher factory functions for testing.
 type fetcherSet struct {
 	modelAPI interface {
-		Fetch(string) (*fetcher.ModelAPIResponse, error)
+		FetchRevision(id, revision string) (*fetcher.ModelAPIResponse, error)
 	}
 	modelReadme interface {
-		Fetch(string) (*fetcher.ModelReadmeCard, error)
+		FetchRevision(id, revision string) (*fetcher.ModelReadmeCard, error)
 	}
 	datasetAPI interface {
 		Fetch(string) (*fetcher.DatasetAPIResponse, error)
@@ -44,8 +44,37 @@ type fetcherSet struct {
 		Fetch(string) (*fetcher.DatasetReadmeCard, error)
 	}
 	modelTree interface {
-		Fetch(string) ([]fetcher.SecurityFileEntry, error)
+		FetchRevision(id, revision string) ([]fetcher.SecurityFileEntry, error)
 	}
+}
+
+// ModelRef is a Hugging Face model ID with an optional revision (branch, tag or commit).
+type ModelRef struct {
+	ID       string
+	Revision string
+}
+
+// String returns "id" or "id@revision".
+func (r ModelRef) String() string {
+	if r.Revision == "" {
+		return r.ID
+	}
+	return r.ID + "@" + r.Revision
+}
+
+// ParseModelRef parses "org/name" or "org/name@revision". '@' cannot occur in HF repo IDs,.
+// so the first '@' separates the revision.
+func ParseModelRef(s string) (ModelRef, error) {
+	s = strings.TrimSpace(s)
+	id, rev, hasRev := strings.Cut(s, "@")
+	id, rev = strings.TrimSpace(id), strings.TrimSpace(rev)
+	if id == "" {
+		return ModelRef{}, fmt.Errorf("invalid model reference %q: empty model ID", s)
+	}
+	if hasRev && rev == "" {
+		return ModelRef{}, fmt.Errorf("invalid model reference %q: empty revision after '@'", s)
+	}
+	return ModelRef{ID: id, Revision: rev}, nil
 }
 
 var newFetcherSet = func(httpClient *http.Client) fetcherSet {
@@ -129,19 +158,19 @@ func BuildDummyBOM() ([]DiscoveredBOM, error) {
 	}
 
 	// Fetch dummy metadata.
-	apiResp, err := fetchers.modelAPI.Fetch("dummy-org/dummy-model")
+	apiResp, err := fetchers.modelAPI.FetchRevision("dummy-org/dummy-model", "")
 	if err != nil {
 		return nil, err
 	}
 
-	readme, err := fetchers.modelReadme.Fetch("dummy-org/dummy-model")
+	readme, err := fetchers.modelReadme.FetchRevision("dummy-org/dummy-model", "")
 	if err != nil {
 		return nil, err
 	}
 
 	var securityTree []fetcher.SecurityFileEntry
 	if fetchers.modelTree != nil {
-		securityTree, _ = fetchers.modelTree.Fetch("dummy-org/dummy-model")
+		securityTree, _ = fetchers.modelTree.FetchRevision("dummy-org/dummy-model", "")
 	}
 
 	// Build the BOM with all dummy data.
@@ -161,10 +190,8 @@ func BuildDummyBOM() ([]DiscoveredBOM, error) {
 
 	// Build dataset components for any datasets referenced in the model's training metadata.
 	noProgress := func(ProgressEvent) {}
-	buildDatasetComponents(fetchers, bom, extractDatasetsFromModel(apiResp, readme), "dummy-org/dummy-model", noProgress)
-
-	// Add dependencies from model to datasets.
-	builder.AddDependencies(bom)
+	_, resolved := buildDatasetComponents(fetchers, bom, extractDatasetsFromModel(apiResp, readme), "dummy-org/dummy-model", noProgress)
+	finalizeModelBOM(bom, resolved)
 
 	return []DiscoveredBOM{
 		{
@@ -198,53 +225,56 @@ func BuildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([
 		if modelID == "" {
 			modelID = strings.TrimSpace(d.Name)
 		}
+		revision := strings.TrimSpace(d.Revision)
+		label := ModelRef{ID: modelID, Revision: revision}.String() // progress key
 
-		progress(ProgressEvent{Type: EventFetchStart, ModelID: modelID, Index: i, Total: len(discoveries)})
+		progress(ProgressEvent{Type: EventFetchStart, ModelID: label, Index: i, Total: len(discoveries)})
 
 		var resp *fetcher.ModelAPIResponse
 		var readme *fetcher.ModelReadmeCard
 		var apiNotFound bool
 
 		if modelID != "" {
-			if r, err := fetchers.modelAPI.Fetch(modelID); err == nil {
+			if r, err := fetchers.modelAPI.FetchRevision(modelID, revision); err == nil {
 				resp = r
-				progress(ProgressEvent{Type: EventFetchAPIComplete, ModelID: modelID})
+				progress(ProgressEvent{Type: EventFetchAPIComplete, ModelID: label})
 			} else {
 				if fetcher.IsNotFound(err) || fetcher.IsUnauthorized(err) {
 					apiNotFound = true
 				}
-				progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: fetchErrMessage("API", err)})
+				progress(ProgressEvent{Type: EventError, ModelID: label, Error: err, Message: fetchErrMessage(apiKind(revision), err)})
 			}
 
 			// Skip BOM generation if API fetch returned not found or unauthorized (model not accessible on HF)
 			if apiNotFound {
-				progress(ProgressEvent{Type: EventModelComplete, ModelID: modelID, Message: "model skipped: API not found or unauthorized"})
+				progress(ProgressEvent{Type: EventModelComplete, ModelID: label, Message: "model skipped: API not found or unauthorized"})
 				continue
 			}
 
-			if c, err := fetchers.modelReadme.Fetch(modelID); err == nil {
+			if c, err := fetchers.modelReadme.FetchRevision(modelID, revision); err == nil {
 				readme = c
-				progress(ProgressEvent{Type: EventFetchReadmeComplete, ModelID: modelID})
+				progress(ProgressEvent{Type: EventFetchReadmeComplete, ModelID: label})
 			} else {
-				progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: fetchErrMessage("README", err)})
+				progress(ProgressEvent{Type: EventError, ModelID: label, Error: err, Message: fetchErrMessage("README", err)})
 			}
 		}
 
 		var securityTree []fetcher.SecurityFileEntry
 		if modelID != "" && !opts.SkipSecurityScan && fetchers.modelTree != nil {
-			if tree, err := fetchers.modelTree.Fetch(modelID); err == nil {
+			if tree, err := fetchers.modelTree.FetchRevision(modelID, revision); err == nil {
 				securityTree = tree
-				progress(ProgressEvent{Type: EventFetchSecurityScanComplete, ModelID: modelID})
+				progress(ProgressEvent{Type: EventFetchSecurityScanComplete, ModelID: label})
 			} else {
 				// Non-fatal: security scan failure should not abort BOM generation.
-				progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: fetchErrMessage("security scan", err)})
+				progress(ProgressEvent{Type: EventError, ModelID: label, Error: err, Message: fetchErrMessage("security scan", err)})
 			}
 		}
 
-		progress(ProgressEvent{Type: EventBuildStart, ModelID: modelID})
+		progress(ProgressEvent{Type: EventBuildStart, ModelID: label})
 
 		bctx := builder.BuildContext{
 			ModelID:      modelID,
+			Revision:     revision,
 			Scan:         d,
 			HF:           resp,
 			Readme:       readme,
@@ -253,18 +283,16 @@ func BuildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([
 
 		bom, err := bomBuilder.Build(bctx)
 		if err != nil {
-			progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: "BOM build failed"})
+			progress(ProgressEvent{Type: EventError, ModelID: label, Error: err, Message: "BOM build failed"})
 			continue
 		}
 
-		progress(ProgressEvent{Type: EventBuildComplete, ModelID: modelID})
+		progress(ProgressEvent{Type: EventBuildComplete, ModelID: label})
 
-		datasetCount := buildDatasetComponents(fetchers, bom, extractDatasetsFromModel(resp, readme), modelID, progress)
+		datasetCount, resolved := buildDatasetComponents(fetchers, bom, extractDatasetsFromModel(resp, readme), label, progress)
+		finalizeModelBOM(bom, resolved)
 
-		// Add dependencies from model to datasets.
-		builder.AddDependencies(bom)
-
-		progress(ProgressEvent{Type: EventModelComplete, ModelID: modelID, Datasets: datasetCount})
+		progress(ProgressEvent{Type: EventModelComplete, ModelID: label, Datasets: datasetCount})
 
 		results = append(results, DiscoveredBOM{
 			Discovery: d,
@@ -282,6 +310,21 @@ func fetchErrMessage(kind string, err error) string {
 		return kind + ": not found on Hugging Face Hub"
 	}
 	return kind + " fetch failed: " + err.Error()
+}
+
+// apiKind names the API fetch in error messages, mentioning revision lookups.
+func apiKind(revision string) string {
+	if revision != "" {
+		return "API (revision " + revision + ")"
+	}
+	return "API"
+}
+
+// finalizeModelBOM links model-card dataset references to the built data components.
+// and adds the model -> dataset dependency graph.
+func finalizeModelBOM(bom *cdx.BOM, resolved map[string]string) {
+	builder.LinkDatasetRefs(bom, resolved)
+	builder.AddDependencies(bom)
 }
 
 // extractDatasetsFromModel extracts dataset IDs from model's training metadata.
@@ -333,12 +376,15 @@ func extractDatasetsFromModel(modelResp *fetcher.ModelAPIResponse, readme *fetch
 }
 
 // buildDatasetComponents fetches and builds dataset components for a model BOM.
-// It appends each successfully built dataset component to bom.Components and returns.
-// the number of datasets that were successfully added.
-// Dataset references that fail to fetch (e.g. not on HuggingFace) are silently skipped;.
-// the references are still preserved in the model's modelCard metadata.
-func buildDatasetComponents(fetchers fetcherSet, bom *cdx.BOM, datasets []string, modelID string, progress ProgressCallback) int {
+// It appends each successfully built dataset component to bom.Components and returns
+// the number of distinct datasets added, plus a map from builder.DatasetRefKey(card
+// dataset) to the bom-ref of the component built for it. Because Hugging Face
+// redirects renamed datasets, several card names can resolve to one component; it is
+// added once. Dataset references that fail to fetch (e.g. not on HuggingFace) are
+// skipped here and kept as inline entries by builder.LinkDatasetRefs.
+func buildDatasetComponents(fetchers fetcherSet, bom *cdx.BOM, datasets []string, modelID string, progress ProgressCallback) (int, map[string]string) {
 	count := 0
+	resolved := make(map[string]string)
 	for _, dsID := range datasets {
 		progress(ProgressEvent{Type: EventDatasetStart, ModelID: modelID, Message: dsID})
 
@@ -348,10 +394,15 @@ func buildDatasetComponents(fetchers fetcherSet, bom *cdx.BOM, datasets []string
 			continue
 		}
 
-		dsReadme, _ := fetchers.datasetReadme.Fetch(dsID)
+		// Use the resolved ID (after redirects) for follow-up requests.
+		resolvedID := dsID
+		if id := strings.TrimSpace(dsResp.ID); id != "" {
+			resolvedID = id
+		}
+		dsReadme, _ := fetchers.datasetReadme.Fetch(resolvedID)
 
 		dsCtx := builder.DatasetBuildContext{
-			DatasetID: dsID,
+			DatasetID: resolvedID,
 			Scan:      scanner.Discovery{ID: dsID, Name: dsID, Type: "dataset"},
 			HF:        dsResp,
 			Readme:    dsReadme,
@@ -362,18 +413,33 @@ func buildDatasetComponents(fetchers fetcherSet, bom *cdx.BOM, datasets []string
 			continue
 		}
 
+		if dsComp.BOMRef != "" {
+			resolved[builder.DatasetRefKey(dsID)] = dsComp.BOMRef
+		}
 		if bom.Components == nil {
 			bom.Components = &[]cdx.Component{}
 		}
-		*bom.Components = append(*bom.Components, *dsComp)
-		count++
+		if dsComp.BOMRef == "" || !hasComponentRef(*bom.Components, dsComp.BOMRef) {
+			*bom.Components = append(*bom.Components, *dsComp)
+			count++
+		}
 
 		progress(ProgressEvent{Type: EventDatasetComplete, ModelID: modelID, Message: dsID})
 	}
-	return count
+	return count, resolved
+}
+
+func hasComponentRef(components []cdx.Component, ref string) bool {
+	for _, c := range components {
+		if c.BOMRef == ref {
+			return true
+		}
+	}
+	return false
 }
 
 // BuildFromModelIDs generates an AIBOM for each of the provided Hugging Face model IDs.
+// Each ID may carry a revision as "org/name@revision" (see ParseModelRef).
 // Use opts.OnProgress to receive progress events; pass a nil callback to disable.
 func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM, error) {
 	if opts.Timeout <= 0 {
@@ -389,67 +455,75 @@ func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM
 
 	fetchers := newFetcherSet(newHTTPClient(opts))
 
-	for i, modelID := range modelIDs {
-		modelID = strings.TrimSpace(modelID)
-		if modelID == "" {
+	for i, rawID := range modelIDs {
+		if strings.TrimSpace(rawID) == "" {
 			continue
 		}
+		ref, err := ParseModelRef(rawID)
+		if err != nil {
+			progress(ProgressEvent{Type: EventError, ModelID: rawID, Error: err, Message: err.Error()})
+			continue
+		}
+		modelID, revision := ref.ID, ref.Revision
+		label := ref.String() // progress key: distinguishes revisions of one model
 
-		progress(ProgressEvent{Type: EventFetchStart, ModelID: modelID, Index: i, Total: len(modelIDs)})
+		progress(ProgressEvent{Type: EventFetchStart, ModelID: label, Index: i, Total: len(modelIDs)})
 
 		// Fetch API metadata.
-		resp, err := fetchers.modelAPI.Fetch(modelID)
+		resp, err := fetchers.modelAPI.FetchRevision(modelID, revision)
 		var apiNotFound bool
 		if err != nil {
 			if fetcher.IsNotFound(err) || fetcher.IsUnauthorized(err) {
 				apiNotFound = true
 			}
-			progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: "API fetch failed"})
+			progress(ProgressEvent{Type: EventError, ModelID: label, Error: err, Message: fetchErrMessage(apiKind(revision), err)})
 			resp = nil
 		} else {
-			progress(ProgressEvent{Type: EventFetchAPIComplete, ModelID: modelID})
+			progress(ProgressEvent{Type: EventFetchAPIComplete, ModelID: label})
 		}
 
 		// Skip BOM generation if API fetch returned not found or unauthorized (model not accessible on HF)
 		if apiNotFound {
-			progress(ProgressEvent{Type: EventModelComplete, ModelID: modelID, Message: "model skipped: API not found or unauthorized"})
+			progress(ProgressEvent{Type: EventModelComplete, ModelID: label, Message: "model skipped: API not found or unauthorized"})
 			continue
 		}
 
 		bomBuilder := newBOMBuilder()
 
 		// Fetch README.
-		readme, err := fetchers.modelReadme.Fetch(modelID)
+		readme, err := fetchers.modelReadme.FetchRevision(modelID, revision)
 		if err != nil {
-			progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: "README fetch failed"})
+			progress(ProgressEvent{Type: EventError, ModelID: label, Error: err, Message: "README fetch failed"})
 			readme = nil
 		} else {
-			progress(ProgressEvent{Type: EventFetchReadmeComplete, ModelID: modelID})
+			progress(ProgressEvent{Type: EventFetchReadmeComplete, ModelID: label})
 		}
 
 		// Fetch security scan tree (non-fatal).
 		var securityTree []fetcher.SecurityFileEntry
 		if !opts.SkipSecurityScan && fetchers.modelTree != nil {
-			if tree, err := fetchers.modelTree.Fetch(modelID); err == nil {
+			if tree, err := fetchers.modelTree.FetchRevision(modelID, revision); err == nil {
 				securityTree = tree
-				progress(ProgressEvent{Type: EventFetchSecurityScanComplete, ModelID: modelID})
+				progress(ProgressEvent{Type: EventFetchSecurityScanComplete, ModelID: label})
 			} else {
-				progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: fetchErrMessage("security scan", err)})
+				progress(ProgressEvent{Type: EventError, ModelID: label, Error: err, Message: fetchErrMessage("security scan", err)})
 			}
 		}
 
-		progress(ProgressEvent{Type: EventBuildStart, ModelID: modelID})
+		progress(ProgressEvent{Type: EventBuildStart, ModelID: label})
 
 		discovery := scanner.Discovery{
 			ID:       modelID,
 			Name:     modelID,
 			Type:     "huggingface",
 			Path:     "",
-			Evidence: fmt.Sprintf("from model-id: %s", modelID),
+			Evidence: fmt.Sprintf("from model-id: %s", ref.String()),
+			Revision: revision,
 		}
 
 		bctx := builder.BuildContext{
 			ModelID:      modelID,
+			Revision:     revision,
 			Scan:         discovery,
 			HF:           resp,
 			Readme:       readme,
@@ -458,18 +532,16 @@ func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM
 
 		bom, err := bomBuilder.Build(bctx)
 		if err != nil {
-			progress(ProgressEvent{Type: EventError, ModelID: modelID, Error: err, Message: "BOM build failed"})
+			progress(ProgressEvent{Type: EventError, ModelID: label, Error: err, Message: "BOM build failed"})
 			continue
 		}
 
-		progress(ProgressEvent{Type: EventBuildComplete, ModelID: modelID})
+		progress(ProgressEvent{Type: EventBuildComplete, ModelID: label})
 
-		datasetCount := buildDatasetComponents(fetchers, bom, extractDatasetsFromModel(resp, readme), modelID, progress)
+		datasetCount, resolved := buildDatasetComponents(fetchers, bom, extractDatasetsFromModel(resp, readme), label, progress)
+		finalizeModelBOM(bom, resolved)
 
-		// Add dependencies from model to datasets.
-		builder.AddDependencies(bom)
-
-		progress(ProgressEvent{Type: EventModelComplete, ModelID: modelID, Datasets: datasetCount})
+		progress(ProgressEvent{Type: EventModelComplete, ModelID: label, Datasets: datasetCount})
 
 		results = append(results, DiscoveredBOM{
 			Discovery: discovery,

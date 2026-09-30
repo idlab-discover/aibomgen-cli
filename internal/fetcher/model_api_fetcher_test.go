@@ -238,3 +238,41 @@ func TestFetch_NewRequestError_InvalidBaseURL(t *testing.T) {
 		t.Fatalf("expected nil response, got %#v", got)
 	}
 }
+
+func TestModelFetchersUseRevisionURLs(t *testing.T) {
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.EscapedPath())
+		switch {
+		case strings.HasSuffix(r.URL.Path, "README.md"):
+			_, _ = w.Write([]byte("---\nlicense: mit\n---\n"))
+		case strings.Contains(r.URL.Path, "/tree/"):
+			_, _ = w.Write([]byte("[]"))
+		default:
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "org/m", "sha": "abc"})
+		}
+	}))
+	defer srv.Close()
+
+	if _, err := (&ModelAPIFetcher{BaseURL: srv.URL}).FetchRevision("org/m", "refs/pr/1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (&ModelReadmeFetcher{BaseURL: srv.URL}).FetchRevision("org/m", "v1.0"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (&ModelTreeFetcher{BaseURL: srv.URL}).FetchRevision("org/m", "v1.0"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (&ModelAPIFetcher{BaseURL: srv.URL}).Fetch("org/m"); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"/api/models/org/m/revision/refs%2Fpr%2F1",
+		"/org/m/resolve/v1.0/README.md",
+		"/api/models/org/m/tree/v1.0",
+		"/api/models/org/m",
+	}
+	if strings.Join(paths, " ") != strings.Join(want, " ") {
+		t.Fatalf("requested paths = %v, want %v", paths, want)
+	}
+}

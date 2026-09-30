@@ -21,7 +21,7 @@ body:
     attributes:
       label: File or URL
       description: Link to the specific file, section, or page that has the issue.
-      placeholder: "e.g. docs/draft/mapping/config.md, README.md#installation"
+      placeholder: "e.g. docs/mapping/model.md, README.md#installation"
     validations:
       required: false
 

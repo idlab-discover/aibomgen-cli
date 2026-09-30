@@ -329,7 +329,7 @@ func init() {
 	scanCmd.Flags().StringVarP(&scanPath, "input", "i", "", "Path to scan (defaults to current directory)")
 	scanCmd.Flags().StringVarP(&scanOutput, "output", "o", "", "Output file path (directory is used)")
 	scanCmd.Flags().StringVarP(&scanOutputFormat, "format", "f", "", "Output BOM format: json|xml|auto")
-	scanCmd.Flags().StringVar(&scanSpecVersion, "spec", "", "CycloneDX spec version for output (e.g., 1.4, 1.5, 1.6)")
+	scanCmd.Flags().StringVar(&scanSpecVersion, "spec", "", "CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7; default 1.7)")
 	scanCmd.Flags().StringVar(&scanHfMode, "hf-mode", "", "Hugging Face metadata mode: online|dummy")
 	scanCmd.Flags().IntVar(&scanHfTimeoutSec, "hf-timeout", 0, "Timeout in seconds per Hugging Face API request (default 10)")
 	scanCmd.Flags().StringVar(&scanHfToken, "hf-token", "", "Hugging Face access token")

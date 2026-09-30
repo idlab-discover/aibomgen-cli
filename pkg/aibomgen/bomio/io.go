@@ -178,52 +178,31 @@ func ParseSpecVersion(s string) (cdx.SpecVersion, bool) {
 		return cdx.SpecVersion1_5, true
 	case "1.6":
 		return cdx.SpecVersion1_6, true
+	case "1.7":
+		return cdx.SpecVersion1_7, true
 	default:
 		return cdx.SpecVersion1_6, false
 	}
 }
 
 // WriteOutputFiles writes BOM files to disk and returns the list of written paths.
-// Each BOM is written to a separate file named after the component.
+// Each BOM is written to a separate file named after the requested model reference
+// (Discovery.ID, plus "@revision" when set), so two requested IDs that resolve to the
+// same Hugging Face model still get their own file. Names that collide after
+// sanitizing get a numeric suffix (_2, _3, ...) instead of overwriting each other.
 func WriteOutputFiles(discoveredBOMs []generator.DiscoveredBOM, outputDir, fileExt, format, specVersion string) ([]string, error) {
 	written := make([]string, 0, len(discoveredBOMs))
+	used := make(map[string]struct{}, len(discoveredBOMs))
 	for _, d := range discoveredBOMs {
-		// Extract component name from BOM metadata.
-		var name string
-		if d.BOM != nil && d.BOM.Metadata != nil && d.BOM.Metadata.Component != nil {
-			name = d.BOM.Metadata.Component.Name
-		}
-		if strings.TrimSpace(name) == "" {
-			name = strings.TrimSpace(d.Discovery.Name)
-			if name == "" {
-				name = strings.TrimSpace(d.Discovery.ID)
+		base := sanitizeFileName(outputBaseName(d))
+		fileName := fmt.Sprintf("%s_aibom%s", base, fileExt)
+		for n := 2; ; n++ {
+			if _, taken := used[fileName]; !taken {
+				break
 			}
-			if name == "" {
-				name = "model"
-			}
+			fileName = fmt.Sprintf("%s_%d_aibom%s", base, n, fileExt)
 		}
-
-		// Sanitize component name for use in filename.
-		if name == "" {
-			name = "model"
-		}
-		var b strings.Builder
-		for _, r := range name {
-			switch {
-			case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
-				b.WriteRune(r)
-			case r == '-' || r == '_' || r == '.':
-				b.WriteRune(r)
-			default:
-				b.WriteByte('_')
-			}
-		}
-		sanitized := b.String()
-		if sanitized == "" {
-			sanitized = "model"
-		}
-
-		fileName := fmt.Sprintf("%s_aibom%s", sanitized, fileExt)
+		used[fileName] = struct{}{}
 		dest := filepath.Join(outputDir, fileName)
 
 		if err := WriteBOM(d.BOM, dest, format, specVersion); err != nil {
@@ -232,4 +211,42 @@ func WriteOutputFiles(discoveredBOMs []generator.DiscoveredBOM, outputDir, fileE
 		written = append(written, dest)
 	}
 	return written, nil
+}
+
+// outputBaseName returns the unsanitized base name for a BOM file: the requested
+// ID (with "@revision"), else the discovery name, else the component name.
+func outputBaseName(d generator.DiscoveredBOM) string {
+	name := strings.TrimSpace(d.Discovery.ID)
+	if name == "" {
+		name = strings.TrimSpace(d.Discovery.Name)
+	}
+	if name == "" && d.BOM != nil && d.BOM.Metadata != nil && d.BOM.Metadata.Component != nil {
+		name = strings.TrimSpace(d.BOM.Metadata.Component.Name)
+	}
+	if name == "" {
+		return "model"
+	}
+	if rev := strings.TrimSpace(d.Discovery.Revision); rev != "" {
+		name += "@" + rev
+	}
+	return name
+}
+
+// sanitizeFileName keeps [A-Za-z0-9._-] and replaces every other rune with '_'.
+func sanitizeFileName(name string) string {
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == '-' || r == '_' || r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	if b.Len() == 0 {
+		return "model"
+	}
+	return b.String()
 }

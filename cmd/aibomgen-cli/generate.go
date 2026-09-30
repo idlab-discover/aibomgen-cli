@@ -86,6 +86,10 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	var cleanModelIDs []string
 	for _, id := range modelIDs {
 		if trimmed := strings.TrimSpace(id); trimmed != "" {
+			// Accept "org/name" or "org/name@revision".
+			if _, err := generator.ParseModelRef(trimmed); err != nil {
+				return apperr.User(err.Error())
+			}
 			cleanModelIDs = append(cleanModelIDs, trimmed)
 		}
 	}
@@ -344,10 +348,10 @@ func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode, hfToken strin
 }
 
 func init() {
-	generateCmd.Flags().StringSliceVarP(&generateModelIDs, "model-id", "m", []string{}, "Hugging Face model ID(s) (e.g., gpt2 or org/model-name) - can be used multiple times or comma-separated")
+	generateCmd.Flags().StringSliceVarP(&generateModelIDs, "model-id", "m", []string{}, "Hugging Face model ID(s) (e.g., gpt2, org/model-name or org/model-name@revision) - can be used multiple times or comma-separated")
 	generateCmd.Flags().StringVarP(&generateOutput, "output", "o", "", "Output file path (directory is used)")
 	generateCmd.Flags().StringVarP(&generateOutputFormat, "format", "f", "", "Output BOM format: json|xml|auto")
-	generateCmd.Flags().StringVar(&generateSpecVersion, "spec", "", "CycloneDX spec version for output (e.g., 1.4, 1.5, 1.6)")
+	generateCmd.Flags().StringVar(&generateSpecVersion, "spec", "", "CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7; default 1.7)")
 	generateCmd.Flags().StringVar(&hfMode, "hf-mode", "", "Hugging Face metadata mode: online|dummy")
 	generateCmd.Flags().IntVar(&hfTimeout, "hf-timeout", 0, "Timeout in seconds per Hugging Face API request (default 10)")
 	generateCmd.Flags().StringVar(&hfToken, "hf-token", "", "Hugging Face access token")

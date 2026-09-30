@@ -2,6 +2,7 @@ package validator
 
 import (
 	"fmt"
+	"sort"
 
 	cdx "github.com/CycloneDX/cyclonedx-go"
 	"github.com/idlab-discover/aibomgen-cli/internal/metadata"
@@ -106,7 +107,10 @@ func Validate(bom *cdx.BOM, opts ValidationOptions) ValidationResult {
 		validateModelCard(bom, &result)
 	}
 
-	// 8. Validate dataset components if they exist.
+	// 8. Reference integrity: every ref must point at an existing bom-ref.
+	result.Warnings = append(result.Warnings, DanglingRefs(bom)...)
+
+	// 9. Validate dataset components if they exist.
 	for dsName, dsCompletenessResult := range completenessResult.DatasetResults {
 		dsResult := DatasetValidationResult{
 			DatasetRef:        dsCompletenessResult.DatasetRef,
@@ -179,5 +183,112 @@ func validateModelCard(bom *cdx.BOM, result *ValidationResult) {
 
 	if comp.ModelCard.ModelParameters == nil {
 		result.Warnings = append(result.Warnings, "model parameters not present")
+	}
+}
+
+// DanglingRefs returns one message per reference in bom that does not resolve to a
+// bom-ref present in the BOM. It checks model-card dataset refs
+// (modelCard.modelParameters.datasets[].ref) and the dependency graph
+// (dependencies[].ref and dependsOn). A nil or empty BOM has no dangling refs.
+func DanglingRefs(bom *cdx.BOM) []string {
+	if bom == nil {
+		return nil
+	}
+	refs := collectBOMRefs(bom)
+	var out []string
+
+	checkModelCard := func(owner string, c *cdx.Component) {
+		if c == nil || c.ModelCard == nil || c.ModelCard.ModelParameters == nil || c.ModelCard.ModelParameters.Datasets == nil {
+			return
+		}
+		for _, ds := range *c.ModelCard.ModelParameters.Datasets {
+			if ds.Ref == "" {
+				continue
+			}
+			if _, ok := refs[ds.Ref]; !ok {
+				out = append(out, fmt.Sprintf("dangling reference: %s modelCard dataset ref %q has no matching bom-ref", owner, ds.Ref))
+			}
+		}
+	}
+	if bom.Metadata != nil && bom.Metadata.Component != nil {
+		checkModelCard("metadata.component", bom.Metadata.Component)
+	}
+	if bom.Components != nil {
+		walkComponents(*bom.Components, func(c *cdx.Component) {
+			checkModelCard(fmt.Sprintf("component %q", c.Name), c)
+		})
+	}
+
+	if bom.Dependencies != nil {
+		for _, dep := range *bom.Dependencies {
+			if _, ok := refs[dep.Ref]; !ok {
+				out = append(out, fmt.Sprintf("dangling reference: dependency ref %q has no matching bom-ref", dep.Ref))
+			}
+			if dep.Dependencies == nil {
+				continue
+			}
+			for _, d := range *dep.Dependencies {
+				if _, ok := refs[d]; !ok {
+					out = append(out, fmt.Sprintf("dangling reference: %q dependsOn %q has no matching bom-ref", dep.Ref, d))
+				}
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// collectBOMRefs gathers the bom-refs of the metadata component, all (nested)
+// components, their data entries and all (nested) services.
+func collectBOMRefs(bom *cdx.BOM) map[string]struct{} {
+	refs := map[string]struct{}{}
+	add := func(c *cdx.Component) {
+		if c.BOMRef != "" {
+			refs[c.BOMRef] = struct{}{}
+		}
+		if c.Data != nil {
+			for _, d := range *c.Data {
+				if d.BOMRef != "" {
+					refs[d.BOMRef] = struct{}{}
+				}
+			}
+		}
+	}
+	if bom.Metadata != nil && bom.Metadata.Component != nil {
+		add(bom.Metadata.Component)
+		if bom.Metadata.Component.Components != nil {
+			walkComponents(*bom.Metadata.Component.Components, add)
+		}
+	}
+	if bom.Components != nil {
+		walkComponents(*bom.Components, add)
+	}
+	if bom.Services != nil {
+		walkServices(*bom.Services, func(s *cdx.Service) {
+			if s.BOMRef != "" {
+				refs[s.BOMRef] = struct{}{}
+			}
+		})
+	}
+	return refs
+}
+
+func walkComponents(components []cdx.Component, fn func(*cdx.Component)) {
+	for i := range components {
+		c := &components[i]
+		fn(c)
+		if c.Components != nil {
+			walkComponents(*c.Components, fn)
+		}
+	}
+}
+
+func walkServices(services []cdx.Service, fn func(*cdx.Service)) {
+	for i := range services {
+		s := &services[i]
+		fn(s)
+		if s.Services != nil {
+			walkServices(*s.Services, fn)
+		}
 	}
 }
