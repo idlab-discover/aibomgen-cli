@@ -174,3 +174,8 @@ Training was performed on AWS infrastructure using NVIDIA A100 GPUs.
 
 contact@dummy-org.example.com
 `
+
+// FetchRevision ignores the revision and returns the same dummy card.
+func (f *DummyModelReadmeFetcher) FetchRevision(modelID, _ string) (*ModelReadmeCard, error) {
+	return f.Fetch(modelID)
+}

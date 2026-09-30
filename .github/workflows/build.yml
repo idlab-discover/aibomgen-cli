@@ -132,4 +132,17 @@ jobs:
             echo "Found $count vulnerabilities in SBOM"; exit 1
           fi
 
-
+  # Stable required status check: matrix jobs report as "build (<go-version>)",
+  # which changes on every Go bump. Branch rules require this "build" gate instead.
+  build-status:
+    name: build
+    if: ${{ always() }}
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check build matrix result
+        run: |
+          if [ "${{ needs.build.result }}" != "success" ]; then
+            echo "build matrix result: ${{ needs.build.result }}"; exit 1
+          fi

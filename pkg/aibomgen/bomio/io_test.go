@@ -36,7 +36,8 @@ func TestParseSpecVersion_AllCases(t *testing.T) {
 		{" 1.6 ", cdx.SpecVersion1_6, true}, // now trimmed in ParseSpecVersion
 		{"", cdx.SpecVersion1_6, false},
 		{"1", cdx.SpecVersion1_6, false},
-		{"1.7", cdx.SpecVersion1_6, false},
+		{"1.7", cdx.SpecVersion1_7, true},
+		{"1.8", cdx.SpecVersion1_6, false},
 		{"nope", cdx.SpecVersion1_6, false},
 	}
 

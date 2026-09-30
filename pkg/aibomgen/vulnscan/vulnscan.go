@@ -110,7 +110,7 @@ func scanOne(comp *cdx.Component, modelID string, tf treeFetcherIface) Component
 	// Derive vulnerabilities (reuse the same builder logic used during generate/scan).
 	// We need a temporary BOM to collect them.
 	tmpBOM := cdx.NewBOM()
-	builder.InjectSecurityData(tmpBOM, comp, entries, modelID)
+	builder.InjectSecurityData(tmpBOM, comp, entries, modelID, "")
 	if tmpBOM.Vulnerabilities != nil {
 		res.Vulnerabilities = *tmpBOM.Vulnerabilities
 	}

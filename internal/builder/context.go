@@ -6,7 +6,9 @@ import (
 )
 
 type BuildContext struct {
-	ModelID      string
+	ModelID string
+	// Revision is the requested model revision (branch, tag or commit); empty means the default branch.
+	Revision     string
 	Scan         scanner.Discovery
 	HF           *fetcher.ModelAPIResponse
 	Readme       *fetcher.ModelReadmeCard

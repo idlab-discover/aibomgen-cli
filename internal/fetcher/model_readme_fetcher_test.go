@@ -155,3 +155,17 @@ func TestModelReadmeFetcher_Fetch_FallbackToMaster(t *testing.T) {
 		t.Fatalf("expected raw readme")
 	}
 }
+
+func TestParseReadmeCard_BaseModel(t *testing.T) {
+	tests := map[string]string{
+		"---\nbase_model: meta-llama/Llama-3.2-1B\n---\n": "meta-llama/Llama-3.2-1B",
+		"---\nbase_model:\n- org/a\n- org/b\n---\n":       "org/a,org/b",
+		"---\nbase_model: []\n---\n":                      "",
+		"---\nlicense: mit\n---\n":                        "",
+	}
+	for raw, want := range tests {
+		if got := parseReadmeCard(raw).BaseModel; got != want {
+			t.Errorf("BaseModel for %q = %q, want %q", raw, got, want)
+		}
+	}
+}

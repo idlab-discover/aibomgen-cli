@@ -50,3 +50,8 @@ func (f *DummyModelAPIFetcher) Fetch(modelID string) (*ModelAPIResponse, error) 
 		},
 	}, nil
 }
+
+// FetchRevision ignores the revision and returns the same dummy response.
+func (f *DummyModelAPIFetcher) FetchRevision(modelID, _ string) (*ModelAPIResponse, error) {
+	return f.Fetch(modelID)
+}

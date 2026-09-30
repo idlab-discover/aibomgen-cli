@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"strings"
 )
 
@@ -75,6 +76,12 @@ type ModelReadmeFetcher struct {
 }
 
 func (f *ModelReadmeFetcher) Fetch(modelID string) (*ModelReadmeCard, error) {
+	return f.FetchRevision(modelID, "")
+}
+
+// FetchRevision fetches the model card at a revision (branch, tag or commit).
+// An empty revision tries main, then master.
+func (f *ModelReadmeFetcher) FetchRevision(modelID, revision string) (*ModelReadmeCard, error) {
 	client := f.Client
 	if client == nil {
 		client = http.DefaultClient
@@ -90,10 +97,15 @@ func (f *ModelReadmeFetcher) Fetch(modelID string) (*ModelReadmeCard, error) {
 		baseURL = "https://huggingface.co"
 	}
 
-	// Try main then master.
+	// Try main then master, or only the requested revision.
 	candidates := []string{
 		fmt.Sprintf("%s/%s/resolve/main/README.md", baseURL, trimmedModelID),
 		fmt.Sprintf("%s/%s/resolve/master/README.md", baseURL, trimmedModelID),
+	}
+	if rev := strings.TrimSpace(revision); rev != "" {
+		candidates = []string{
+			fmt.Sprintf("%s/%s/resolve/%s/README.md", baseURL, trimmedModelID, neturl.PathEscape(rev)),
+		}
 	}
 
 	var lastErr error
@@ -147,7 +159,8 @@ func parseReadmeCard(raw string) *ModelReadmeCard {
 	card.Tags = stringSliceFromAny(fm["tags"])
 	card.Datasets = stringSliceFromAny(fm["datasets"])
 	card.Metrics = stringSliceFromAny(fm["metrics"])
-	card.BaseModel = strings.TrimSpace(stringFromAny(fm["base_model"]))
+	// base_model may be a single ID or a list (merges, adapters): join lists with ",".
+	card.BaseModel = strings.Join(stringSliceFromAny(fm["base_model"]), ",")
 
 	// model-index task + metrics (best effort).
 	if mi, ok := fm["model-index"]; ok {

@@ -36,6 +36,7 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 	// Apply registry exactly once (no duplication).
 	src := metadata.Source{
 		ModelID:      strings.TrimSpace(ctx.ModelID),
+		Revision:     strings.TrimSpace(ctx.Revision),
 		Scan:         ctx.Scan,
 		HF:           ctx.HF,
 		Readme:       ctx.Readme,
@@ -58,7 +59,7 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 	AddComponentBOMRef(comp)
 
 	// Inject security scan findings as Component.Properties and BOM.Vulnerabilities.
-	InjectSecurityData(bom, comp, ctx.SecurityTree, strings.TrimSpace(ctx.ModelID))
+	InjectSecurityData(bom, comp, ctx.SecurityTree, strings.TrimSpace(ctx.ModelID), strings.TrimSpace(ctx.Revision))
 
 	return bom, nil
 }

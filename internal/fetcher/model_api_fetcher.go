@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	neturl "net/url"
 	"strings"
 )
 
@@ -78,6 +79,13 @@ type ModelAPIResponse struct {
 }
 
 func (f *ModelAPIFetcher) Fetch(modelID string) (*ModelAPIResponse, error) {
+	return f.FetchRevision(modelID, "")
+}
+
+// FetchRevision fetches model metadata at a revision (branch, tag or commit).
+// An empty revision uses the default branch (GET /api/models/:id); otherwise.
+// GET /api/models/:id/revision/:revision, whose sha is the resolved commit.
+func (f *ModelAPIFetcher) FetchRevision(modelID, revision string) (*ModelAPIResponse, error) {
 	client := f.Client
 	if client == nil {
 		client = http.DefaultClient
@@ -91,6 +99,9 @@ func (f *ModelAPIFetcher) Fetch(modelID string) (*ModelAPIResponse, error) {
 	}
 
 	url := fmt.Sprintf("%s/api/models/%s", baseURL, trimmedModelID)
+	if rev := strings.TrimSpace(revision); rev != "" {
+		url += "/revision/" + neturl.PathEscape(rev)
+	}
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err

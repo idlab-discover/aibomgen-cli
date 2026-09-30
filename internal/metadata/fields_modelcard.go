@@ -231,6 +231,10 @@ func modelCardFields() []FieldSpec {
 					if strings.TrimSpace(d.Ref) != "" {
 						return true
 					}
+					// Inline entry for a dataset that has no component in the BOM.
+					if d.ComponentData != nil && strings.TrimSpace(d.ComponentData.Name) != "" {
+						return true
+					}
 				}
 				return false
 			},

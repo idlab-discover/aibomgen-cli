@@ -20,12 +20,7 @@ func componentFields() []FieldSpec {
 			Weight:   1.0,
 			Required: true,
 			Sources: []func(Source) (any, bool){
-				func(src Source) (any, bool) {
-					if s := strings.TrimSpace(src.Scan.Name); s != "" {
-						return s, true
-					}
-					return nil, false
-				},
+				// Resolved HF ID first: HF redirects renamed/short IDs (gpt2 -> openai-community/gpt2).
 				func(src Source) (any, bool) {
 					if src.HF == nil {
 						return nil, false
@@ -40,6 +35,12 @@ func componentFields() []FieldSpec {
 						return nil, false
 					}
 					if s := strings.TrimSpace(src.HF.ModelID); s != "" {
+						return s, true
+					}
+					return nil, false
+				},
+				func(src Source) (any, bool) {
+					if s := strings.TrimSpace(src.Scan.Name); s != "" {
 						return s, true
 					}
 					return nil, false
@@ -84,13 +85,16 @@ func componentFields() []FieldSpec {
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					modelID := strings.TrimSpace(src.ModelID)
+					if src.HF != nil && strings.TrimSpace(src.HF.ID) != "" {
+						modelID = strings.TrimSpace(src.HF.ID)
+					}
 					if modelID == "" {
 						return nil, false
 					}
 					input := componentExternalRefsSource{ModelID: modelID}
 					if src.Readme != nil {
-						input.PaperURL = strings.TrimSpace(src.Readme.PaperURL)
-						input.DemoURL = strings.TrimSpace(src.Readme.DemoURL)
+						input.PaperURL = linkURL(src.Readme.PaperURL)
+						input.DemoURL = linkURL(src.Readme.DemoURL)
 					}
 					return input, true
 				},
@@ -217,24 +221,11 @@ func componentFields() []FieldSpec {
 			Required: false,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
-					if src.HF == nil {
+					in, ok := modelLicenseInput(src)
+					if !ok {
 						return nil, false
 					}
-					lic := extractLicense(src.HF.CardData, src.HF.Tags)
-					if lic == "" {
-						return nil, false
-					}
-					return lic, true
-				},
-				func(src Source) (any, bool) {
-					if src.Readme == nil {
-						return nil, false
-					}
-					lic := strings.TrimSpace(src.Readme.License)
-					if lic == "" {
-						return nil, false
-					}
-					return lic, true
+					return in, true
 				},
 			},
 			Parse: func(value string) (any, error) {
@@ -245,9 +236,8 @@ func componentFields() []FieldSpec {
 				if !ok {
 					return fmt.Errorf("invalid input for %s", ComponentLicenses)
 				}
-				lic, _ := input.Value.(string)
-				lic = strings.TrimSpace(lic)
-				if lic == "" {
+				in, ok := licenseInputFromValue(input.Value)
+				if !ok {
 					return fmt.Errorf("license value is empty")
 				}
 				if tgt.Component == nil {
@@ -256,10 +246,11 @@ func componentFields() []FieldSpec {
 				if !input.Force && tgt.Component.Licenses != nil && len(*tgt.Component.Licenses) > 0 {
 					return nil
 				}
-				ls := cdx.Licenses{
-					{License: &cdx.License{Name: lic}},
+				ls := buildLicenses(in, tgt.HuggingFaceBaseURL)
+				if ls == nil {
+					return fmt.Errorf("license value is a placeholder")
 				}
-				tgt.Component.Licenses = &ls
+				tgt.Component.Licenses = ls
 				return nil
 			},
 			Present: func(b *cdx.BOM) bool {
@@ -323,15 +314,17 @@ func componentFields() []FieldSpec {
 				func(src Source) (any, bool) {
 					if src.HF != nil {
 						if s := strings.TrimSpace(src.HF.Author); s != "" {
-							return s, true
+							ns, _ := modelNamespace(src)
+							return orgSource{Name: s, Namespace: ns}, true
 						}
 					}
 					return nil, false
 				},
 				func(src Source) (any, bool) {
 					if src.Readme != nil {
-						if s := strings.TrimSpace(src.Readme.DevelopedBy); s != "" {
-							return s, true
+						if s := realText(src.Readme.DevelopedBy); s != "" {
+							ns, _ := modelNamespace(src)
+							return orgSource{Name: s, Namespace: ns}, true
 						}
 					}
 					return nil, false
@@ -345,18 +338,17 @@ func componentFields() []FieldSpec {
 				if !ok {
 					return fmt.Errorf("invalid input for %s", ComponentManufacturer)
 				}
-				s, _ := input.Value.(string)
-				s = strings.TrimSpace(s)
-				if s == "" {
-					return fmt.Errorf("manufacturer value is empty")
-				}
 				if tgt.Component == nil {
 					return fmt.Errorf("component is nil")
+				}
+				ent, err := organizationalEntity(input.Value, tgt.HuggingFaceBaseURL)
+				if err != nil {
+					return err
 				}
 				if !input.Force && tgt.Component.Manufacturer != nil && strings.TrimSpace(tgt.Component.Manufacturer.Name) != "" {
 					return nil
 				}
-				tgt.Component.Manufacturer = &cdx.OrganizationalEntity{Name: s}
+				tgt.Component.Manufacturer = ent
 				return nil
 			},
 			Present: func(b *cdx.BOM) bool {
@@ -373,35 +365,15 @@ func componentFields() []FieldSpec {
 			Required: false,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
-					// Extract group from ModelID (part before /).
-					var modelID string
-					if src.HF != nil && strings.TrimSpace(src.HF.ModelID) != "" {
-						modelID = strings.TrimSpace(src.HF.ModelID)
-					} else if src.HF != nil && strings.TrimSpace(src.HF.ID) != "" {
-						modelID = strings.TrimSpace(src.HF.ID)
-					} else {
-						modelID = strings.TrimSpace(src.ModelID)
-					}
-					if modelID == "" {
-						return nil, false
-					}
-					parts := strings.SplitN(modelID, "/", 2)
-					if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
-						return strings.TrimSpace(parts[0]), true
-					}
-					return nil, false
-				},
-				func(src Source) (any, bool) {
-					if src.HF != nil {
-						if s := strings.TrimSpace(src.HF.Author); s != "" {
-							return s, true
-						}
+					// Namespace of the (resolved) model ID, or the HF author.
+					if ns, ok := modelNamespace(src); ok {
+						return ns, true
 					}
 					return nil, false
 				},
 				func(src Source) (any, bool) {
 					if src.Readme != nil {
-						if s := strings.TrimSpace(src.Readme.DevelopedBy); s != "" {
+						if s := realText(src.Readme.DevelopedBy); s != "" {
 							return s, true
 						}
 					}
@@ -438,7 +410,171 @@ func componentFields() []FieldSpec {
 			InputType:   InputTypeText,
 			Placeholder: "Organization or group name",
 		},
+		{
+			Key:      ComponentSupplier,
+			Weight:   0.5,
+			Required: false,
+			Sources: []func(Source) (any, bool){
+				func(src Source) (any, bool) {
+					// The Hugging Face namespace distributes the model.
+					if ns, ok := modelNamespace(src); ok {
+						return orgSource{Name: ns, Namespace: ns}, true
+					}
+					return nil, false
+				},
+			},
+			Parse: func(value string) (any, error) {
+				return parseNonEmptyString(value, "supplier")
+			},
+			Apply: func(tgt Target, value any) error {
+				input, ok := value.(applyInput)
+				if !ok {
+					return fmt.Errorf("invalid input for %s", ComponentSupplier)
+				}
+				if tgt.Component == nil {
+					return fmt.Errorf("component is nil")
+				}
+				ent, err := organizationalEntity(input.Value, tgt.HuggingFaceBaseURL)
+				if err != nil {
+					return err
+				}
+				if !input.Force && tgt.Component.Supplier != nil && strings.TrimSpace(tgt.Component.Supplier.Name) != "" {
+					return nil
+				}
+				tgt.Component.Supplier = ent
+				return nil
+			},
+			Present: func(b *cdx.BOM) bool {
+				c := bomComponent(b)
+				return c != nil && c.Supplier != nil && strings.TrimSpace(c.Supplier.Name) != ""
+			},
+			InputType:   InputTypeText,
+			Placeholder: "Organization distributing the model",
+		},
+		{
+			Key:      ComponentAuthors,
+			Weight:   0.5,
+			Required: false,
+			Sources: []func(Source) (any, bool){
+				func(src Source) (any, bool) {
+					if src.Readme != nil {
+						if s := realText(src.Readme.DevelopedBy); s != "" {
+							return []string{s}, true
+						}
+					}
+					return nil, false
+				},
+				func(src Source) (any, bool) {
+					// Fallback: the Hugging Face namespace.
+					if ns, ok := modelNamespace(src); ok {
+						return []string{ns}, true
+					}
+					return nil, false
+				},
+			},
+			Parse: func(value string) (any, error) {
+				return parseCommaList(value, "authors")
+			},
+			Apply: func(tgt Target, value any) error {
+				input, ok := value.(applyInput)
+				if !ok {
+					return fmt.Errorf("invalid input for %s", ComponentAuthors)
+				}
+				if tgt.Component == nil {
+					return fmt.Errorf("component is nil")
+				}
+				names, _ := input.Value.([]string)
+				var authors []cdx.OrganizationalContact
+				for _, n := range normalizeStrings(names) {
+					authors = append(authors, cdx.OrganizationalContact{Name: n})
+				}
+				if len(authors) == 0 {
+					return fmt.Errorf("authors value is empty")
+				}
+				if !input.Force && tgt.Component.Authors != nil && len(*tgt.Component.Authors) > 0 {
+					return nil
+				}
+				tgt.Component.Authors = &authors
+				return nil
+			},
+			Present: func(b *cdx.BOM) bool {
+				c := bomComponent(b)
+				return c != nil && c.Authors != nil && len(*c.Authors) > 0
+			},
+			InputType:   InputTypeMultiText,
+			Placeholder: "author1, author2",
+		},
+		{
+			Key:      ComponentVersion,
+			Weight:   0.5,
+			Required: false,
+			Sources: []func(Source) (any, bool){
+				func(src Source) (any, bool) {
+					// A named revision (branch/tag) is the version the user asked for.
+					if rev := strings.TrimSpace(src.Revision); rev != "" && !isCommitSHA(rev) {
+						return rev, true
+					}
+					return nil, false
+				},
+				func(src Source) (any, bool) {
+					// Otherwise the resolved commit, identical to the purl version.
+					if src.HF != nil {
+						if sha := strings.ToLower(strings.TrimSpace(src.HF.SHA)); sha != "" {
+							return sha, true
+						}
+					}
+					return nil, false
+				},
+			},
+			Parse: func(value string) (any, error) {
+				return parseNonEmptyString(value, "version")
+			},
+			Apply: func(tgt Target, value any) error {
+				input, ok := value.(applyInput)
+				if !ok {
+					return fmt.Errorf("invalid input for %s", ComponentVersion)
+				}
+				v, _ := input.Value.(string)
+				v = strings.TrimSpace(v)
+				if v == "" {
+					return fmt.Errorf("version value is empty")
+				}
+				if tgt.Component == nil {
+					return fmt.Errorf("component is nil")
+				}
+				if !input.Force && strings.TrimSpace(tgt.Component.Version) != "" {
+					return nil
+				}
+				tgt.Component.Version = v
+				return nil
+			},
+			Present: func(b *cdx.BOM) bool {
+				c := bomComponent(b)
+				return c != nil && strings.TrimSpace(c.Version) != ""
+			},
+			InputType:   InputTypeText,
+			Placeholder: "Model revision (commit SHA or tag)",
+		},
 	}
+}
+
+// modelNamespace returns the Hugging Face namespace of the model:.
+// the org of the resolved ID (HF.ID, HF.ModelID) or requested ID, else the HF author.
+func modelNamespace(src Source) (string, bool) {
+	var ids []string
+	if src.HF != nil {
+		ids = append(ids, src.HF.ID, src.HF.ModelID)
+	}
+	ids = append(ids, src.ModelID)
+	if ns, ok := hfNamespace(ids...); ok {
+		return ns, true
+	}
+	if src.HF != nil {
+		if a := strings.TrimSpace(src.HF.Author); a != "" {
+			return a, true
+		}
+	}
+	return "", false
 }
 
 func evidenceFields() []FieldSpec {

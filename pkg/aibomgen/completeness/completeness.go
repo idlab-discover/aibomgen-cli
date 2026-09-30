@@ -138,9 +138,9 @@ func hasDatasetsReferenced(bom *cdx.BOM) bool {
 	if mp.Datasets == nil || len(*mp.Datasets) == 0 {
 		return false
 	}
-	// Check if any dataset ref is non-empty.
+	// Check if any dataset ref or inline dataset entry is non-empty.
 	for _, ds := range *mp.Datasets {
-		if ds.Ref != "" {
+		if ds.Ref != "" || (ds.ComponentData != nil && ds.ComponentData.Name != "") {
 			return true
 		}
 	}

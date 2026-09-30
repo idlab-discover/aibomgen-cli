@@ -21,6 +21,9 @@ const (
 	ComponentHashes             Key = "BOM.metadata.component.hashes"
 	ComponentManufacturer       Key = "BOM.metadata.component.manufacturer"
 	ComponentGroup              Key = "BOM.metadata.component.group"
+	ComponentSupplier           Key = "BOM.metadata.component.supplier"
+	ComponentAuthors            Key = "BOM.metadata.component.authors"
+	ComponentVersion            Key = "BOM.metadata.component.version"
 
 	// Component-level extra properties (stored later as CycloneDX Component.Properties).
 	ComponentPropertiesHuggingFaceLastModified Key = "BOM.metadata.component.properties.huggingface:lastModified"
@@ -66,6 +69,7 @@ const (
 	DatasetDescription        DatasetKey = "BOM.components[DATA].data.description"
 	DatasetManufacturer       DatasetKey = "BOM.components[DATA].manufacturer"
 	DatasetAuthors            DatasetKey = "BOM.components[DATA].authors"
+	DatasetSupplier           DatasetKey = "BOM.components[DATA].supplier"
 	DatasetGroup              DatasetKey = "BOM.components[DATA].group"
 	DatasetContents           DatasetKey = "BOM.components[DATA].data.contents.attachments"
 	DatasetSensitiveData      DatasetKey = "BOM.components[DATA].data.sensitiveData"
@@ -80,7 +84,9 @@ const (
 
 // Source is everything FieldSpecs can read from.
 type Source struct {
-	ModelID      string
+	ModelID string
+	// Revision is the requested model revision (branch, tag or commit); empty means the default branch.
+	Revision     string
 	Scan         scanner.Discovery
 	HF           *fetcher.ModelAPIResponse
 	Readme       *fetcher.ModelReadmeCard

@@ -95,7 +95,7 @@ func TestRegistryApplyAndPresent(t *testing.T) {
 		ApplyFromSources(spec, src, tgt)
 	}
 
-	if comp.Name != "scan-name" {
+	if comp.Name != "hf-org/hf-model" { // resolved HF ID wins over the scan name
 		t.Fatalf("component name = %q", comp.Name)
 	}
 	if comp.ExternalReferences == nil || len(*comp.ExternalReferences) == 0 {
@@ -306,13 +306,6 @@ func TestHFPropsSkipWithoutHFData(t *testing.T) {
 }
 
 func TestHelperFunctions(t *testing.T) {
-	if got := extractLicense(map[string]any{"license": " mit "}, nil); got != "mit" {
-		t.Fatalf("extractLicense card data = %q", got)
-	}
-	if got := extractLicense(nil, []string{"license:apache-2.0"}); got != "apache-2.0" {
-		t.Fatalf("extractLicense tags = %q", got)
-	}
-
 	if got := extractLanguage(map[string]any{"language": " en "}); got != "en" {
 		t.Fatalf("language string = %q", got)
 	}
@@ -397,9 +390,6 @@ func TestHelperFunctions(t *testing.T) {
 		t.Fatalf("expected nil when model card missing")
 	}
 
-	if extractLicense(nil, nil) != "" {
-		t.Fatalf("expected empty license when no data")
-	}
 	if extractLanguage(nil) != "" {
 		t.Fatalf("expected empty language when absent")
 	}

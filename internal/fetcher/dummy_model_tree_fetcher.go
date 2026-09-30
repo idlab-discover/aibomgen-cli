@@ -9,3 +9,8 @@ type DummyModelTreeFetcher struct{}
 func (f *DummyModelTreeFetcher) Fetch(_ string) ([]SecurityFileEntry, error) {
 	return []SecurityFileEntry{}, nil
 }
+
+// FetchRevision ignores the revision and returns the same clean tree.
+func (f *DummyModelTreeFetcher) FetchRevision(modelID, _ string) ([]SecurityFileEntry, error) {
+	return f.Fetch(modelID)
+}

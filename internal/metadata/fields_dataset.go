@@ -13,6 +13,25 @@ type datasetExternalRefsSource struct {
 	DemoURL   string
 }
 
+// datasetNamespace returns the Hugging Face namespace of the dataset:.
+// the org of the resolved (HF.ID) or requested ID, else the HF author.
+func datasetNamespace(src DatasetSource) (string, bool) {
+	var ids []string
+	if src.HF != nil {
+		ids = append(ids, src.HF.ID)
+	}
+	ids = append(ids, src.DatasetID)
+	if ns, ok := hfNamespace(ids...); ok {
+		return ns, true
+	}
+	if src.HF != nil {
+		if a := strings.TrimSpace(src.HF.Author); a != "" {
+			return a, true
+		}
+	}
+	return "", false
+}
+
 // DatasetRegistry returns all dataset field specifications.
 func DatasetRegistry() []DatasetFieldSpec {
 	return []DatasetFieldSpec{
@@ -21,17 +40,18 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Weight:   1.0,
 			Required: true,
 			Sources: []func(DatasetSource) (any, bool){
-				func(src DatasetSource) (any, bool) {
-					if s := strings.TrimSpace(src.Scan.Name); s != "" {
-						return s, true
-					}
-					return nil, false
-				},
+				// Resolved HF ID first: HF redirects renamed datasets (wikipedia -> legacy-datasets/wikipedia).
 				func(src DatasetSource) (any, bool) {
 					if src.HF == nil {
 						return nil, false
 					}
 					if s := strings.TrimSpace(src.HF.ID); s != "" {
+						return s, true
+					}
+					return nil, false
+				},
+				func(src DatasetSource) (any, bool) {
+					if s := strings.TrimSpace(src.Scan.Name); s != "" {
 						return s, true
 					}
 					return nil, false
@@ -76,13 +96,16 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					datasetID := strings.TrimSpace(src.DatasetID)
+					if src.HF != nil && strings.TrimSpace(src.HF.ID) != "" {
+						datasetID = strings.TrimSpace(src.HF.ID)
+					}
 					if datasetID == "" {
 						return nil, false
 					}
 					input := datasetExternalRefsSource{DatasetID: datasetID}
 					if src.Readme != nil {
-						input.PaperURL = strings.TrimSpace(src.Readme.PaperURL)
-						input.DemoURL = strings.TrimSpace(src.Readme.DemoURL)
+						input.PaperURL = linkURL(src.Readme.PaperURL)
+						input.DemoURL = linkURL(src.Readme.DemoURL)
 					}
 					return input, true
 				},
@@ -203,21 +226,11 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Required: false,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
-					if src.Readme != nil && strings.TrimSpace(src.Readme.License) != "" {
-						return strings.TrimSpace(src.Readme.License), true
+					in, ok := datasetLicenseInput(src)
+					if !ok {
+						return nil, false
 					}
-					return nil, false
-				},
-				func(src DatasetSource) (any, bool) {
-					if src.HF != nil && src.HF.CardData != nil {
-						if licData, ok := src.HF.CardData["license"]; ok {
-							licenseStr := strings.TrimSpace(fmt.Sprintf("%v", licData))
-							if licenseStr != "" {
-								return licenseStr, true
-							}
-						}
-					}
-					return nil, false
+					return in, true
 				},
 			},
 			Parse: func(value string) (any, error) {
@@ -228,9 +241,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 				if !ok {
 					return fmt.Errorf("invalid input for %s", DatasetLicenses)
 				}
-				licenseStr, _ := input.Value.(string)
-				licenseStr = strings.TrimSpace(licenseStr)
-				if licenseStr == "" {
+				in, ok := licenseInputFromValue(input.Value)
+				if !ok {
 					return fmt.Errorf("license value is empty")
 				}
 				if tgt.Component == nil {
@@ -239,10 +251,11 @@ func DatasetRegistry() []DatasetFieldSpec {
 				if !input.Force && tgt.Component.Licenses != nil && len(*tgt.Component.Licenses) > 0 {
 					return nil
 				}
-				ls := cdx.Licenses{
-					{License: &cdx.License{Name: licenseStr}},
+				ls := buildLicenses(in, tgt.HuggingFaceBaseURL)
+				if ls == nil {
+					return fmt.Errorf("license value is a placeholder")
 				}
-				tgt.Component.Licenses = &ls
+				tgt.Component.Licenses = ls
 				return nil
 			},
 			Present: func(comp *cdx.Component) bool {
@@ -309,14 +322,15 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Required: false,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
+					ns, _ := datasetNamespace(src)
 					// First try API author (authors[0]).
 					if src.HF != nil && strings.TrimSpace(src.HF.Author) != "" {
-						return strings.TrimSpace(src.HF.Author), true
+						return orgSource{Name: strings.TrimSpace(src.HF.Author), Namespace: ns}, true
 					}
 					// Fallback to first AnnotationCreator from README (authors[1]).
 					if src.Readme != nil && len(src.Readme.AnnotationCreators) > 0 {
 						if trimmed := strings.TrimSpace(src.Readme.AnnotationCreators[0]); trimmed != "" {
-							return trimmed, true
+							return orgSource{Name: trimmed, Namespace: ns}, true
 						}
 					}
 					return nil, false
@@ -330,18 +344,17 @@ func DatasetRegistry() []DatasetFieldSpec {
 				if !ok {
 					return fmt.Errorf("invalid input for %s", DatasetManufacturer)
 				}
-				name, _ := input.Value.(string)
-				name = strings.TrimSpace(name)
-				if name == "" {
-					return fmt.Errorf("manufacturer value is empty")
-				}
 				if tgt.Component == nil {
 					return fmt.Errorf("component is nil")
+				}
+				ent, err := organizationalEntity(input.Value, tgt.HuggingFaceBaseURL)
+				if err != nil {
+					return err
 				}
 				if !input.Force && tgt.Component.Manufacturer != nil && strings.TrimSpace(tgt.Component.Manufacturer.Name) != "" {
 					return nil
 				}
-				tgt.Component.Manufacturer = &cdx.OrganizationalEntity{Name: name}
+				tgt.Component.Manufacturer = ent
 				return nil
 			},
 			Present: func(comp *cdx.Component) bool {
@@ -349,6 +362,46 @@ func DatasetRegistry() []DatasetFieldSpec {
 			},
 			InputType:   InputTypeText,
 			Placeholder: "Organization or author name",
+		},
+		{
+			Key:      DatasetSupplier,
+			Weight:   0.4,
+			Required: false,
+			Sources: []func(DatasetSource) (any, bool){
+				func(src DatasetSource) (any, bool) {
+					// The Hugging Face namespace distributes the dataset.
+					if ns, ok := datasetNamespace(src); ok {
+						return orgSource{Name: ns, Namespace: ns}, true
+					}
+					return nil, false
+				},
+			},
+			Parse: func(value string) (any, error) {
+				return parseNonEmptyString(value, "supplier")
+			},
+			Apply: func(tgt DatasetTarget, value any) error {
+				input, ok := value.(applyInput)
+				if !ok {
+					return fmt.Errorf("invalid input for %s", DatasetSupplier)
+				}
+				if tgt.Component == nil {
+					return fmt.Errorf("component is nil")
+				}
+				ent, err := organizationalEntity(input.Value, tgt.HuggingFaceBaseURL)
+				if err != nil {
+					return err
+				}
+				if !input.Force && tgt.Component.Supplier != nil && strings.TrimSpace(tgt.Component.Supplier.Name) != "" {
+					return nil
+				}
+				tgt.Component.Supplier = ent
+				return nil
+			},
+			Present: func(comp *cdx.Component) bool {
+				return comp != nil && comp.Supplier != nil && strings.TrimSpace(comp.Supplier.Name) != ""
+			},
+			InputType:   InputTypeText,
+			Placeholder: "Organization distributing the dataset",
 		},
 		{
 			Key:      DatasetAuthors,
@@ -429,19 +482,9 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Required: false,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
-					// Extract group from DatasetID (part before /).
-					var datasetID string
-					if src.HF != nil && strings.TrimSpace(src.HF.ID) != "" {
-						datasetID = strings.TrimSpace(src.HF.ID)
-					} else {
-						datasetID = strings.TrimSpace(src.DatasetID)
-					}
-					if datasetID == "" {
-						return nil, false
-					}
-					parts := strings.SplitN(datasetID, "/", 2)
-					if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
-						return strings.TrimSpace(parts[0]), true
+					// Namespace of the (resolved) dataset ID, or the HF author.
+					if ns, ok := datasetNamespace(src); ok {
+						return ns, true
 					}
 					return nil, false
 				},
@@ -655,10 +698,10 @@ func DatasetRegistry() []DatasetFieldSpec {
 					if src.HF != nil && strings.TrimSpace(src.HF.Author) != "" {
 						custodianName = strings.TrimSpace(src.HF.Author)
 					} else if src.Readme != nil {
-						if strings.TrimSpace(src.Readme.SharedBy) != "" {
-							custodianName = strings.TrimSpace(src.Readme.SharedBy)
-						} else if strings.TrimSpace(src.Readme.CuratedBy) != "" {
-							custodianName = strings.TrimSpace(src.Readme.CuratedBy)
+						if realText(src.Readme.SharedBy) != "" {
+							custodianName = realText(src.Readme.SharedBy)
+						} else if realText(src.Readme.CuratedBy) != "" {
+							custodianName = realText(src.Readme.CuratedBy)
 						}
 					}
 					if custodianName != "" {
@@ -667,15 +710,15 @@ func DatasetRegistry() []DatasetFieldSpec {
 						}}
 						hasGovernance = true
 					}
-					if src.Readme != nil && strings.TrimSpace(src.Readme.CuratedBy) != "" {
+					if src.Readme != nil && realText(src.Readme.CuratedBy) != "" {
 						governance.Stewards = &[]cdx.ComponentDataGovernanceResponsibleParty{{
-							Organization: &cdx.OrganizationalEntity{Name: strings.TrimSpace(src.Readme.CuratedBy)},
+							Organization: &cdx.OrganizationalEntity{Name: realText(src.Readme.CuratedBy)},
 						}}
 						hasGovernance = true
 					}
-					if src.Readme != nil && strings.TrimSpace(src.Readme.FundedBy) != "" {
+					if src.Readme != nil && realText(src.Readme.FundedBy) != "" {
 						governance.Owners = &[]cdx.ComponentDataGovernanceResponsibleParty{{
-							Organization: &cdx.OrganizationalEntity{Name: strings.TrimSpace(src.Readme.FundedBy)},
+							Organization: &cdx.OrganizationalEntity{Name: realText(src.Readme.FundedBy)},
 						}}
 						hasGovernance = true
 					}
