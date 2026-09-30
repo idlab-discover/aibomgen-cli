@@ -584,15 +584,18 @@ func applyRules(results []Discovery, rules []detectionRule, text string, lineNum
 // revisionKwargRe matches a Python revision keyword argument: revision="v1.0".
 var revisionKwargRe = regexp.MustCompile(`\brevision\s*=\s*["']([^"']+)["']`)
 
-// callRevision returns the revision= keyword argument of the call whose opening
-// parenthesis lies inside text[start:end] (the rule match). Matches without a call
-// (e.g. assignments) and JS/YAML/shell syntax yield "".
+// callRevision returns the revision= keyword argument of the call a rule match
+// belongs to: the call whose opening parenthesis lies inside text[start:end], or,
+// for keyword matches such as model="org/name", the call enclosing the match.
+// Every rule matching the same call therefore reports the same revision. Matches
+// outside any call (e.g. top-level assignments) yield "".
 func callRevision(text string, start, end int) string {
 	open := strings.IndexByte(text[start:end], '(')
-	if open < 0 {
+	if open >= 0 {
+		open += start
+	} else if open = enclosingParen(text, start); open < 0 {
 		return ""
 	}
-	open += start
 	depth := 0
 	closeIdx := len(text)
 	for i := open; i < len(text); i++ {
@@ -611,6 +614,23 @@ func callRevision(text string, start, end int) string {
 		return strings.TrimSpace(m[1])
 	}
 	return ""
+}
+
+// enclosingParen returns the index of the innermost unclosed '(' before pos, or -1.
+func enclosingParen(text string, pos int) int {
+	depth := 0
+	for i := pos - 1; i >= 0; i-- {
+		switch text[i] {
+		case ')':
+			depth++
+		case '(':
+			if depth == 0 {
+				return i
+			}
+			depth--
+		}
+	}
+	return -1
 }
 
 // notebookFormat is a minimal representation of a .ipynb file.

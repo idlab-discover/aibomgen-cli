@@ -29,6 +29,17 @@ x = AutoModel.from_pretrained("org/model-e"); y = f(revision="not-for-e")
 		"org/model-d": "main",
 		"org/model-e": "",
 	}
+	// Several rules can match one call (e.g. pipeline_model_kwarg and the generic
+	// model= keyword rule); they must agree on the revision, giving one discovery.
+	count := map[string]int{}
+	for _, c := range comps {
+		count[c.ID]++
+	}
+	for id := range want {
+		if count[id] != 1 {
+			t.Errorf("%s: %d discoveries, want 1: %+v", id, count[id], comps)
+		}
+	}
 	for id, rev := range want {
 		d, ok := findByID(comps, id)
 		if !ok {
