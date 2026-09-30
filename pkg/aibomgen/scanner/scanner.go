@@ -24,6 +24,9 @@ type Discovery struct {
 	Path     string `json:"path"`
 	Evidence string `json:"evidence"`
 	Method   string `json:"method"`
+	// Revision is the requested model revision (branch, tag or commit), e.g. from.
+	// from_pretrained(..., revision="v1.0"); empty means the default branch.
+	Revision string `json:"revision,omitempty"`
 }
 
 // detectionRule pairs a named detection method with a compiled pattern.
@@ -554,12 +557,12 @@ func scanLines(path string, rules []detectionRule, multiLine bool) []Discovery {
 // applyRules tests a single text string against all rules and appends any hits.
 func applyRules(results []Discovery, rules []detectionRule, text string, lineNum int, path string) []Discovery {
 	for _, rule := range rules {
-		matches := rule.pattern.FindAllStringSubmatch(text, -1)
+		matches := rule.pattern.FindAllStringSubmatchIndex(text, -1)
 		for _, m := range matches {
-			if len(m) <= rule.groupIdx {
+			if len(m) <= 2*rule.groupIdx+1 || m[2*rule.groupIdx] < 0 {
 				continue
 			}
-			modelID := m[rule.groupIdx]
+			modelID := text[m[2*rule.groupIdx]:m[2*rule.groupIdx+1]]
 			if !isPlausibleModelID(modelID) {
 				continue
 			}
@@ -571,10 +574,63 @@ func applyRules(results []Discovery, rules []detectionRule, text string, lineNum
 				Path:     path,
 				Evidence: evidence,
 				Method:   rule.method,
+				Revision: callRevision(text, m[0], m[1]),
 			})
 		}
 	}
 	return results
+}
+
+// revisionKwargRe matches a Python revision keyword argument: revision="v1.0".
+var revisionKwargRe = regexp.MustCompile(`\brevision\s*=\s*["']([^"']+)["']`)
+
+// callRevision returns the revision= keyword argument of the call a rule match
+// belongs to: the call whose opening parenthesis lies inside text[start:end], or,
+// for keyword matches such as model="org/name", the call enclosing the match.
+// Every rule matching the same call therefore reports the same revision. Matches
+// outside any call (e.g. top-level assignments) yield "".
+func callRevision(text string, start, end int) string {
+	open := strings.IndexByte(text[start:end], '(')
+	if open >= 0 {
+		open += start
+	} else if open = enclosingParen(text, start); open < 0 {
+		return ""
+	}
+	depth := 0
+	closeIdx := len(text)
+	for i := open; i < len(text); i++ {
+		switch text[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+		}
+		if depth == 0 {
+			closeIdx = i
+			break
+		}
+	}
+	if m := revisionKwargRe.FindStringSubmatch(text[open:closeIdx]); m != nil {
+		return strings.TrimSpace(m[1])
+	}
+	return ""
+}
+
+// enclosingParen returns the index of the innermost unclosed '(' before pos, or -1.
+func enclosingParen(text string, pos int) int {
+	depth := 0
+	for i := pos - 1; i >= 0; i-- {
+		switch text[i] {
+		case ')':
+			depth++
+		case '(':
+			if depth == 0 {
+				return i
+			}
+			depth--
+		}
+	}
+	return -1
 }
 
 // notebookFormat is a minimal representation of a .ipynb file.
@@ -766,11 +822,11 @@ func isPlausibleModelID(id string) bool {
 
 var versRe = regexp.MustCompile(`^\d+\.\d+`)
 
-// dedupe merges discoveries with identical Type+ID, concatenating distinct evidence strings.
+// dedupe merges discoveries with identical Type+ID+Revision, concatenating distinct evidence strings.
 func dedupe(components []Discovery) []Discovery {
 	index := make(map[string]Discovery)
 	for _, c := range components {
-		key := c.Type + "::" + c.ID
+		key := c.Type + "::" + c.ID + "@" + c.Revision
 		if existing, ok := index[key]; ok {
 			if !strings.Contains(existing.Evidence, c.Evidence) {
 				existing.Evidence += ". " + c.Evidence

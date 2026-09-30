@@ -90,25 +90,6 @@ func bomModelParameters(b *cdx.BOM) *cdx.MLModelParameters {
 	return c.ModelCard.ModelParameters
 }
 
-func extractLicense(cardData map[string]any, tags []string) string {
-	// cardData.license.
-	if cardData != nil {
-		if v, ok := cardData["license"]; ok {
-			if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-				return strings.TrimSpace(s)
-			}
-		}
-	}
-	// tag license:apache-2.0.
-	for _, t := range tags {
-		t = strings.TrimSpace(t)
-		if strings.HasPrefix(t, "license:") {
-			return strings.TrimSpace(strings.TrimPrefix(t, "license:"))
-		}
-	}
-	return ""
-}
-
 func extractLanguage(cardData map[string]any) string {
 	if cardData == nil {
 		return ""

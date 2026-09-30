@@ -76,6 +76,16 @@ const maxTreePages = 10
 // (branch: main, expand=true, recursive=true). It follows cursor-based.
 // pagination up to maxTreePages pages (1 000 files maximum).
 func (f *ModelTreeFetcher) Fetch(modelID string) ([]SecurityFileEntry, error) {
+	return f.FetchRevision(modelID, "")
+}
+
+// FetchRevision returns all file entries at a revision (branch, tag or commit);.
+// an empty revision uses main.
+func (f *ModelTreeFetcher) FetchRevision(modelID, revision string) ([]SecurityFileEntry, error) {
+	rev := strings.TrimSpace(revision)
+	if rev == "" {
+		rev = "main"
+	}
 	base := strings.TrimRight(f.BaseURL, "/")
 	if base == "" {
 		base = "https://huggingface.co"
@@ -89,8 +99,8 @@ func (f *ModelTreeFetcher) Fetch(modelID string) ([]SecurityFileEntry, error) {
 	cursor := ""
 
 	for page := 0; page < maxTreePages; page++ {
-		// Construct paginated URL: /api/models/{modelID}/tree/main.
-		apiURL := fmt.Sprintf("%s/api/models/%s/tree/main", base, modelID)
+		// Construct paginated URL: /api/models/{modelID}/tree/{revision}.
+		apiURL := fmt.Sprintf("%s/api/models/%s/tree/%s", base, modelID, url.PathEscape(rev))
 		u, err := url.Parse(apiURL)
 		if err != nil {
 			return nil, fmt.Errorf("parse tree url: %w", err)

@@ -11,15 +11,15 @@ import (
 )
 
 // Test Strategy:.
-// - Uses calculated score values (e.g., 1.0 / 12.15) instead of hardcoded floats to avoid precision issues.
+// - Uses calculated score values (e.g., 1.0 / 13.65) instead of hardcoded floats to avoid precision issues.
 // - Implements tolerance-based comparison (1e-9) for floating point scores.
 // - Helper functions resultsEqual() and datasetResultsEqual() compare results with proper float handling.
 // - Best practice: never hardcode floating point literals in test expectations.
 
-// Constants from metadata registry (total weight: 12.15 for model, 9.4 for dataset).
+// Constants from metadata registry (total weight: 13.65 for model, 9.8 for dataset).
 const (
-	totalModelFields   = 30
-	totalDatasetFields = 17
+	totalModelFields   = 33
+	totalDatasetFields = 18
 	floatTolerance     = 1e-9 // Tolerance for floating point comparison
 )
 
@@ -98,6 +98,9 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentHashes,
 					metadata.ComponentManufacturer,
 					metadata.ComponentGroup,
+					metadata.ComponentSupplier,
+					metadata.ComponentAuthors,
+					metadata.ComponentVersion,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -138,7 +141,7 @@ func TestCheck(t *testing.T) {
 			},
 			want: Result{
 				ModelID:         "test-model",
-				Score:           1.0 / 12.15, // ComponentName weight (1.0) / total weight (12.15)
+				Score:           1.0 / 13.65, // ComponentName weight (1.0) / total weight (13.65)
 				Passed:          1,
 				Total:           totalModelFields,
 				MissingRequired: nil, // ComponentName is satisfied
@@ -149,6 +152,9 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentHashes,
 					metadata.ComponentManufacturer,
 					metadata.ComponentGroup,
+					metadata.ComponentSupplier,
+					metadata.ComponentAuthors,
+					metadata.ComponentVersion,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -196,7 +202,7 @@ func TestCheck(t *testing.T) {
 			},
 			want: Result{
 				ModelID:         "test-model",
-				Score:           1.5 / 12.15, // ComponentName (1.0) + Datasets (0.5) / total (12.15)
+				Score:           1.5 / 13.65, // ComponentName (1.0) + Datasets (0.5) / total (13.65)
 				Passed:          2,
 				Total:           totalModelFields,
 				MissingRequired: nil,
@@ -207,6 +213,9 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentHashes,
 					metadata.ComponentManufacturer,
 					metadata.ComponentGroup,
+					metadata.ComponentSupplier,
+					metadata.ComponentAuthors,
+					metadata.ComponentVersion,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -260,7 +269,7 @@ func TestCheck(t *testing.T) {
 			},
 			want: Result{
 				ModelID:         "test-model",
-				Score:           1.5 / 12.15,
+				Score:           1.5 / 13.65,
 				Passed:          2,
 				Total:           totalModelFields,
 				MissingRequired: nil,
@@ -271,6 +280,9 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentHashes,
 					metadata.ComponentManufacturer,
 					metadata.ComponentGroup,
+					metadata.ComponentSupplier,
+					metadata.ComponentAuthors,
+					metadata.ComponentVersion,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -297,7 +309,7 @@ func TestCheck(t *testing.T) {
 				DatasetResults: map[string]DatasetResult{
 					"dataset-1": {
 						DatasetRef:      "dataset-1",
-						Score:           1.0 / 9.4, // DatasetName weight (1.0) / total dataset weight (9.4)
+						Score:           1.0 / 9.8, // DatasetName weight (1.0) / total dataset weight (9.8)
 						Passed:          1,
 						Total:           totalDatasetFields,
 						MissingRequired: nil, // DatasetName is satisfied
@@ -307,6 +319,7 @@ func TestCheck(t *testing.T) {
 							metadata.DatasetLicenses,
 							metadata.DatasetDescription,
 							metadata.DatasetManufacturer,
+							metadata.DatasetSupplier,
 							metadata.DatasetAuthors,
 							metadata.DatasetGroup,
 							metadata.DatasetContents,
@@ -341,7 +354,7 @@ func TestCheck(t *testing.T) {
 			},
 			want: Result{
 				ModelID:         "test-model",
-				Score:           1.0 / 12.15, // Only ComponentName is present
+				Score:           1.0 / 13.65, // Only ComponentName is present
 				Passed:          1,
 				Total:           totalModelFields,
 				MissingRequired: nil,
@@ -352,6 +365,9 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentHashes,
 					metadata.ComponentManufacturer,
 					metadata.ComponentGroup,
+					metadata.ComponentSupplier,
+					metadata.ComponentAuthors,
+					metadata.ComponentVersion,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -399,7 +415,7 @@ func TestCheck(t *testing.T) {
 			},
 			want: Result{
 				ModelID:         "test-model",
-				Score:           1.0 / 12.15,
+				Score:           1.0 / 13.65,
 				Passed:          1,
 				Total:           totalModelFields,
 				MissingRequired: nil,
@@ -410,6 +426,9 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentHashes,
 					metadata.ComponentManufacturer,
 					metadata.ComponentGroup,
+					metadata.ComponentSupplier,
+					metadata.ComponentAuthors,
+					metadata.ComponentVersion,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -475,7 +494,7 @@ func TestCheck(t *testing.T) {
 			},
 			want: Result{
 				ModelID:         "test-model",
-				Score:           1.5 / 12.15,
+				Score:           1.5 / 13.65,
 				Passed:          2,
 				Total:           totalModelFields,
 				MissingRequired: nil,
@@ -486,6 +505,9 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentHashes,
 					metadata.ComponentManufacturer,
 					metadata.ComponentGroup,
+					metadata.ComponentSupplier,
+					metadata.ComponentAuthors,
+					metadata.ComponentVersion,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -512,7 +534,7 @@ func TestCheck(t *testing.T) {
 				DatasetResults: map[string]DatasetResult{
 					"dataset-1": {
 						DatasetRef:      "dataset-1",
-						Score:           1.0 / 9.4,
+						Score:           1.0 / 9.8,
 						Passed:          1,
 						Total:           totalDatasetFields,
 						MissingRequired: nil,
@@ -522,6 +544,7 @@ func TestCheck(t *testing.T) {
 							metadata.DatasetLicenses,
 							metadata.DatasetDescription,
 							metadata.DatasetManufacturer,
+							metadata.DatasetSupplier,
 							metadata.DatasetAuthors,
 							metadata.DatasetGroup,
 							metadata.DatasetContents,
@@ -537,7 +560,7 @@ func TestCheck(t *testing.T) {
 					},
 					"dataset-2": {
 						DatasetRef:      "dataset-2",
-						Score:           1.7 / 9.4, // DatasetName (1.0) + DatasetDescription (0.7)
+						Score:           1.7 / 9.8, // DatasetName (1.0) + DatasetDescription (0.7)
 						Passed:          2,
 						Total:           totalDatasetFields,
 						MissingRequired: nil,
@@ -547,6 +570,7 @@ func TestCheck(t *testing.T) {
 							metadata.DatasetLicenses,
 							// DatasetDescription is present, so excluded.
 							metadata.DatasetManufacturer,
+							metadata.DatasetSupplier,
 							metadata.DatasetAuthors,
 							metadata.DatasetGroup,
 							metadata.DatasetContents,
@@ -766,6 +790,7 @@ func TestCheckDataset(t *testing.T) {
 					metadata.DatasetLicenses,
 					metadata.DatasetDescription,
 					metadata.DatasetManufacturer,
+					metadata.DatasetSupplier,
 					metadata.DatasetAuthors,
 					metadata.DatasetGroup,
 					metadata.DatasetContents,
@@ -789,7 +814,7 @@ func TestCheckDataset(t *testing.T) {
 			},
 			want: DatasetResult{
 				DatasetRef:      "test-dataset",
-				Score:           1.0 / 9.4, // DatasetName weight (1.0) / total weight (9.4)
+				Score:           1.0 / 9.8, // DatasetName weight (1.0) / total weight (9.8)
 				Passed:          1,
 				Total:           totalDatasetFields,
 				MissingRequired: nil, // DatasetName is satisfied
@@ -799,6 +824,7 @@ func TestCheckDataset(t *testing.T) {
 					metadata.DatasetLicenses,
 					metadata.DatasetDescription,
 					metadata.DatasetManufacturer,
+					metadata.DatasetSupplier,
 					metadata.DatasetAuthors,
 					metadata.DatasetGroup,
 					metadata.DatasetContents,
@@ -825,7 +851,7 @@ func TestCheckDataset(t *testing.T) {
 			},
 			want: DatasetResult{
 				DatasetRef:      "test-dataset",
-				Score:           1.7 / 9.4, // DatasetName (1.0) + DatasetDescription (0.7) / total (9.4)
+				Score:           1.7 / 9.8, // DatasetName (1.0) + DatasetDescription (0.7) / total (9.8)
 				Passed:          2,
 				Total:           totalDatasetFields,
 				MissingRequired: nil,
@@ -835,6 +861,7 @@ func TestCheckDataset(t *testing.T) {
 					metadata.DatasetLicenses,
 					// DatasetDescription is present, so excluded.
 					metadata.DatasetManufacturer,
+					metadata.DatasetSupplier,
 					metadata.DatasetAuthors,
 					metadata.DatasetGroup,
 					metadata.DatasetContents,

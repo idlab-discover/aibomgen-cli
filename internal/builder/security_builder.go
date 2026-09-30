@@ -2,6 +2,7 @@ package builder
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/idlab-discover/aibomgen-cli/internal/fetcher"
@@ -42,8 +43,9 @@ func isActionable(status string) bool {
 // InjectSecurityData appends BOM.Vulnerabilities derived from the HF tree.
 // security scan results. Summary Component.Properties are handled by the.
 // metadata registry (fields_security.go) which runs before this call.
+// revision is the scanned model revision (empty means main) and is used in file links.
 // It is a no-op when entries is empty.
-func InjectSecurityData(bom *cdx.BOM, comp *cdx.Component, entries []fetcher.SecurityFileEntry, modelID string) {
+func InjectSecurityData(bom *cdx.BOM, comp *cdx.Component, entries []fetcher.SecurityFileEntry, modelID, revision string) {
 	if len(entries) == 0 {
 		return
 	}
@@ -77,7 +79,7 @@ func InjectSecurityData(bom *cdx.BOM, comp *cdx.Component, entries []fetcher.Sec
 			continue
 		}
 
-		vuln := buildFileVulnerability(entry, comp, modelID)
+		vuln := buildFileVulnerability(entry, comp, modelID, revision)
 		vulns = append(vulns, vuln)
 	}
 
@@ -93,7 +95,7 @@ func InjectSecurityData(bom *cdx.BOM, comp *cdx.Component, entries []fetcher.Sec
 
 // buildFileVulnerability converts a single SecurityFileEntry into a CycloneDX.
 // Vulnerability, aggregating findings from all per-file scanners.
-func buildFileVulnerability(entry fetcher.SecurityFileEntry, comp *cdx.Component, modelID string) cdx.Vulnerability {
+func buildFileVulnerability(entry fetcher.SecurityFileEntry, comp *cdx.Component, modelID, revision string) cdx.Vulnerability {
 	sfs := entry.SecurityFileStatus
 
 	// Collect per-scanner ratings.
@@ -167,7 +169,7 @@ func buildFileVulnerability(entry fetcher.SecurityFileEntry, comp *cdx.Component
 		BOMRef: fmt.Sprintf("hfsec-%s-%s", comp.BOMRef, safePath),
 		Source: &cdx.Source{
 			Name: "HuggingFace Security Scanner",
-			URL:  fmt.Sprintf("https://huggingface.co/%s/blob/main/%s", modelID, entry.Path),
+			URL:  fmt.Sprintf("https://huggingface.co/%s/blob/%s/%s", modelID, blobRevision(revision), entry.Path),
 		},
 		Description: description,
 		Affects: &[]cdx.Affects{
@@ -182,4 +184,12 @@ func buildFileVulnerability(entry fetcher.SecurityFileEntry, comp *cdx.Component
 	}
 
 	return vuln
+}
+
+// blobRevision returns the path-escaped revision for file links, defaulting to main.
+func blobRevision(revision string) string {
+	if rev := strings.TrimSpace(revision); rev != "" {
+		return url.PathEscape(rev)
+	}
+	return "main"
 }

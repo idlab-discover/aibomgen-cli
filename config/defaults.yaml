@@ -15,7 +15,7 @@ generate:
   output: "./dist/aibom"
   # Output BOM format: json|xml|auto
   format: "auto"
-  # CycloneDX spec version for output (e.g., 1.4, 1.5, 1.6) empty is latest
+  # CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7) empty is latest (1.7)
   spec: ""
   # Hugging Face metadata mode: online|dummy
   hf-mode: "online"
@@ -36,7 +36,7 @@ scan:
   output: "./dist/aibom"
   # Output BOM format: json|xml|auto
   format: "auto"
-  # CycloneDX spec version for output (e.g., 1.4, 1.5, 1.6) empty is latest
+  # CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7) empty is latest (1.7)
   spec: ""
   # Hugging Face metadata mode: online|dummy
   hf-mode: "online"
