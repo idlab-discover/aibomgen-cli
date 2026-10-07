@@ -43,11 +43,10 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 		SecurityTree: ctx.SecurityTree,
 	}
 	tgt := metadata.Target{
-		BOM:                       bom,
-		Component:                 comp,
-		ModelCard:                 comp.ModelCard,
-		IncludeEvidenceProperties: b.Opts.IncludeEvidenceProperties,
-		HuggingFaceBaseURL:        b.Opts.HuggingFaceBaseURL,
+		BOM:                bom,
+		Component:          comp,
+		ModelCard:          comp.ModelCard,
+		HuggingFaceBaseURL: b.Opts.HuggingFaceBaseURL,
 	}
 
 	for _, spec := range metadata.Registry() {
@@ -66,6 +65,8 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 			AddComponentBOMRef(&(*comp.Pedigree.Ancestors)[i])
 		}
 	}
+
+	AddComponentEvidence(comp, ctx, b.Opts.HuggingFaceBaseURL)
 
 	// Inject security scan findings as Component.Properties and BOM.Vulnerabilities.
 	InjectSecurityData(bom, comp, ctx.SecurityTree, strings.TrimSpace(ctx.ModelID), strings.TrimSpace(ctx.Revision))
@@ -86,9 +87,8 @@ func (b BOMBuilder) BuildDataset(ctx DatasetBuildContext) (*cdx.Component, error
 		Readme:    ctx.Readme,
 	}
 	tgt := metadata.DatasetTarget{
-		Component:                 comp,
-		IncludeEvidenceProperties: b.Opts.IncludeEvidenceProperties,
-		HuggingFaceBaseURL:        b.Opts.HuggingFaceBaseURL,
+		Component:          comp,
+		HuggingFaceBaseURL: b.Opts.HuggingFaceBaseURL,
 	}
 
 	for _, spec := range metadata.DatasetRegistry() {

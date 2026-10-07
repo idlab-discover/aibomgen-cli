@@ -104,8 +104,7 @@ type Target struct {
 	ModelCard *cdx.MLModelCard
 
 	// Options (builder can set these when calling Apply).
-	IncludeEvidenceProperties bool
-	HuggingFaceBaseURL        string
+	HuggingFaceBaseURL string
 }
 
 // DatasetSource mirrors Source but for datasets.
@@ -121,8 +120,7 @@ type DatasetTarget struct {
 	Component *cdx.Component
 
 	// Options.
-	IncludeEvidenceProperties bool
-	HuggingFaceBaseURL        string
+	HuggingFaceBaseURL string
 }
 
 // InputType defines the type of input field for interactive enrichment.
@@ -182,7 +180,6 @@ func Registry() []FieldSpec {
 	specs := make([]FieldSpec, 0, 32)
 	specs = append(specs, componentFields()...)
 	specs = append(specs, pedigreeFields()...)
-	specs = append(specs, evidenceFields()...)
 	specs = append(specs, hfPropFields()...)
 	specs = append(specs, modelCardFields()...)
 	specs = append(specs, securityFields()...)

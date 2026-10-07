@@ -178,7 +178,8 @@ Each property below is written to `properties[]` with the name shown (the key's 
 | `huggingface:likes` | `BOM.metadata.component.properties.huggingface:likes` | `HF.likes` | Greater than 0 | 0.2 |
 | `huggingface:baseModel` | `BOM.metadata.component.properties.huggingface:baseModel` | README front matter `base_model` | A string, or a list joined with `,` (e.g. merged models) | 0.2 |
 | `huggingface:modelCardContact` | `BOM.metadata.component.properties.huggingface:modelCardContact` | README "Model Card Contact" section | Non-empty | 0.2 |
-| `aibomgen.type`, `aibomgen.evidence`, `aibomgen.path` | `aibomgen.evidence` | Discovery type, evidence text and file path | Written when evidence properties are enabled (the default). The evidence records the ID as it was found or requested. | 0 (not scored) |
+
+How the model was found (scan hits or the requested model ID) is recorded in the standard `evidence` block, not in properties; see [identity-and-links.md](identity-and-links.md#evidence).
 
 ## Security scan
 

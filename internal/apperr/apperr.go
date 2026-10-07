@@ -1,15 +1,19 @@
 // Package apperr defines the two sentinel error categories used across aibomgen-cli.
-//.
+// .
 // Error taxonomy.
-//.
+// .
+//
 //	UserError  – caused by missing or invalid user input (wrong flag, bad value, …).
 //	             The CLI prints only the message; usage help is NOT repeated.
 //	             Exit code: 1.
-//.
+//
+// .
+//
 //	ErrCancelled – the user deliberately aborted an interactive flow (confirmation.
 //	               prompt, model-selector, …).
 //	               Exit code: 0 (not a failure).
-//.
+//
+// .
 // Everything else is a plain Go error (I/O, network, BOM parsing, …) and is.
 // propagated with fmt.Errorf("context: %w", err) wrapping.
 package apperr

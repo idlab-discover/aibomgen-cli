@@ -266,3 +266,44 @@ func TestBuildFromModelIDs_Pedigree(t *testing.T) {
 		}
 	}
 }
+
+func TestBuild_Evidence(t *testing.T) {
+	api := &mockModelAPIFetcher{fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
+		return &fetcher.ModelAPIResponse{ID: id, SHA: "abc"}, nil
+	}}
+	withFetchers(t, hfLikeFetchers(api))
+
+	// Source scan: the same model found in two files.
+	d := scanner.Discovery{ID: "org/m", Name: "org/m", Type: "model", Occurrences: []scanner.Occurrence{
+		{Location: "a/one.py", Line: 3, Method: "from_pretrained", Symbol: "org/m"},
+		{Location: "two.yaml", Line: 1, Method: "yaml_model_field", Symbol: "org/m"},
+	}}
+	boms, err := BuildPerDiscovery([]scanner.Discovery{d}, GenerateOptions{})
+	if err != nil || len(boms) != 1 {
+		t.Fatalf("BuildPerDiscovery = %d boms, err %v", len(boms), err)
+	}
+	ev := boms[0].BOM.Metadata.Component.Evidence
+	if ev == nil || ev.Occurrences == nil || len(*ev.Occurrences) != 2 {
+		t.Fatalf("evidence = %+v, want two occurrences", ev)
+	}
+	if o := (*ev.Occurrences)[1]; o.Location != "two.yaml" || o.Line == nil || *o.Line != 1 {
+		t.Fatalf("second occurrence = %+v", o)
+	}
+
+	// Model-ID input: identified through the Hub API.
+	boms, err = BuildFromModelIDs([]string{"org/m"}, GenerateOptions{})
+	if err != nil || len(boms) != 1 {
+		t.Fatalf("BuildFromModelIDs = %d boms, err %v", len(boms), err)
+	}
+	ev = boms[0].BOM.Metadata.Component.Evidence
+	if ev == nil || ev.Identity == nil || ev.Identity.Identities == nil {
+		t.Fatalf("evidence = %+v", ev)
+	}
+	id := (*ev.Identity.Identities)[0]
+	if m := (*id.Methods)[0]; m.Technique != cdx.EvidenceIdentityTechniqueOther || m.Value != "https://huggingface.co/api/models/org/m" {
+		t.Fatalf("method = %+v", m)
+	}
+	if id.ConcludedValue != "pkg:huggingface/org/m@abc" {
+		t.Fatalf("concludedValue = %q", id.ConcludedValue)
+	}
+}

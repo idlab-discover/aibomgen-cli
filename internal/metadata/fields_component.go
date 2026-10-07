@@ -651,38 +651,3 @@ func modelNamespace(src Source) (string, bool) {
 	}
 	return "", false
 }
-
-func evidenceFields() []FieldSpec {
-	return []FieldSpec{
-		{
-			Key:      Key("aibomgen.evidence"),
-			Weight:   0,
-			Required: false,
-			Sources: []func(Source) (any, bool){
-				func(src Source) (any, bool) {
-					return src, true
-				},
-			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for aibomgen.evidence")
-				}
-				src, ok := input.Value.(Source)
-				if !ok {
-					return fmt.Errorf("invalid evidence value")
-				}
-				if tgt.Component == nil || !tgt.IncludeEvidenceProperties {
-					return nil
-				}
-				setProperty(tgt.Component, "aibomgen.type", src.Scan.Type)
-				setProperty(tgt.Component, "aibomgen.evidence", src.Scan.Evidence)
-				setProperty(tgt.Component, "aibomgen.path", src.Scan.Path)
-				return nil
-			},
-			Present: func(b *cdx.BOM) bool {
-				return true
-			},
-		},
-	}
-}

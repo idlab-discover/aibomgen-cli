@@ -84,11 +84,10 @@ func TestRegistryApplyAndPresent(t *testing.T) {
 	}
 
 	tgt := Target{
-		BOM:                       bom,
-		Component:                 comp,
-		ModelCard:                 comp.ModelCard,
-		IncludeEvidenceProperties: true,
-		HuggingFaceBaseURL:        "https://huggingface.co",
+		BOM:                bom,
+		Component:          comp,
+		ModelCard:          comp.ModelCard,
+		HuggingFaceBaseURL: "https://huggingface.co",
 	}
 
 	specs := Registry()

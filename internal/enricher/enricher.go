@@ -253,9 +253,8 @@ func (e *Enricher) enrichDataset(bom *cdx.BOM, comp *cdx.Component, configViper 
 
 	// Prepare enrichment target.
 	tgt := metadata.DatasetTarget{
-		Component:                 comp,
-		IncludeEvidenceProperties: false,
-		HuggingFaceBaseURL:        e.config.HFBaseURL,
+		Component:          comp,
+		HuggingFaceBaseURL: e.config.HFBaseURL,
 	}
 
 	var changes map[metadata.DatasetKey]string

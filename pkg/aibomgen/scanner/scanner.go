@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,6 +28,52 @@ type Discovery struct {
 	// Revision is the requested model revision (branch, tag or commit), e.g. from.
 	// from_pretrained(..., revision="v1.0"); empty means the default branch.
 	Revision string `json:"revision,omitempty"`
+	// Occurrences lists every place the reference was found, sorted by location and line.
+	Occurrences []Occurrence `json:"occurrences,omitempty"`
+}
+
+// Occurrence is one place where a model reference was found.
+type Occurrence struct {
+	// Location is the file path; Scan makes it relative to the scan root, with "/".
+	Location string `json:"location"`
+	// Line is the 1-based line in the file, or in the notebook cell when Cell > 0.
+	Line int `json:"line"`
+	// Cell is the 1-based notebook cell, 0 for other files.
+	Cell int `json:"cell,omitempty"`
+	// Method is the detection rule that matched.
+	Method string `json:"method"`
+	// Symbol is the model ID exactly as written in the file.
+	Symbol string `json:"symbol"`
+}
+
+// RuleConfidence returns how confident a detection rule is that it found a real model
+// reference: explicit Hugging Face API calls score highest, then generic code keywords,
+// config-file values, shell downloads, shell variables and Markdown prose.
+func RuleConfidence(method string) float32 {
+	switch method {
+	case "from_pretrained", "from_pretrained_kwarg",
+		"pipeline_positional", "pipeline_model_kwarg",
+		"hf_hub_download", "hf_hub_download_kwarg",
+		"snapshot_download", "snapshot_download_kwarg",
+		"InferenceClient", "InferenceClient_model_kwarg", "InferenceApi",
+		"SentenceTransformer", "CrossEncoder",
+		"HuggingFaceHub_repo_id", "HuggingFaceEndpoint_repo_id", "HuggingFacePipeline_from_model_id",
+		"js_from_pretrained", "js_pipeline_positional":
+		return 0.9
+	case "model_kwarg_slash", "repo_id_kwarg_slash", "model_id_kwarg_slash", "evaluate_load", "js_model_field":
+		return 0.7
+	case "yaml_model_field",
+		"json_name_or_path", "json_model_name_or_path", "json_base_model", "json_model_field", "json_repo_id",
+		"markdown_frontmatter_model":
+		return 0.6
+	case "hf_cli_download":
+		return 0.5
+	case "shell_model_env":
+		return 0.4
+	case "markdown_inline":
+		return 0.3
+	}
+	return 0.5
 }
 
 // detectionRule pairs a named detection method with a compiled pattern.
@@ -394,7 +441,42 @@ func Scan(root string) ([]Discovery, error) {
 	}
 	wg.Wait()
 
+	// Report locations relative to the scan root, and fix the order so that
+	// dedupe (which keeps the first Path, Method and Evidence) is deterministic.
+	for i := range results {
+		for j := range results[i].Occurrences {
+			occ := &results[i].Occurrences[j]
+			if rel, err := filepath.Rel(root, occ.Location); err == nil {
+				occ.Location = filepath.ToSlash(rel)
+			}
+		}
+	}
+	sort.SliceStable(results, func(i, j int) bool {
+		return occurrenceLess(firstOccurrence(results[i]), firstOccurrence(results[j]))
+	})
+
 	return dedupe(results), nil
+}
+
+func firstOccurrence(d Discovery) Occurrence {
+	if len(d.Occurrences) == 0 {
+		return Occurrence{}
+	}
+	return d.Occurrences[0]
+}
+
+// occurrenceLess orders occurrences by location, cell, line and method.
+func occurrenceLess(a, b Occurrence) bool {
+	if a.Location != b.Location {
+		return a.Location < b.Location
+	}
+	if a.Cell != b.Cell {
+		return a.Cell < b.Cell
+	}
+	if a.Line != b.Line {
+		return a.Line < b.Line
+	}
+	return a.Method < b.Method
 }
 
 // fileClass categorises a file so we know which rule-set to apply.
@@ -490,7 +572,8 @@ func scanFile(path string) []Discovery {
 // When multiLine is true, lines belonging to the same open-paren call are.
 // accumulated and scanned as a single concatenated string once the parens.
 // balance. This correctly handles 3-or-more-line call expressions such as:.
-//.
+// .
+//
 //	pipeline(.
 //	    "text-classification",.
 //	    model="org/model",.
@@ -516,7 +599,7 @@ func scanLines(path string, rules []detectionRule, multiLine bool) []Discovery {
 		line := sc.Text()
 
 		// Always scan each individual line.
-		results = applyRules(results, rules, line, lineNum, path)
+		results = applyRules(results, rules, line, lineNum, 0, path)
 
 		if !multiLine {
 			continue
@@ -547,7 +630,7 @@ func scanLines(path string, rules []detectionRule, multiLine bool) []Discovery {
 		// Flush once parens are balanced.
 		if depth == 0 && len(callBuf) > 0 {
 			combined := strings.Join(callBuf, " ")
-			results = applyRules(results, rules, combined, callStartLine, path)
+			results = applyRules(results, rules, combined, callStartLine, 0, path)
 			callBuf = nil
 		}
 	}
@@ -555,7 +638,8 @@ func scanLines(path string, rules []detectionRule, multiLine bool) []Discovery {
 }
 
 // applyRules tests a single text string against all rules and appends any hits.
-func applyRules(results []Discovery, rules []detectionRule, text string, lineNum int, path string) []Discovery {
+// cell is the 1-based notebook cell (0 for other files); lineNum is relative to it.
+func applyRules(results []Discovery, rules []detectionRule, text string, lineNum, cell int, path string) []Discovery {
 	for _, rule := range rules {
 		matches := rule.pattern.FindAllStringSubmatchIndex(text, -1)
 		for _, m := range matches {
@@ -575,6 +659,9 @@ func applyRules(results []Discovery, rules []detectionRule, text string, lineNum
 				Evidence: evidence,
 				Method:   rule.method,
 				Revision: callRevision(text, m[0], m[1]),
+				Occurrences: []Occurrence{{
+					Location: path, Line: lineNum, Cell: cell, Method: rule.method, Symbol: modelID,
+				}},
 			})
 		}
 	}
@@ -656,7 +743,8 @@ func scanNotebook(path string) []Discovery {
 	}
 
 	var results []Discovery
-	for _, cell := range nb.Cells {
+	for ci, cell := range nb.Cells {
+		cellNum := ci + 1
 		if cell.CellType != "code" && cell.CellType != "markdown" {
 			continue
 		}
@@ -666,8 +754,9 @@ func scanNotebook(path string) []Discovery {
 			rules = mdFrontmatterRules
 		}
 
-		// Source is either a JSON string or a JSON array of strings.
-		lines := unmarshalSource(cell.Source)
+		// Source is either a JSON string or a JSON array of strings. Array entries
+		// end in "\n", so join them before splitting to get the cell's real lines.
+		lines := strings.Split(strings.Join(unmarshalSource(cell.Source), ""), "\n")
 		lineNum := 0
 
 		// Multi-line accumulation state.
@@ -675,39 +764,37 @@ func scanNotebook(path string) []Discovery {
 		callStartLine := 0
 		depth := 0
 
-		for _, line := range lines {
-			for _, subline := range strings.Split(line, "\n") {
-				lineNum++
-				results = applyRules(results, rules, subline, lineNum, path)
+		for _, subline := range lines {
+			lineNum++
+			results = applyRules(results, rules, subline, lineNum, cellNum, path)
 
-				if !multiLine {
-					continue
-				}
+			if !multiLine {
+				continue
+			}
 
-				for _, ch := range subline {
-					switch ch {
-					case '(':
-						depth++
-					case ')':
-						depth--
-					}
+			for _, ch := range subline {
+				switch ch {
+				case '(':
+					depth++
+				case ')':
+					depth--
 				}
-				if depth < 0 {
-					depth = 0
-				}
+			}
+			if depth < 0 {
+				depth = 0
+			}
 
-				if depth > 0 || len(callBuf) > 0 {
-					if len(callBuf) == 0 {
-						callStartLine = lineNum
-					}
-					callBuf = append(callBuf, strings.TrimSpace(subline))
+			if depth > 0 || len(callBuf) > 0 {
+				if len(callBuf) == 0 {
+					callStartLine = lineNum
 				}
+				callBuf = append(callBuf, strings.TrimSpace(subline))
+			}
 
-				if depth == 0 && len(callBuf) > 0 {
-					combined := strings.Join(callBuf, " ")
-					results = applyRules(results, rules, combined, callStartLine, path)
-					callBuf = nil
-				}
+			if depth == 0 && len(callBuf) > 0 {
+				combined := strings.Join(callBuf, " ")
+				results = applyRules(results, rules, combined, callStartLine, cellNum, path)
+				callBuf = nil
 			}
 		}
 	}
@@ -774,7 +861,7 @@ func scanMarkdown(path string) []Discovery {
 				frontmatterClosed = true
 				continue
 			}
-			results = applyRules(results, mdFrontmatterRules, line, lineNum, path)
+			results = applyRules(results, mdFrontmatterRules, line, lineNum, 0, path)
 			continue
 		}
 
@@ -797,6 +884,9 @@ func scanMarkdown(path string) []Discovery {
 					Path:     path,
 					Evidence: evidence,
 					Method:   "markdown_inline",
+					Occurrences: []Occurrence{{
+						Location: path, Line: lineNum, Method: "markdown_inline", Symbol: modelID,
+					}},
 				})
 			}
 		}
@@ -822,25 +912,59 @@ func isPlausibleModelID(id string) bool {
 
 var versRe = regexp.MustCompile(`^\d+\.\d+`)
 
-// dedupe merges discoveries with identical Type+ID+Revision, concatenating distinct evidence strings.
+// dedupe merges discoveries with identical Type+ID+Revision, concatenating distinct
+// evidence strings and merging occurrences.
 func dedupe(components []Discovery) []Discovery {
 	index := make(map[string]Discovery)
+	var order []string
 	for _, c := range components {
 		key := c.Type + "::" + c.ID + "@" + c.Revision
 		if existing, ok := index[key]; ok {
 			if !strings.Contains(existing.Evidence, c.Evidence) {
 				existing.Evidence += ". " + c.Evidence
 			}
-			// Keep the first seen Method; additional methods are visible via Evidence.
+			// Keep the first seen Method; additional methods are visible via Occurrences.
+			existing.Occurrences = append(existing.Occurrences, c.Occurrences...)
 			index[key] = existing
 		} else {
 			index[key] = c
+			order = append(order, key)
 		}
 	}
 	out := make([]Discovery, 0, len(index))
-	for _, v := range index {
-		out = append(out, v)
+	for _, key := range order {
+		d := index[key]
+		d.Occurrences = mergeOccurrences(d.Occurrences)
+		out = append(out, d)
 	}
+	return out
+}
+
+// mergeOccurrences keeps one occurrence per (location, cell, line): the per-line pass,
+// the multi-line call pass and overlapping rules can all hit the same line. The rule
+// with the highest confidence wins. The result is sorted.
+func mergeOccurrences(occs []Occurrence) []Occurrence {
+	if len(occs) == 0 {
+		return nil
+	}
+	type pos struct {
+		loc        string
+		cell, line int
+	}
+	best := make(map[pos]Occurrence, len(occs))
+	for _, o := range occs {
+		k := pos{o.Location, o.Cell, o.Line}
+		cur, ok := best[k]
+		if !ok || RuleConfidence(o.Method) > RuleConfidence(cur.Method) ||
+			(RuleConfidence(o.Method) == RuleConfidence(cur.Method) && o.Method < cur.Method) {
+			best[k] = o
+		}
+	}
+	out := make([]Occurrence, 0, len(best))
+	for _, o := range best {
+		out = append(out, o)
+	}
+	sort.Slice(out, func(i, j int) bool { return occurrenceLess(out[i], out[j]) })
 	return out
 }
 
