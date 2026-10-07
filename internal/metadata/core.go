@@ -25,6 +25,7 @@ const (
 	ComponentAuthors            Key = "BOM.metadata.component.authors"
 	ComponentVersion            Key = "BOM.metadata.component.version"
 	ComponentDescription        Key = "BOM.metadata.component.description"
+	ComponentPedigreeAncestors  Key = "BOM.metadata.component.pedigree.ancestors"
 
 	// Component-level extra properties (stored later as CycloneDX Component.Properties).
 	ComponentPropertiesHuggingFaceLastModified Key = "BOM.metadata.component.properties.huggingface:lastModified"
@@ -180,6 +181,7 @@ type DatasetFieldSpec struct {
 func Registry() []FieldSpec {
 	specs := make([]FieldSpec, 0, 32)
 	specs = append(specs, componentFields()...)
+	specs = append(specs, pedigreeFields()...)
 	specs = append(specs, evidenceFields()...)
 	specs = append(specs, hfPropFields()...)
 	specs = append(specs, modelCardFields()...)

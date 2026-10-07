@@ -36,10 +36,11 @@ func (f *DummyModelAPIFetcher) Fetch(modelID string) (*ModelAPIResponse, error) 
 		Inference:   "enabled",
 		UsedStorage: 523456789,
 		CardData: map[string]any{
-			"language": "en",
-			"license":  "mit",
-			"tags":     []string{"text-generation", "pytorch"},
-			"datasets": []string{"wikipedia", "openwebtext"},
+			"language":   "en",
+			"license":    "mit",
+			"tags":       []string{"text-generation", "pytorch"},
+			"datasets":   []string{"wikipedia", "openwebtext"},
+			"base_model": "gpt2",
 		},
 		Config: struct {
 			ModelType     string   `json:"model_type"`
@@ -47,6 +48,12 @@ func (f *DummyModelAPIFetcher) Fetch(modelID string) (*ModelAPIResponse, error) 
 		}{
 			ModelType:     "gpt2",
 			Architectures: []string{"GPT2LMHeadModel"},
+		},
+		BaseModels: &ModelBaseModels{
+			Relation: "finetune",
+			Models: []struct {
+				ID string `json:"id"`
+			}{{ID: "gpt2"}},
 		},
 	}, nil
 }

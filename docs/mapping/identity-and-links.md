@@ -13,11 +13,11 @@ pkg:huggingface/{namespace}/{name}@{commit sha}          model
 pkg:huggingface/datasets/{namespace}/{name}@{commit sha} dataset
 ```
 
-The purl is built from `name` and the first hash (the commit SHA, lowercased), following the [Hugging Face purl type](https://github.com/package-url/purl-spec/blob/main/types-doc/huggingface-definition.md). `@` and spaces in name segments are percent-encoded. Without a commit SHA (no API data), the purl has no version.
+The purl is built from `name` and the first hash (the commit SHA, lowercased), following the [Hugging Face purl type](https://github.com/package-url/purl-spec/blob/main/types-doc/huggingface-definition.md). `@` and spaces in name segments are percent-encoded. Without a commit SHA (no API data), the purl has no version. Base models in `pedigree.ancestors` always get a purl without version, because their commit isn't resolved (see [model.md](model.md#lineage)).
 
 ## bom-ref
 
-`bom-ref` equals the purl. If there is no purl, it is a random `urn:uuid:…`.
+`bom-ref` equals the purl. If there is no purl, it is a random `urn:uuid:…`. This also applies to base models in `pedigree.ancestors`.
 
 ## Version and revisions
 

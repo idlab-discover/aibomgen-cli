@@ -76,6 +76,19 @@ type ModelAPIResponse struct {
 		ModelType     string   `json:"model_type"`
 		Architectures []string `json:"architectures"`
 	} `json:"config"`
+	// BaseModels is the Hub's lineage for models whose card declares a base_model.
+	// It comes from a separate ?expand[]=baseModels request (see FetchRevision).
+	BaseModels *ModelBaseModels `json:"baseModels,omitempty"`
+}
+
+// ModelBaseModels is the Hub's view of a model's lineage: its base models and the
+// relation to them (finetune, adapter, quantized or merge), inferred by the Hub when
+// the card doesn't set base_model_relation.
+type ModelBaseModels struct {
+	Relation string `json:"relation"`
+	Models   []struct {
+		ID string `json:"id"`
+	} `json:"models"`
 }
 
 func (f *ModelAPIFetcher) Fetch(modelID string) (*ModelAPIResponse, error) {
@@ -102,25 +115,45 @@ func (f *ModelAPIFetcher) FetchRevision(modelID, revision string) (*ModelAPIResp
 	if rev := strings.TrimSpace(revision); rev != "" {
 		url += "/revision/" + neturl.PathEscape(rev)
 	}
+	var parsed ModelAPIResponse
+	if err := getJSON(client, url, &parsed); err != nil {
+		return nil, err
+	}
+
+	// expand[] limits the response to the expanded fields, so lineage needs its own
+	// request. Only make it for models that declare a base model; it is best-effort.
+	if hasBaseModel(parsed.CardData) {
+		var lineage struct {
+			BaseModels *ModelBaseModels `json:"baseModels"`
+		}
+		if err := getJSON(client, url+"?expand[]=baseModels", &lineage); err == nil {
+			parsed.BaseModels = lineage.BaseModels
+		}
+	}
+	return &parsed, nil
+}
+
+// hasBaseModel reports whether the card data declares a base_model.
+func hasBaseModel(cardData map[string]any) bool {
+	return len(stringSliceFromAny(cardData["base_model"])) > 0
+}
+
+// getJSON GETs url and decodes the JSON body into out.
+func getJSON(client *http.Client, url string, out any) error {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, &HFError{StatusCode: resp.StatusCode}
+		return &HFError{StatusCode: resp.StatusCode}
 	}
-
-	var parsed ModelAPIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return nil, err
-	}
-	return &parsed, nil
+	return json.NewDecoder(resp.Body).Decode(out)
 }

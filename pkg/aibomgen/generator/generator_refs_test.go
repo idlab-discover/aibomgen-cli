@@ -211,3 +211,58 @@ func TestBuildFromModelIDs_InputsOutputs(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildFromModelIDs_Pedigree(t *testing.T) {
+	lineage := map[string]*fetcher.ModelBaseModels{
+		"Qwen/Qwen2.5-7B-Instruct": {Relation: "finetune"},
+		"nvidia/Eagle2.5-8B":       {Relation: "merge"},
+	}
+	bases := map[string][]any{
+		"Qwen/Qwen2.5-7B-Instruct": {"Qwen/Qwen2.5-7B"},
+		"nvidia/Eagle2.5-8B":       {"Qwen/Qwen2.5-7B-Instruct", "google/siglip2-so400m-patch16-512"},
+	}
+	api := &mockModelAPIFetcher{fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
+		return &fetcher.ModelAPIResponse{
+			ID: id, SHA: "abc",
+			CardData:   map[string]any{"base_model": bases[id]},
+			BaseModels: lineage[id],
+		}, nil
+	}}
+	withFetchers(t, hfLikeFetchers(api))
+
+	boms, err := BuildFromModelIDs([]string{"Qwen/Qwen2.5-7B-Instruct", "nvidia/Eagle2.5-8B"}, GenerateOptions{})
+	if err != nil || len(boms) != 2 {
+		t.Fatalf("BuildFromModelIDs = %d boms, err %v", len(boms), err)
+	}
+
+	want := map[string]struct {
+		purls []string
+		notes string
+	}{
+		"Qwen/Qwen2.5-7B-Instruct": {[]string{"pkg:huggingface/Qwen/Qwen2.5-7B"}, "finetune of Qwen/Qwen2.5-7B"},
+		"nvidia/Eagle2.5-8B": {
+			[]string{"pkg:huggingface/Qwen/Qwen2.5-7B-Instruct", "pkg:huggingface/google/siglip2-so400m-patch16-512"},
+			"merge of Qwen/Qwen2.5-7B-Instruct, google/siglip2-so400m-patch16-512",
+		},
+	}
+	for _, b := range boms {
+		id := b.Discovery.ID
+		p := b.BOM.Metadata.Component.Pedigree
+		if p == nil || p.Ancestors == nil {
+			t.Fatalf("%s: no pedigree", id)
+		}
+		var purls []string
+		for _, a := range *p.Ancestors {
+			if a.BOMRef != a.PackageURL {
+				t.Errorf("%s: ancestor bom-ref %q != purl %q", id, a.BOMRef, a.PackageURL)
+			}
+			purls = append(purls, a.PackageURL)
+		}
+		if !reflect.DeepEqual(purls, want[id].purls) || p.Notes != want[id].notes {
+			t.Errorf("%s: purls = %v, notes = %q; want %v, %q", id, purls, p.Notes, want[id].purls, want[id].notes)
+		}
+		if dangling := validator.DanglingRefs(b.BOM); len(dangling) != 0 {
+			t.Errorf("%s: dangling refs %v", id, dangling)
+		}
+	}
+}

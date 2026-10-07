@@ -27,6 +27,11 @@ type ModelReadmeCard struct {
 	Datasets  []string
 	Metrics   []string
 	BaseModel string
+	// BaseModels is the base_model list (a single ID gives one entry).
+	BaseModels []string
+	// BaseModelRelation is front matter base_model_relation, lowercased
+	// (finetune, adapter, quantized or merge).
+	BaseModelRelation string
 	// Summary is front matter model_description (else summary), flattened and capped.
 	Summary string
 
@@ -169,7 +174,9 @@ func parseReadmeCard(raw string) *ModelReadmeCard {
 	card.Datasets = stringSliceFromAny(fm["datasets"])
 	card.Metrics = stringSliceFromAny(fm["metrics"])
 	// base_model may be a single ID or a list (merges, adapters): join lists with ",".
-	card.BaseModel = strings.Join(stringSliceFromAny(fm["base_model"]), ",")
+	card.BaseModels = stringSliceFromAny(fm["base_model"])
+	card.BaseModel = strings.Join(card.BaseModels, ",")
+	card.BaseModelRelation = strings.ToLower(strings.TrimSpace(stringFromAny(fm["base_model_relation"])))
 	for _, key := range []string{"model_description", "summary"} {
 		if s := flattenInline(stringFromAny(fm[key])); s != "" {
 			card.Summary = truncateDescription(s)

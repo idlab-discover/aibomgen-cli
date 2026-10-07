@@ -17,6 +17,7 @@ The model is written as `metadata.component` with `type: machine-learning-model`
 | `authors` | `BOM.metadata.component.authors` | README "Developed by" (placeholders skipped) → namespace | `[{name}]` | 0.5 |
 | `version` | `BOM.metadata.component.version` | requested revision, if it isn't a 40-hex commit SHA → `HF.sha` | Named revision as is (e.g. `v1.0`, `main`); otherwise the lowercased commit SHA, equal to the purl version | 0.5 |
 | `description` | `BOM.metadata.component.description` | README front matter `model_description` → `summary` → `cardData.model_description` → `cardData.summary` → README description section → README lead paragraph (see [Description](#description)) | One line of plain text, at most 300 characters, cut at a sentence end. Placeholders are skipped; absent when no source has prose. | 0.5 |
+| `pedigree.ancestors`, `pedigree.notes` | `BOM.metadata.component.pedigree.ancestors` | README front matter `base_model` → `cardData.base_model` → Hub `baseModels` (see [Lineage](#lineage)) | One `machine-learning-model` ancestor per base model; `notes` holds the relation | 0, not scored |
 
 `purl` and `bom-ref` are computed after these fields, see [identity-and-links.md](identity-and-links.md).
 
@@ -46,6 +47,36 @@ The chosen paragraph is then flattened:
 - bare URLs (and a parenthetical holding one) and emphasis markers are removed.
 
 Whole sentences are kept up to 300 characters. A first sentence longer than that is cut at a word boundary with `…`.
+
+### Lineage
+
+`base_model` is written to `pedigree`, the standard CycloneDX place for lineage. The `huggingface:baseModel` property is kept for backward compatibility. The field has weight 0: it is applied, but it isn't scored or offered by `enrich`, because foundation models legitimately have no base model.
+
+**Ancestors.** The first non-empty source gives the base model IDs:
+1. README front matter `base_model`;
+2. `cardData.base_model`;
+3. the Hub's `baseModels`.
+
+Each ID becomes one ancestor:
+
+```json
+{"type": "machine-learning-model", "group": "Qwen", "name": "Qwen/Qwen2.5-7B",
+ "purl": "pkg:huggingface/Qwen/Qwen2.5-7B", "bom-ref": "pkg:huggingface/Qwen/Qwen2.5-7B",
+ "externalReferences": [{"type": "website", "url": "https://huggingface.co/Qwen/Qwen2.5-7B"}]}
+```
+
+- `name` and `group` follow the main component: `name` is the full ID and `group` the namespace. A legacy single-segment ID such as `gpt2` gets no group.
+- The purl has no version. The ancestor's commit is not resolved, to avoid a Hub request per ancestor. The `bom-ref` equals the purl.
+- Values that aren't Hub repository IDs are dropped: URLs, local paths and placeholders. So are duplicates (ignoring case) and the model's own ID.
+
+**Relation.** The relation is `finetune`, `adapter`, `quantized` or `merge`. The first non-empty source wins:
+1. README front matter `base_model_relation`;
+2. `cardData.base_model_relation`;
+3. the relation the Hub infers.
+
+Most cards don't set `base_model_relation`. For a model whose `cardData` declares a `base_model`, the model API fetcher makes one extra request, `GET /api/models/{id}?expand[]=baseModels`, which returns the Hub's base models and inferred relation. It is a separate request because `expand[]` limits the response to the expanded fields. It is best-effort: a failure leaves the Hub relation out and doesn't fail generation.
+
+**Notes.** `pedigree.notes` reads `{relation} of {id}, {id}`, e.g. `finetune of Qwen/Qwen2.5-7B` or `merge of Qwen/Qwen2.5-7B-Instruct, google/siglip2-so400m-patch16-512`. Without a relation it reads `derived from {ids} (relation unknown)`.
 
 ## Model card (`modelCard`)
 

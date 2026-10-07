@@ -222,3 +222,13 @@ func TestParseReadmeCard_ConsiderationAliases_MiniLMLayout(t *testing.T) {
 		t.Fatalf("directUse = %q", card.DirectUse)
 	}
 }
+
+func TestParseReadmeCard_BaseModelLineage(t *testing.T) {
+	card := parseReadmeCard("---\nbase_model:\n- org/a\n- org/b\nbase_model_relation: Merge\n---\n# M\n")
+	if len(card.BaseModels) != 2 || card.BaseModels[1] != "org/b" || card.BaseModel != "org/a,org/b" {
+		t.Fatalf("baseModels = %v, baseModel = %q", card.BaseModels, card.BaseModel)
+	}
+	if card.BaseModelRelation != "merge" {
+		t.Fatalf("baseModelRelation = %q", card.BaseModelRelation)
+	}
+}

@@ -19,11 +19,12 @@ func (f *DummyModelReadmeFetcher) Fetch(modelID string) (*ModelReadmeCard, error
 		Body: dummyReadmeContent,
 
 		// Common front matter fields.
-		License:   "mit",
-		Tags:      []string{"text-generation", "pytorch", "gpt2"},
-		Datasets:  []string{"wikipedia", "bookcorpus"},
-		Metrics:   []string{"perplexity", "accuracy"},
-		BaseModel: "gpt2",
+		License:    "mit",
+		Tags:       []string{"text-generation", "pytorch", "gpt2"},
+		Datasets:   []string{"wikipedia", "bookcorpus"},
+		Metrics:    []string{"perplexity", "accuracy"},
+		BaseModel:  "gpt2",
+		BaseModels: []string{"gpt2"},
 
 		// Extracted from Markdown body (template headings and their common aliases).
 		DevelopedBy:           "Dummy Organization",

@@ -58,6 +58,15 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 	AddComponentPurl(comp)
 	AddComponentBOMRef(comp)
 
+	// Base models (pedigree ancestors) get a version-less purl and matching bom-ref:
+	// their commit is not resolved, to avoid a Hub call per ancestor.
+	if comp.Pedigree != nil && comp.Pedigree.Ancestors != nil {
+		for i := range *comp.Pedigree.Ancestors {
+			AddComponentPurl(&(*comp.Pedigree.Ancestors)[i])
+			AddComponentBOMRef(&(*comp.Pedigree.Ancestors)[i])
+		}
+	}
+
 	// Inject security scan findings as Component.Properties and BOM.Vulnerabilities.
 	InjectSecurityData(bom, comp, ctx.SecurityTree, strings.TrimSpace(ctx.ModelID), strings.TrimSpace(ctx.Revision))
 
