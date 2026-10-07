@@ -56,17 +56,12 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return errors.New("--input cannot be used with --hf-mode=dummy")
 	}
 
-	// Get format from viper.
-	outputFormat := viper.GetString("scan.format")
-	if outputFormat == "" {
-		outputFormat = "auto"
-	}
-
-	// Fail fast on format/extension mismatch.
-	outputDir, fmtChosen, err := resolveOutput(viper.GetString("scan.output"), outputFormat)
+	// Validate the output format before doing any work.
+	fmtChosen, err := outputFormat(viper.GetString("scan.format"))
 	if err != nil {
 		return err
 	}
+	outputDir := viper.GetString("scan.output")
 
 	// Get HF settings.
 	hfToken := viper.GetString("scan.hf-token")
@@ -171,8 +166,8 @@ func runScanDirectory(inputPath, mode, hfToken string, timeout time.Duration, qu
 
 func init() {
 	scanCmd.Flags().StringP("input", "i", "", "Path to scan (defaults to current directory)")
-	scanCmd.Flags().StringP("output", "o", "", "Output file path (directory is used)")
-	scanCmd.Flags().StringP("format", "f", "", "Output BOM format: json|xml|auto")
+	scanCmd.Flags().StringP("output", "o", "", "Output directory (default dist)")
+	scanCmd.Flags().StringP("format", "f", "", "Output BOM format: json|xml (default json)")
 	scanCmd.Flags().String("spec", "", "CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7; default 1.7)")
 	scanCmd.Flags().String("hf-mode", "", "Hugging Face metadata mode: online|dummy")
 	scanCmd.Flags().Int("hf-timeout", 0, "Timeout in seconds per Hugging Face API request (default 10)")

@@ -85,17 +85,12 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		return errors.New("either --model-id or --interactive is required. Use 'scan' command to scan directories")
 	}
 
-	// Get format from viper.
-	outputFormat := viper.GetString("generate.format")
-	if outputFormat == "" {
-		outputFormat = "auto"
-	}
-
-	// Fail fast on format/extension mismatch.
-	outputDir, fmtChosen, err := resolveOutput(viper.GetString("generate.output"), outputFormat)
+	// Validate the output format before doing any work.
+	fmtChosen, err := outputFormat(viper.GetString("generate.format"))
 	if err != nil {
 		return err
 	}
+	outputDir := viper.GetString("generate.output")
 
 	// Get HF settings.
 	hfToken := viper.GetString("generate.hf-token")
@@ -181,8 +176,8 @@ func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode, hfToken strin
 
 func init() {
 	generateCmd.Flags().StringSliceP("model-id", "m", []string{}, "Hugging Face model ID(s) (e.g., gpt2, org/model-name or org/model-name@revision) - can be used multiple times or comma-separated")
-	generateCmd.Flags().StringP("output", "o", "", "Output file path (directory is used)")
-	generateCmd.Flags().StringP("format", "f", "", "Output BOM format: json|xml|auto")
+	generateCmd.Flags().StringP("output", "o", "", "Output directory (default dist)")
+	generateCmd.Flags().StringP("format", "f", "", "Output BOM format: json|xml (default json)")
 	generateCmd.Flags().String("spec", "", "CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7; default 1.7)")
 	generateCmd.Flags().String("hf-mode", "", "Hugging Face metadata mode: online|dummy")
 	generateCmd.Flags().Int("hf-timeout", 0, "Timeout in seconds per Hugging Face API request (default 10)")

@@ -1,6 +1,7 @@
 package bomio
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,43 +11,44 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/generator"
 )
 
-// ReadBOM reads a BOM from a file (JSON or XML).
-// The format parameter can be "json", "xml", or "auto" (default).
-// If "auto", the format is determined from the file extension.
-func ReadBOM(path string, format string) (*cdx.BOM, error) {
-	f, err := os.Open(path)
+// ReadBOM reads a CycloneDX BOM from a file. The encoding is detected from the
+// content (a leading '<' means XML, anything else JSON), not from the file name.
+func ReadBOM(path string) (*cdx.BOM, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
 
-	_, fileFmt, err := resolveFormat(format, path)
-	if err != nil {
-		return nil, err
+	fileFmt := cdx.BOMFileFormatJSON
+	if trimmed := bytes.TrimLeft(data, " \t\r\n\ufeff"); len(trimmed) > 0 && trimmed[0] == '<' {
+		fileFmt = cdx.BOMFileFormatXML
 	}
 
 	bom := new(cdx.BOM)
-	dec := cdx.NewBOMDecoder(f, fileFmt)
-	if err := dec.Decode(bom); err != nil {
+	if err := cdx.NewBOMDecoder(bytes.NewReader(data), fileFmt).Decode(bom); err != nil {
 		return nil, err
 	}
-
 	return bom, nil
 }
 
-// WriteBOM writes a BOM to a file in the specified format.
-// The format parameter can be "json", "xml", or "auto" (default).
-// If "auto", the format is determined from the file extension.
-// If spec is provided, it encodes with that specific CycloneDX version.
-func WriteBOM(bom *cdx.BOM, outputPath string, format string, spec string) error {
-	ext := filepath.Ext(outputPath)
-
-	actual, fileFmt, err := resolveFormat(format, outputPath)
-	if err != nil {
-		return err
+// formatForPath returns the BOM encoding implied by a file name: XML for a
+// ".xml" extension (any case), JSON otherwise.
+func formatForPath(path string) cdx.BOMFileFormat {
+	if strings.EqualFold(filepath.Ext(path), ".xml") {
+		return cdx.BOMFileFormatXML
 	}
-	if ext != "."+actual {
-		return fmt.Errorf("output path extension %q does not match format %q", ext, actual)
+	return cdx.BOMFileFormatJSON
+}
+
+// WriteBOM writes a BOM to outputPath, as XML when the path ends in ".xml" and
+// as JSON otherwise. If spec is set, the BOM is encoded with that CycloneDX version.
+func WriteBOM(bom *cdx.BOM, outputPath string, spec string) error {
+	var sv cdx.SpecVersion
+	if spec != "" {
+		var ok bool
+		if sv, ok = ParseSpecVersion(spec); !ok {
+			return fmt.Errorf("unsupported CycloneDX spec version: %q", spec)
+		}
 	}
 
 	f, err := os.Create(outputPath)
@@ -55,16 +57,11 @@ func WriteBOM(bom *cdx.BOM, outputPath string, format string, spec string) error
 	}
 	defer f.Close()
 
-	encoder := cdx.NewBOMEncoder(f, fileFmt)
+	encoder := cdx.NewBOMEncoder(f, formatForPath(outputPath))
 	encoder.SetPretty(true)
 
 	if spec == "" {
 		return encoder.Encode(bom)
-	}
-
-	sv, ok := ParseSpecVersion(spec)
-	if !ok {
-		return fmt.Errorf("unsupported CycloneDX spec version: %q", spec)
 	}
 
 	// WORKAROUND: cyclonedx-go doesn't remove 1.6-only fields everywhere when encoding
@@ -76,23 +73,6 @@ func WriteBOM(bom *cdx.BOM, outputPath string, format string, spec string) error
 	}
 
 	return encoder.EncodeVersion(bom, sv)
-}
-
-// resolveFormat returns "json" or "xml" and its encoding for format; "" or "auto"
-// picks XML for a .xml path and JSON otherwise.
-func resolveFormat(format, path string) (string, cdx.BOMFileFormat, error) {
-	switch actual := strings.ToLower(strings.TrimSpace(format)); actual {
-	case "", "auto":
-		if strings.EqualFold(filepath.Ext(path), ".xml") {
-			return "xml", cdx.BOMFileFormatXML, nil
-		}
-		return "json", cdx.BOMFileFormatJSON, nil
-	case "json":
-		return actual, cdx.BOMFileFormatJSON, nil
-	case "xml":
-		return actual, cdx.BOMFileFormatXML, nil
-	}
-	return "", cdx.BOMFileFormatJSON, fmt.Errorf("unsupported BOM format: %q", format)
 }
 
 // stripPre16Fields removes fields introduced in spec 1.6 that cyclonedx-go leaves in place.
@@ -158,27 +138,34 @@ func ParseSpecVersion(s string) (cdx.SpecVersion, bool) {
 	}
 }
 
-// WriteOutputFiles writes BOM files to disk and returns the list of written paths.
-// Each BOM is written to a separate file named after the requested model reference
-// (Discovery.ID, plus "@revision" when set), so two requested IDs that resolve to the
-// same Hugging Face model still get their own file. Names that collide after
-// sanitizing get a numeric suffix (_2, _3, ...) instead of overwriting each other.
-func WriteOutputFiles(discoveredBOMs []generator.DiscoveredBOM, outputDir, fileExt, format, specVersion string) ([]string, error) {
+// WriteOutputFiles writes one BOM file per discovered model into outputDir and
+// returns the written paths. Files are named "<ref>.aibom.cdx.json" (or ".xml" when
+// format is "xml"), following the CycloneDX "*.cdx.json" / "*.cdx.xml" convention.
+// <ref> is the sanitized requested model reference (Discovery.ID plus "_revision"
+// when set), so two requested IDs that resolve to the same Hugging Face model still
+// get their own file. Names that collide after sanitizing get a numeric suffix
+// (_2, _3, ...) instead of overwriting each other.
+func WriteOutputFiles(discoveredBOMs []generator.DiscoveredBOM, outputDir, format, specVersion string) ([]string, error) {
+	ext := ".aibom.cdx.json"
+	if format == "xml" {
+		ext = ".aibom.cdx.xml"
+	}
+
 	written := make([]string, 0, len(discoveredBOMs))
 	used := make(map[string]struct{}, len(discoveredBOMs))
 	for _, d := range discoveredBOMs {
 		base := sanitizeFileName(outputBaseName(d))
-		fileName := fmt.Sprintf("%s_aibom%s", base, fileExt)
+		fileName := base + ext
 		for n := 2; ; n++ {
 			if _, taken := used[fileName]; !taken {
 				break
 			}
-			fileName = fmt.Sprintf("%s_%d_aibom%s", base, n, fileExt)
+			fileName = fmt.Sprintf("%s_%d%s", base, n, ext)
 		}
 		used[fileName] = struct{}{}
 		dest := filepath.Join(outputDir, fileName)
 
-		if err := WriteBOM(d.BOM, dest, format, specVersion); err != nil {
+		if err := WriteBOM(d.BOM, dest, specVersion); err != nil {
 			return written, err
 		}
 		written = append(written, dest)

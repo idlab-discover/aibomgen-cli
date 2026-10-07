@@ -26,7 +26,7 @@ func NewGenerateUI(w io.Writer, quiet bool) *GenerateUI {
 // For model-id mode: process individual models.
 
 // PrintSummary prints a final summary.
-func (g *GenerateUI) PrintSummary(filesWritten int, outputDir, format string) {
+func (g *GenerateUI) PrintSummary(written []string, format string) {
 	if g.quiet {
 		return
 	}
@@ -39,10 +39,11 @@ func (g *GenerateUI) PrintSummary(filesWritten int, outputDir, format string) {
 	var summary strings.Builder
 	summary.WriteString(Success.Bold(true).Render("Generation Complete"))
 	summary.WriteString("\n\n")
-	summary.WriteString(FormatKeyValue("Files written", fmt.Sprintf("%d", filesWritten)))
+	summary.WriteString(FormatKeyValue("Files written", fmt.Sprintf("%d", len(written))))
 	summary.WriteString("\n")
-	summary.WriteString(FormatKeyValue("Output directory", outputDir))
-	summary.WriteString("\n")
+	for _, path := range written {
+		summary.WriteString("  " + path + "\n")
+	}
 	summary.WriteString(FormatKeyValue("Format", format))
 	summary.WriteString("\n")
 	summary.WriteString(FormatKeyValue("Duration", elapsed.Round(time.Millisecond).String()))

@@ -51,212 +51,94 @@ func TestParseSpecVersion_AllCases(t *testing.T) {
 }
 
 func TestReadBOM_OpenError(t *testing.T) {
-	_, err := ReadBOM(filepath.Join(t.TempDir(), "missing.json"), "auto")
-	if err == nil {
-		t.Fatalf("expected error for missing file")
+	if _, err := ReadBOM(filepath.Join(t.TempDir(), "missing.json")); err == nil {
+		t.Fatal("expected error for missing file")
 	}
 }
 
-func TestReadBOM_Auto_SelectsJSONByExtension(t *testing.T) {
-	dir := t.TempDir()
-	p := filepath.Join(dir, "bom.json")
-	if err := os.WriteFile(p, []byte(`{}`), 0o600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+func TestReadBOM_InvalidJSON(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "bad.json")
+	if err := os.WriteFile(p, []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
 	}
-
-	got, err := ReadBOM(p, "auto")
-	if err != nil {
-		t.Fatalf("ReadBOM(auto): %v", err)
-	}
-	if got == nil {
-		t.Fatalf("expected BOM")
+	if _, err := ReadBOM(p); err == nil {
+		t.Fatal("expected decode error")
 	}
 }
 
-func TestReadBOM_DecodeError_WhenFormatDoesNotMatchContent(t *testing.T) {
+// The encoding is sniffed from the content, so the file name never matters.
+func TestReadBOM_DetectsFormatFromContent(t *testing.T) {
 	dir := t.TempDir()
-	p := filepath.Join(dir, "bom.json")
-	if err := os.WriteFile(p, []byte(`{}`), 0o600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	_, err := ReadBOM(p, "xml")
-	if err == nil {
-		t.Fatalf("expected decode error when reading JSON as XML")
+	for _, tc := range []struct{ written, readAs string }{
+		{"bom.json", "bom.json"},
+		{"bom.xml", "bom.xml"},
+		{"bom.xml", "xml-content.json"}, // XML in a .json file
+		{"bom.json", "json-content"},    // no extension
+		{"bom.xml", "xml-content"},      // no extension
+	} {
+		src := filepath.Join(dir, tc.written)
+		if err := WriteBOM(minimalBOM(), src, ""); err != nil {
+			t.Fatalf("WriteBOM: %v", err)
+		}
+		data, err := os.ReadFile(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dst := filepath.Join(dir, tc.readAs)
+		if err := os.WriteFile(dst, append([]byte("\n  "), data...), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		got, err := ReadBOM(dst)
+		if err != nil {
+			t.Fatalf("ReadBOM(%s written as %s): %v", tc.readAs, tc.written, err)
+		}
+		if got.Metadata == nil || got.Metadata.Component == nil || got.Metadata.Component.Name != "test-model" {
+			t.Fatalf("ReadBOM(%s): unexpected BOM: %#v", tc.readAs, got.Metadata)
+		}
 	}
 }
 
-func TestReadBOM_DecodeError_InvalidJSON(t *testing.T) {
+// The output extension picks the encoding: ".xml" (any case) is XML, everything else JSON.
+func TestWriteBOM_EncodingFromExtension(t *testing.T) {
 	dir := t.TempDir()
-	p := filepath.Join(dir, "bom.json")
-	if err := os.WriteFile(p, []byte(`{`), 0o600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	_, err := ReadBOM(p, "json")
-	if err == nil {
-		t.Fatalf("expected decode error for invalid JSON")
+	for name, wantFirst := range map[string]byte{
+		"a.json":     '{',
+		"a.cdx.json": '{',
+		"a.xml":      '<',
+		"a.XML":      '<',
+		"a.cdx.xml":  '<',
+		"noext":      '{',
+	} {
+		out := filepath.Join(dir, name)
+		if err := WriteBOM(minimalBOM(), out, "1.6"); err != nil {
+			t.Fatalf("WriteBOM(%s): %v", name, err)
+		}
+		data, err := os.ReadFile(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if data[0] != wantFirst {
+			t.Errorf("%s: starts with %q, want %q", name, data[0], wantFirst)
+		}
+		if _, err := ReadBOM(out); err != nil {
+			t.Errorf("%s: round trip: %v", name, err)
+		}
 	}
 }
 
-func TestWriteBOM_JSON_Auto_SpecEmpty_RoundTrip(t *testing.T) {
-	dir := t.TempDir()
-	out := filepath.Join(dir, "bom.json")
-
-	if err := WriteBOM(minimalBOM(), out, "auto", ""); err != nil {
-		t.Fatalf("WriteBOM: %v", err)
-	}
-
-	got, err := ReadBOM(out, " JSON ")
-	if err != nil {
-		t.Fatalf("ReadBOM: %v", err)
-	}
-	if got == nil || got.Metadata == nil || got.Metadata.Component == nil || got.Metadata.Component.Name != "test-model" {
-		t.Fatalf("roundtrip BOM missing expected metadata.component.name")
+func TestWriteBOM_OutputIsDirectory(t *testing.T) {
+	if err := WriteBOM(minimalBOM(), t.TempDir(), ""); err == nil {
+		t.Fatal("expected error when output path is a directory")
 	}
 }
 
-func TestWriteBOM_JSON_Explicit_SpecVersion_RoundTrip(t *testing.T) {
-	dir := t.TempDir()
-	out := filepath.Join(dir, "bom.json")
-
-	if err := WriteBOM(minimalBOM(), out, " json ", "1.6"); err != nil {
-		t.Fatalf("WriteBOM: %v", err)
+func TestWriteBOM_InvalidSpec_WritesNothing(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "bom.json")
+	if err := WriteBOM(minimalBOM(), out, "9.9"); err == nil {
+		t.Fatal("expected error for invalid spec")
 	}
-
-	got, err := ReadBOM(out, "json")
-	if err != nil {
-		t.Fatalf("ReadBOM: %v", err)
-	}
-	if got.SpecVersion == 0 {
-		t.Fatalf("expected specVersion to be set after decode")
-	}
-}
-
-func TestWriteBOM_XML_Explicit_RoundTrip_AndReadAuto(t *testing.T) {
-	dir := t.TempDir()
-	out := filepath.Join(dir, "bom.xml")
-
-	if err := WriteBOM(minimalBOM(), out, "xml", ""); err != nil {
-		t.Fatalf("WriteBOM: %v", err)
-	}
-
-	got, err := ReadBOM(out, "")
-	if err != nil {
-		t.Fatalf("ReadBOM: %v", err)
-	}
-	if got == nil {
-		t.Fatalf("expected BOM")
-	}
-}
-
-func TestWriteBOM_XML_Auto_SelectsByExtension_RoundTrip(t *testing.T) {
-	dir := t.TempDir()
-	out := filepath.Join(dir, "bom.xml")
-
-	if err := WriteBOM(minimalBOM(), out, "auto", ""); err != nil {
-		t.Fatalf("WriteBOM: %v", err)
-	}
-
-	got, err := ReadBOM(out, "xml")
-	if err != nil {
-		t.Fatalf("ReadBOM: %v", err)
-	}
-	if got == nil || got.Metadata == nil || got.Metadata.Component == nil || got.Metadata.Component.Name != "test-model" {
-		t.Fatalf("roundtrip BOM missing expected metadata.component.name")
-	}
-}
-
-func TestReadBOM_Auto_NoExtension_DefaultsToJSONByContent(t *testing.T) {
-	dir := t.TempDir()
-	p := filepath.Join(dir, "bom") // no extension
-
-	// Looks like JSON => current impl appears to treat this as JSON in "auto"/"" mode.
-	if err := os.WriteFile(p, []byte(`{}`), 0o600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	got, err := ReadBOM(p, "") // "" behaves like auto in this package
-	if err != nil {
-		t.Fatalf("expected no error when auto-reading JSON content without extension, got: %v", err)
-	}
-	if got == nil {
-		t.Fatalf("expected BOM")
-	}
-}
-
-func TestWriteBOM_UnsupportedFormat(t *testing.T) {
-	dir := t.TempDir()
-	p := filepath.Join(dir, "bom.json")
-
-	if err := WriteBOM(minimalBOM(), p, "json", ""); err != nil {
-		t.Fatalf("WriteBOM: %v", err)
-	}
-
-	_, err := ReadBOM(p, "yaml")
-	if err == nil {
-		t.Fatalf("expected error for unsupported format")
-	}
-}
-
-func TestWriteBOM_OpenError_WhenOutputIsDirectory(t *testing.T) {
-	dir := t.TempDir()
-
-	// Make a *directory* that still has a valid ".json" extension so we get past.
-	// extension validation and hit the os.Create(...) error path.
-	outDir := filepath.Join(dir, "bom.json")
-	if err := os.Mkdir(outDir, 0o700); err != nil {
-		t.Fatalf("Mkdir: %v", err)
-	}
-
-	if err := WriteBOM(minimalBOM(), outDir, "json", ""); err == nil {
-		t.Fatalf("expected error when output path is a directory")
-	}
-}
-
-func TestWriteBOM_UnsupportedFormat_Errors(t *testing.T) {
-	dir := t.TempDir()
-	out := filepath.Join(dir, "bom.json")
-
-	if err := WriteBOM(minimalBOM(), out, "yaml", ""); err == nil {
-		t.Fatalf("expected error for unsupported write format")
-	}
-}
-
-func TestWriteBOM_ExtensionMismatch_XMLFormatButJSONPath(t *testing.T) {
-	dir := t.TempDir()
-	out := filepath.Join(dir, "bom.json")
-
-	if err := WriteBOM(minimalBOM(), out, "xml", ""); err == nil {
-		t.Fatalf("expected error for extension/format mismatch")
-	}
-}
-
-func TestWriteBOM_ExtensionMismatch_JSONFormatButXMLPath(t *testing.T) {
-	dir := t.TempDir()
-	out := filepath.Join(dir, "bom.xml")
-
-	if err := WriteBOM(minimalBOM(), out, "json", ""); err == nil {
-		t.Fatalf("expected error for extension/format mismatch")
-	}
-}
-
-func TestWriteBOM_SpecProvidedButInvalid_ReturnsError(t *testing.T) {
-	dir := t.TempDir()
-	out := filepath.Join(dir, "bom.json")
-
-	if err := WriteBOM(minimalBOM(), out, "json", "9.9"); err == nil {
-		t.Fatalf("expected error for unsupported CycloneDX spec version")
-	}
-}
-
-func TestWriteBOM_Auto_UppercaseXMLExtension_HitsEqualFoldThenValidationMismatch(t *testing.T) {
-	dir := t.TempDir()
-	out := filepath.Join(dir, "bom.XML") // ext is ".XML"
-
-	// auto picks "xml" due to EqualFold(ext, ".xml"), then validation compares ext != ".xml" and errors.
-	if err := WriteBOM(minimalBOM(), out, "auto", ""); err == nil {
-		t.Fatalf("expected error for uppercase .XML extension validation mismatch")
+	if _, err := os.Stat(out); !os.IsNotExist(err) {
+		t.Fatalf("invalid spec must not create %s", out)
 	}
 }
 
@@ -270,7 +152,7 @@ func TestWriteBOM_Spec15_StripsToolComponentFields(t *testing.T) {
 			Authors:      &[]cdx.OrganizationalContact{{Name: "someone"}},
 		}}}
 		out := filepath.Join(t.TempDir(), "bom.json")
-		if err := WriteBOM(bom, out, "json", spec); err != nil {
+		if err := WriteBOM(bom, out, spec); err != nil {
 			t.Fatalf("WriteBOM %s: %v", spec, err)
 		}
 		raw, err := os.ReadFile(out)
