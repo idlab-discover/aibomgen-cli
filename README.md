@@ -2,8 +2,8 @@
 # AIBoMGen CLI
 
 [![Build + Unit Tests](https://img.shields.io/github/actions/workflow/status/idlab-discover/aibomgen-cli/build.yml?label=Build+%2B+Unit+Tests)](https://github.com/idlab-discover/aibomgen-cli/actions/workflows/build.yml)
-[![Scan Integration](https://img.shields.io/github/actions/workflow/status/idlab-discover/aibomgen-cli/integration.yml?label=Scan+Integration)](https://github.com/idlab-discover/aibomgen-cli/actions/workflows/integration.yml)
-[![Go version](https://img.shields.io/badge/go-1.25+-00ADD8?logo=go)](go.mod)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/idlab-discover/aibomgen-cli/badge)](https://scorecard.dev/viewer/?uri=github.com/idlab-discover/aibomgen-cli)
+[![Go version](https://img.shields.io/badge/go-1.27+-00ADD8?logo=go)](go.mod)
 [![Go Reference](https://img.shields.io/badge/pkg.go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/idlab-discover/aibomgen-cli)
 [![Go Report Card](https://img.shields.io/badge/go%20report-A%2B-brightgreen?logo=go&logoColor=white)](https://goreportcard.com/report/github.com/idlab-discover/aibomgen-cli)
 [![GitHub release](https://img.shields.io/github/v/release/idlab-discover/aibomgen-cli)](https://github.com/idlab-discover/aibomgen-cli/releases)

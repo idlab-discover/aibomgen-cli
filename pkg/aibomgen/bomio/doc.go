@@ -1,5 +1,5 @@
 // Package bomio provides read and write helpers for CycloneDX BOMs.
-//.
+//
 // Both JSON and XML serialisation are supported. When the format parameter is.
 // "auto", the format is inferred from the file extension (.json → JSON,.
 // .xml → XML). [WriteBOM] accepts an optional CycloneDX spec version string.
