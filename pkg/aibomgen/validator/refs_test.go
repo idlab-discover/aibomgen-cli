@@ -49,3 +49,13 @@ func TestValidateWarnsOnDanglingRefs(t *testing.T) {
 	}
 	t.Fatalf("expected a dangling reference warning, got %v", res.Warnings)
 }
+
+func TestDanglingRefs_VulnerabilityAffects(t *testing.T) {
+	bom := cdx.NewBOM()
+	bom.Metadata = &cdx.Metadata{Component: &cdx.Component{BOMRef: "model", Name: "m"}}
+	bom.Vulnerabilities = &[]cdx.Vulnerability{{ID: "CVE-1", Affects: &[]cdx.Affects{{Ref: "model"}, {Ref: "gone"}}}}
+	got := DanglingRefs(bom)
+	if len(got) != 1 || !strings.Contains(got[0], `CVE-1 affects "gone"`) {
+		t.Fatalf("DanglingRefs = %v, want one message for the affects ref %q", got, "gone")
+	}
+}

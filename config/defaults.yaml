@@ -92,11 +92,9 @@ validate:
   strict: false
   # Lowest vulnerability severity that fails strict mode: critical|high|medium|low|info
   fail-severity: "medium"
-  # Minimum completeness score (0.0-1.0)
+  # Minimum completeness score (0.0-1.0), enforced with or without strict
   min-score: 0.0
-  # Validate model card fields
-  check-model-card: true
-  # Log level: quiet|standard|debug
+  # Log level: quiet|standard|debug (debug also lists missing optional fields)
   log-level: "standard"
 
 # ============================================================================

@@ -25,6 +25,9 @@ func main() {
 		if errors.Is(err, apperr.ErrCancelled) {
 			os.Exit(0)
 		}
+		if errors.Is(err, apperr.ErrValidation) {
+			os.Exit(2)
+		}
 		os.Exit(1)
 	}
 }

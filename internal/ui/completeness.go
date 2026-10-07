@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/completeness"
-
-	lipgloss "charm.land/lipgloss/v2"
 )
 
 // CompletenessUI provides a rich UI for the completeness command.
@@ -70,7 +68,7 @@ func (c *CompletenessUI) renderModelScore(result completeness.Result) string {
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString(FormatKeyValue("Score", c.renderProgressBar(result.Score, 40)+" "+c.renderScorePercentage(result.Score)))
+	sb.WriteString(FormatKeyValue("Score", scoreBar(result.Score)))
 	sb.WriteString("\n")
 	sb.WriteString(Dim.Render(fmt.Sprintf("(%d/%d fields present)", result.Passed, result.Total)))
 
@@ -126,7 +124,7 @@ func (c *CompletenessUI) renderDatasetScores(datasets map[string]completeness.Da
 		sb.WriteString("\n")
 
 		// Progress bar with label.
-		sb.WriteString(FormatKeyValue("Score", c.renderProgressBar(dsResult.Score, 40)+" "+c.renderScorePercentage(dsResult.Score)))
+		sb.WriteString(FormatKeyValue("Score", scoreBar(dsResult.Score)))
 		sb.WriteString("\n")
 		sb.WriteString(Dim.Render(fmt.Sprintf("(%d/%d fields present)", dsResult.Passed, dsResult.Total)))
 		sb.WriteString("\n")
@@ -167,35 +165,15 @@ func (c *CompletenessUI) renderDatasetScores(datasets map[string]completeness.Da
 	return strings.TrimRight(sb.String(), "\n")
 }
 
-// renderProgressBar creates a visual progress bar.
-func (c *CompletenessUI) renderProgressBar(score float64, width int) string {
-	filled := int(score * float64(width))
-	empty := width - filled
-
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
-
-	// Color the bar based on score.
-	var style lipgloss.Style
+// scoreBar renders a completeness score as a coloured 40-cell bar plus percentage.
+func scoreBar(score float64) string {
+	style := Error
 	if score >= 0.8 {
-		style = lipgloss.NewStyle().Foreground(ColorSuccess)
+		style = Success
 	} else if score >= 0.5 {
-		style = lipgloss.NewStyle().Foreground(ColorWarning)
-	} else {
-		style = lipgloss.NewStyle().Foreground(ColorError)
+		style = Warning
 	}
-
-	return style.Render(bar)
-}
-
-// renderScorePercentage formats the score as a percentage.
-func (c *CompletenessUI) renderScorePercentage(score float64) string {
-	percentage := score * 100
-	formatted := fmt.Sprintf("%.1f%%", percentage)
-
-	if score >= 0.8 {
-		return Success.Render(formatted)
-	} else if score >= 0.5 {
-		return Warning.Render(formatted)
-	}
-	return Error.Render(formatted)
+	filled := int(score * 40)
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", 40-filled)
+	return style.Render(bar) + " " + style.Render(fmt.Sprintf("%.1f%%", score*100))
 }
