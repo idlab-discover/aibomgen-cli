@@ -33,11 +33,10 @@ func statusToSeverity(status string) cdx.Severity {
 	}
 }
 
-// isActionable returns true when a scanner status warrants a vulnerability rating.
-// (i.e. excludes "safe" and "unscanned").
+// isActionable reports whether a scanner status is a finding (unsafe, suspicious or caution).
+// Other statuses such as "safe", "unscanned" or "queued" are not.
 func isActionable(status string) bool {
-	s := strings.ToLower(status)
-	return s != "" && s != "safe" && s != "unscanned"
+	return statusToSeverity(status) != cdx.SeverityUnknown
 }
 
 // InjectSecurityData appends BOM.Vulnerabilities derived from the HF tree.
@@ -50,37 +49,12 @@ func InjectSecurityData(bom *cdx.BOM, comp *cdx.Component, entries []fetcher.Sec
 		return
 	}
 
-	// Count flagged files to decide whether vulnerabilities need adding.
-	unsafeCount := 0
-	cautionCount := 0
-	for _, e := range entries {
-		if e.SecurityFileStatus == nil {
-			continue
-		}
-		switch strings.ToLower(e.SecurityFileStatus.Status) {
-		case "unsafe":
-			unsafeCount++
-		case "caution":
-			cautionCount++
-		}
-	}
-
-	if unsafeCount == 0 && cautionCount == 0 {
-		return
-	}
-
 	var vulns []cdx.Vulnerability
 	for _, entry := range entries {
-		if entry.SecurityFileStatus == nil {
+		if entry.SecurityFileStatus == nil || !isActionable(entry.SecurityFileStatus.Status) {
 			continue
 		}
-		status := strings.ToLower(entry.SecurityFileStatus.Status)
-		if status == "safe" || status == "unscanned" || status == "" {
-			continue
-		}
-
-		vuln := buildFileVulnerability(entry, comp, modelID, revision)
-		vulns = append(vulns, vuln)
+		vulns = append(vulns, buildFileVulnerability(entry, comp, modelID, revision))
 	}
 
 	if len(vulns) == 0 {
@@ -144,6 +118,11 @@ func buildFileVulnerability(entry fetcher.SecurityFileEntry, comp *cdx.Component
 				URL:   sc.link,
 			})
 		}
+	}
+
+	// No scanner detail: rate from the file's overall status so the finding keeps a severity.
+	if len(ratings) == 0 {
+		ratings = append(ratings, cdx.VulnerabilityRating{Severity: statusToSeverity(sfs.Status), Method: cdx.ScoringMethodOther})
 	}
 
 	// Include pickle import details in description.

@@ -7,7 +7,7 @@ type applyInput struct {
 	Force bool
 }
 
-// ApplyFromSources applies the first available source value using spec.Apply.
+// ApplyFromSources applies the first source value that spec.Apply accepts.
 func ApplyFromSources(spec FieldSpec, src Source, tgt Target) {
 	if spec.Apply == nil || len(spec.Sources) == 0 {
 		return
@@ -20,8 +20,10 @@ func ApplyFromSources(spec FieldSpec, src Source, tgt Target) {
 		if !ok {
 			continue
 		}
-		_ = spec.Apply(tgt, applyInput{Value: value, Force: false})
-		return
+		// A failed Apply (e.g. a placeholder value) falls through to the next source.
+		if spec.Apply(tgt, applyInput{Value: value, Force: false}) == nil {
+			return
+		}
 	}
 }
 
@@ -37,7 +39,7 @@ func ApplyUserValue(spec FieldSpec, value string, tgt Target) error {
 	return spec.Apply(tgt, applyInput{Value: parsed, Force: true})
 }
 
-// ApplyDatasetFromSources applies the first available dataset source value.
+// ApplyDatasetFromSources applies the first dataset source value that spec.Apply accepts.
 func ApplyDatasetFromSources(spec DatasetFieldSpec, src DatasetSource, tgt DatasetTarget) {
 	if spec.Apply == nil || len(spec.Sources) == 0 {
 		return
@@ -50,8 +52,10 @@ func ApplyDatasetFromSources(spec DatasetFieldSpec, src DatasetSource, tgt Datas
 		if !ok {
 			continue
 		}
-		_ = spec.Apply(tgt, applyInput{Value: value, Force: false})
-		return
+		// A failed Apply (e.g. a placeholder value) falls through to the next source.
+		if spec.Apply(tgt, applyInput{Value: value, Force: false}) == nil {
+			return
+		}
 	}
 }
 

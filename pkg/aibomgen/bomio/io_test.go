@@ -1,6 +1,7 @@
 package bomio
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -256,5 +257,41 @@ func TestWriteBOM_Auto_UppercaseXMLExtension_HitsEqualFoldThenValidationMismatch
 	// auto picks "xml" due to EqualFold(ext, ".xml"), then validation compares ext != ".xml" and errors.
 	if err := WriteBOM(minimalBOM(), out, "auto", ""); err == nil {
 		t.Fatalf("expected error for uppercase .XML extension validation mismatch")
+	}
+}
+
+func TestWriteBOM_Spec15_StripsToolComponentFields(t *testing.T) {
+	for spec, wantPresent := range map[string]bool{"1.5": false, "1.6": true} {
+		bom := minimalBOM()
+		bom.Metadata.Tools = &cdx.ToolsChoice{Components: &[]cdx.Component{{
+			Type:         cdx.ComponentTypeApplication,
+			Name:         "aibomgen-cli",
+			Manufacturer: &cdx.OrganizationalEntity{Name: "IDLab"},
+			Authors:      &[]cdx.OrganizationalContact{{Name: "someone"}},
+		}}}
+		out := filepath.Join(t.TempDir(), "bom.json")
+		if err := WriteBOM(bom, out, "json", spec); err != nil {
+			t.Fatalf("WriteBOM %s: %v", spec, err)
+		}
+		raw, err := os.ReadFile(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc struct {
+			Metadata struct {
+				Tools struct {
+					Components []map[string]any `json:"components"`
+				} `json:"tools"`
+			} `json:"metadata"`
+		}
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			t.Fatal(err)
+		}
+		tool := doc.Metadata.Tools.Components[0]
+		for _, key := range []string{"manufacturer", "authors"} {
+			if _, ok := tool[key]; ok != wantPresent {
+				t.Errorf("spec %s: %q present = %v, want %v", spec, key, ok, wantPresent)
+			}
+		}
 	}
 }
