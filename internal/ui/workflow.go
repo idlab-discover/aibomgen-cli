@@ -32,27 +32,21 @@ type Task struct {
 
 // Workflow manages a list of tasks with visual progress.
 type Workflow struct {
-	writer      io.Writer
-	tasks       []*Task
-	mu          sync.Mutex
-	spinnerIdx  int
-	stopChan    chan struct{}
-	running     bool
-	title       string
-	showSpinner bool
-	lastRender  string
-	startTime   time.Time
-	currentTask int
+	writer     io.Writer
+	tasks      []*Task
+	mu         sync.Mutex
+	spinnerIdx int
+	stopChan   chan struct{}
+	running    bool
+	lastRender string
 }
 
 // NewWorkflow creates a new workflow tracker.
-func NewWorkflow(w io.Writer, title string) *Workflow {
+func NewWorkflow(w io.Writer) *Workflow {
 	return &Workflow{
-		writer:      w,
-		title:       title,
-		tasks:       make([]*Task, 0),
-		stopChan:    make(chan struct{}),
-		showSpinner: true,
+		writer:   w,
+		tasks:    make([]*Task, 0),
+		stopChan: make(chan struct{}),
 	}
 }
 
@@ -77,7 +71,6 @@ func (wf *Workflow) StartTask(idx int, message string) {
 	if idx >= 0 && idx < len(wf.tasks) {
 		wf.tasks[idx].Status = TaskRunning
 		wf.tasks[idx].Message = message
-		wf.currentTask = idx
 	}
 }
 
@@ -132,7 +125,6 @@ func (wf *Workflow) Start() {
 		return
 	}
 	wf.running = true
-	wf.startTime = time.Now()
 	wf.mu.Unlock()
 
 	// Start spinner animation.
@@ -289,88 +281,4 @@ func (wf *Workflow) renderTaskFinal(task *Task) string {
 	}
 
 	return line
-}
-
-// SimpleSpinner provides a simple inline spinner for short operations.
-type SimpleSpinner struct {
-	writer     io.Writer
-	message    string
-	stopChan   chan struct{}
-	doneChan   chan struct{}
-	running    bool
-	mu         sync.Mutex
-	spinnerIdx int
-}
-
-// NewSimpleSpinner creates a new simple spinner.
-func NewSimpleSpinner(w io.Writer, message string) *SimpleSpinner {
-	return &SimpleSpinner{
-		writer:   w,
-		message:  message,
-		stopChan: make(chan struct{}),
-		doneChan: make(chan struct{}),
-	}
-}
-
-// Start begins the spinner animation.
-func (s *SimpleSpinner) Start() {
-	s.mu.Lock()
-	if s.running {
-		s.mu.Unlock()
-		return
-	}
-	s.running = true
-	s.mu.Unlock()
-
-	go func() {
-		ticker := time.NewTicker(80 * time.Millisecond)
-		defer ticker.Stop()
-		defer close(s.doneChan)
-
-		for {
-			select {
-			case <-s.stopChan:
-				return
-			case <-ticker.C:
-				s.mu.Lock()
-				s.spinnerIdx = (s.spinnerIdx + 1) % len(spinnerFrames)
-				frame := spinnerFrames[s.spinnerIdx]
-				s.mu.Unlock()
-
-				// Clear line and print spinner.
-				fmt.Fprintf(s.writer, "\r\033[K%s %s",
-					Secondary.Render(frame),
-					s.message)
-			}
-		}
-	}()
-}
-
-// Stop ends the spinner with a result.
-func (s *SimpleSpinner) Stop(success bool, finalMessage string) {
-	s.mu.Lock()
-	if !s.running {
-		s.mu.Unlock()
-		return
-	}
-	s.running = false
-	s.mu.Unlock()
-
-	close(s.stopChan)
-	<-s.doneChan // Wait for goroutine to finish
-
-	// Clear the spinner line and print final result.
-	fmt.Fprint(s.writer, "\r\033[K")
-	if success {
-		fmt.Fprintf(s.writer, "%s %s\n", GetCheckMark(), finalMessage)
-	} else {
-		fmt.Fprintf(s.writer, "%s %s\n", GetCrossMark(), Error.Render(finalMessage))
-	}
-}
-
-// UpdateMessage updates the spinner message.
-func (s *SimpleSpinner) UpdateMessage(message string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.message = message
 }

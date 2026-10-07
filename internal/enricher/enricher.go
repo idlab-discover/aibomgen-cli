@@ -1,7 +1,6 @@
 package enricher
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"strings"
@@ -22,7 +21,6 @@ type Config struct {
 	MinWeight    float64 // minimum weight threshold
 	Refetch      bool    // refetch from Hugging Face
 	NoPreview    bool    // skip preview
-	SpecVersion  string  // CycloneDX spec version
 	HFToken      string  // Hugging Face token
 	HFBaseURL    string  // Hugging Face base URL
 	HFTimeout    int     // timeout in seconds
@@ -30,26 +28,21 @@ type Config struct {
 
 // Options for creating an Enricher.
 type Options struct {
-	Reader io.Reader
 	Writer io.Writer
 	Config Config
 }
 
 // Enricher handles AIBOM enrichment.
 type Enricher struct {
-	reader io.Reader
 	writer io.Writer
 	config Config
-	scan   *bufio.Scanner
 }
 
 // New creates a new Enricher.
 func New(opts Options) *Enricher {
 	return &Enricher{
-		reader: opts.Reader,
 		writer: opts.Writer,
 		config: opts.Config,
-		scan:   bufio.NewScanner(opts.Reader),
 	}
 }
 
@@ -353,15 +346,8 @@ func (e *Enricher) applyRefetchedMetadata(bom *cdx.BOM, modelID string, hfAPI *f
 		HuggingFaceBaseURL: e.config.HFBaseURL,
 	}
 
-	// Apply all field specs that have Apply functions.
-	totalSpecs := 0
-	specsWithWeight := 0
 	for _, spec := range metadata.Registry() {
 		metadata.ApplyFromSources(spec, src, tgt)
-		totalSpecs++
-		if spec.Weight > 0 {
-			specsWithWeight++
-		}
 	}
 
 }

@@ -517,12 +517,6 @@ func classifyFile(ext, name string) fileClass {
 		strings.HasPrefix(name, "docker-compose") ||
 		name == "containerfile":
 		return fileClassShell
-
-	case name == "requirements.txt" ||
-		name == "pyproject.toml" ||
-		name == "setup.cfg":
-		// These rarely contain model IDs directly; not worth scanning.
-		return fileClassUnknown
 	}
 	return fileClassUnknown
 }
@@ -966,10 +960,4 @@ func mergeOccurrences(occs []Occurrence) []Occurrence {
 	}
 	sort.Slice(out, func(i, j int) bool { return occurrenceLess(out[i], out[j]) })
 	return out
-}
-
-// shouldScanForModelID is retained for backward compatibility with tests.
-// Callers should prefer classifyFile.
-func shouldScanForModelID(ext string) bool {
-	return classifyFile(ext, "") != fileClassUnknown
 }

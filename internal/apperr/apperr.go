@@ -44,9 +44,3 @@ func User(msg string) error { return &UserError{Message: msg} }
 func Userf(format string, args ...any) error {
 	return &UserError{Message: fmt.Sprintf(format, args...)}
 }
-
-// IsUser reports whether err is (or wraps) a *UserError.
-func IsUser(err error) bool {
-	var u *UserError
-	return errors.As(err, &u)
-}

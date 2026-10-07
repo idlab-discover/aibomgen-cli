@@ -34,11 +34,7 @@ func (m *MergerUI) StartWorkflow(aibomCount int) {
 
 	m.startTime = time.Now()
 
-	if aibomCount == 1 {
-		m.workflow = NewWorkflow(m.writer, "Merging AIBOM with SBOM")
-	} else {
-		m.workflow = NewWorkflow(m.writer, fmt.Sprintf("Merging %d AIBOMs with SBOM", aibomCount))
-	}
+	m.workflow = NewWorkflow(m.writer)
 
 	m.workflow.AddTask("Reading SBOM")
 	m.workflow.AddTask("Reading AIBOM(s)")

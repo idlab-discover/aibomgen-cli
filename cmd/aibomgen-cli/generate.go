@@ -248,7 +248,7 @@ func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode, hfToken strin
 	var processTaskIdx, writeTaskIdx int
 
 	if !quiet {
-		workflow = ui.NewWorkflow(os.Stdout, "")
+		workflow = ui.NewWorkflow(os.Stdout)
 		processTaskIdx = workflow.AddTask("Processing possible models")
 		writeTaskIdx = workflow.AddTask("Writing output")
 		workflow.Start()

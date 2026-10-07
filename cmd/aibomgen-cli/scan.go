@@ -201,7 +201,7 @@ func runScanDirectory(inputPath, mode, hfToken string, timeout time.Duration, qu
 	var scanTaskIdx, processTaskIdx, writeTaskIdx int
 
 	if !quiet {
-		workflow = ui.NewWorkflow(os.Stdout, "")
+		workflow = ui.NewWorkflow(os.Stdout)
 		scanTaskIdx = workflow.AddTask("Scanning for possible AI imports")
 		processTaskIdx = workflow.AddTask("Processing possible models")
 		writeTaskIdx = workflow.AddTask("Writing output")

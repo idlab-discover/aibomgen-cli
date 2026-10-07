@@ -212,31 +212,6 @@ func TestNormalizeSegment(t *testing.T) {
 	}
 }
 
-func TestPurlFromComponentMeta(t *testing.T) {
-	type args struct {
-		kind         string
-		id           string
-		lastModified string
-		sha          string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{name: "uses sha as version and normalizes id", args: args{kind: "model", id: " user / repo ", sha: "ABC"}, want: "pkg:huggingface/user/repo@abc"},
-		{name: "empty sha omits version", args: args{kind: "dataset", id: "owner/ds", sha: ""}, want: "pkg:huggingface/datasets/owner/ds"},
-		{name: "weird kind and empty id", args: args{kind: "weird", id: "", sha: "f00"}, want: "pkg:huggingface/unknown/unknown@f00"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := PurlFromComponentMeta(tt.args.kind, tt.args.id, tt.args.lastModified, tt.args.sha); got != tt.want {
-				t.Errorf("PurlFromComponentMeta() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestAddComponentPurl(t *testing.T) {
 	type args struct {
 		c *cyclonedx.Component

@@ -6,6 +6,6 @@
 // Dependency graphs, compositions, tools, and external references are merged.
 // additively. Optional deduplication removes components with identical BOM-refs.
 //.
-// [Merge] is the primary entry point. It returns a [MergeResult] that includes.
+// [MergeAIBOMsWithSBOM] is the primary entry point. It returns a [MergeResult] that includes.
 // the merged BOM and per-category component counts.
 package merger

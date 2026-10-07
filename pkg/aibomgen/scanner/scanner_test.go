@@ -527,7 +527,7 @@ func TestTSFromPretrained(t *testing.T) {
 	}
 }
 
-// ── classifyFile / shouldScanForModelID ───────────────────────────────────────.
+// ── classifyFile ──────────────────────────────────────────────────────────────.
 
 func TestClassifyFile(t *testing.T) {
 	tests := []struct {
@@ -553,27 +553,6 @@ func TestClassifyFile(t *testing.T) {
 		got := classifyFile(tt.ext, tt.name)
 		if got != tt.want {
 			t.Errorf("classifyFile(%q, %q) = %v, want %v", tt.ext, tt.name, got, tt.want)
-		}
-	}
-}
-
-func TestShouldScanForModelID(t *testing.T) {
-	tests := []struct {
-		ext  string
-		want bool
-	}{
-		{ext: ".py", want: true},
-		{ext: ".ipynb", want: true},
-		{ext: ".yaml", want: true},
-		{ext: ".json", want: true},
-		{ext: ".md", want: true},
-		{ext: ".sh", want: true},
-		{ext: ".ts", want: true},
-		{ext: ".txt", want: false},
-	}
-	for _, tt := range tests {
-		if got := shouldScanForModelID(tt.ext); got != tt.want {
-			t.Errorf("shouldScanForModelID(%q) = %t, want %t", tt.ext, got, tt.want)
 		}
 	}
 }

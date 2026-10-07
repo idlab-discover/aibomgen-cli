@@ -226,19 +226,3 @@ func (v *ValidationUI) renderScorePercentage(score float64) string {
 	}
 	return Error.Render(formatted)
 }
-
-// PrintSimpleReport prints a minimal text report.
-func (v *ValidationUI) PrintSimpleReport(report validator.ValidationResult) {
-	if report.Valid {
-		fmt.Fprintf(v.writer, "%s Validation passed\n", GetCheckMark())
-	} else {
-		fmt.Fprintf(v.writer, "%s Validation failed\n", GetCrossMark())
-	}
-
-	fmt.Fprintf(v.writer, "Completeness: %.1f%%\n", report.CompletenessScore*100)
-	fmt.Fprintf(v.writer, "Errors: %d, Warnings: %d\n", len(report.Errors), len(report.Warnings))
-
-	if len(report.DatasetResults) > 0 {
-		fmt.Fprintf(v.writer, "Datasets: %d\n", len(report.DatasetResults))
-	}
-}

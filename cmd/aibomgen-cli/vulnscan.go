@@ -80,7 +80,7 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 	// ── Workflow / progress ──────────────────────────────────────────────────.
 	var workflow *ui.Workflow
 	if logLevel != "quiet" {
-		workflow = ui.NewWorkflow(w, "Vulnerability Scan")
+		workflow = ui.NewWorkflow(w)
 		workflow.AddTask("Scanning components")
 		workflow.AddTask("Building report")
 		workflow.Start()

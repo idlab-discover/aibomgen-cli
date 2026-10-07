@@ -53,7 +53,6 @@ type DatasetDataFile struct {
 // DatasetReadmeFetcher fetches the README.md (dataset card) for a dataset repo.
 type DatasetReadmeFetcher struct {
 	Client  *http.Client
-	Token   string
 	BaseURL string // optional; defaults to "https://huggingface.co"
 }
 

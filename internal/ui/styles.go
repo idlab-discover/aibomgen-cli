@@ -170,32 +170,9 @@ var (
 	StepSkipped = styleWrapper{lipgloss.NewStyle().Foreground(ColorWarning)}
 )
 
-// StyledText applies a lipgloss style to a string.
-func StyledText(s string, style lipgloss.Style) string {
-	return style.Render(s)
-}
-
 // FormatKeyValue formats a key-value pair with styling.
 func FormatKeyValue(key, value string) string {
 	return Dim.Render(key+": ") + value
-}
-
-// FormatStatus formats a status message with an appropriate icon.
-func FormatStatus(status, message string) string {
-	var icon string
-	switch status {
-	case "success":
-		icon = GetCheckMark()
-	case "error":
-		icon = GetCrossMark()
-	case "warning":
-		icon = GetWarnMark()
-	case "info":
-		icon = GetInfoMark()
-	default:
-		icon = GetBullet()
-	}
-	return icon + " " + message
 }
 
 // FangColorScheme returns a Fang color scheme based on the application's color palette.

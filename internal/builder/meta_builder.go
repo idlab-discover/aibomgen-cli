@@ -142,27 +142,6 @@ func NormalizeSegment(segment string) string {
 	return normalized
 }
 
-// PurlFromComponentMeta generates a purl using HF fields in meta (owner/name, lastModified, sha).
-// Generated according to the purl-spec: https://github.com/package-url/purl-spec/blob/main/types-doc/huggingface-definition.md.
-func PurlFromComponentMeta(kind string, id string, lastModified string, sha string) string {
-	// id may be "namespace/name"; encode each segment separately so the slash remains.
-	id = strings.TrimSpace(id)
-	var normID string
-	if id == "" {
-		normID = "unknown"
-	} else {
-		parts := strings.Split(id, "/")
-		for i, p := range parts {
-			parts[i] = NormalizeSegment(strings.TrimSpace(p))
-		}
-		normID = strings.Join(parts, "/")
-	}
-
-	// version: prefer sha (lowercased) if present; otherwise omit.
-	version := strings.ToLower(strings.TrimSpace(sha))
-	return GeneratePurl(kind, normID, version)
-}
-
 // AddComponentPurl computes a deterministic pkg:huggingface purl from component metadata.
 // and sets Component.PURL if not already set.
 func AddComponentPurl(c *cyclonedx.Component) {

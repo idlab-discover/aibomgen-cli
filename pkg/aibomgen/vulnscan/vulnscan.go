@@ -2,7 +2,6 @@ package vulnscan
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -214,9 +213,4 @@ func ApplyToDOM(bom *cdx.BOM, results []ComponentScanResult) {
 	}
 
 	*bom.Vulnerabilities = kept
-}
-
-// NewHTTPClient is exported so cmd layer can reuse the same transport.
-func NewHTTPClient(timeout time.Duration, token string) *http.Client {
-	return fetcher.NewHFClient(timeout, token)
 }

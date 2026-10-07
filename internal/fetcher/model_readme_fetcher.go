@@ -88,7 +88,6 @@ type ModelIndexMetric struct {
 // and falls back to /resolve/master/README.md.
 type ModelReadmeFetcher struct {
 	Client  *http.Client
-	Token   string
 	BaseURL string // optional; defaults to "https://huggingface.co"
 }
 

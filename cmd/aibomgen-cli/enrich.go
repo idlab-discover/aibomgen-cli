@@ -79,7 +79,6 @@ from Hugging Face API and README before enrichment.`,
 			MinWeight:    viper.GetFloat64("enrich.min-weight"),
 			Refetch:      viper.GetBool("enrich.refetch"),
 			NoPreview:    viper.GetBool("enrich.no-preview"),
-			SpecVersion:  specVersion,
 			HFToken:      viper.GetString("enrich.hf-token"),
 			HFBaseURL:    viper.GetString("enrich.hf-base-url"),
 			HFTimeout:    viper.GetInt("enrich.hf-timeout"),
@@ -100,7 +99,6 @@ from Hugging Face API and README before enrichment.`,
 
 		// Create enricher.
 		e := enricher.New(enricher.Options{
-			Reader: cmd.InOrStdin(),
 			Writer: cmd.OutOrStdout(),
 			Config: cfg,
 		})
