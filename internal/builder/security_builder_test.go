@@ -21,7 +21,7 @@ func TestInjectSecurityData(t *testing.T) {
 		want    []cdx.Severity // one top rating per expected vulnerability
 	}{
 		{"suspicious only", []fetcher.SecurityFileEntry{file("a.bin", "suspicious", "suspicious")}, []cdx.Severity{cdx.SeverityHigh}},
-		{"safe and unscanned", []fetcher.SecurityFileEntry{file("a.bin", "safe", "safe"), file("b.bin", "unscanned", ""), {Path: "c"}}, nil},
+		{"safe, unscanned and queued", []fetcher.SecurityFileEntry{file("a.bin", "safe", "safe"), file("b.bin", "unscanned", ""), file("q.bin", "queued", "queued"), {Path: "c"}}, nil},
 		{"unsafe without scanner detail", []fetcher.SecurityFileEntry{file("a.bin", "unsafe", "")}, []cdx.Severity{cdx.SeverityCritical}},
 	}
 	for _, tt := range tests {

@@ -33,11 +33,10 @@ func statusToSeverity(status string) cdx.Severity {
 	}
 }
 
-// isActionable returns true when a scanner status warrants a vulnerability rating.
-// (i.e. excludes "safe" and "unscanned").
+// isActionable reports whether a scanner status is a finding (unsafe, suspicious or caution).
+// Other statuses such as "safe", "unscanned" or "queued" are not.
 func isActionable(status string) bool {
-	s := strings.ToLower(status)
-	return s != "" && s != "safe" && s != "unscanned"
+	return statusToSeverity(status) != cdx.SeverityUnknown
 }
 
 // InjectSecurityData appends BOM.Vulnerabilities derived from the HF tree.
