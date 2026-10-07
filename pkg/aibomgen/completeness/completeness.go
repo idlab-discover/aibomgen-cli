@@ -57,24 +57,12 @@ func checkWithRegistry(bom *cdx.BOM, modelRegistry []metadata.FieldSpec, dataset
 			continue
 		}
 
-		// Skip dataset field if no datasets are referenced.
-		if spec.Key == metadata.ModelCardModelParametersDatasets && !datasetsReferenced {
-			// Only count as missing if no datasets are referenced.
-			total++
-			max += spec.Weight
-			if spec.Required {
-				missingReq = append(missingReq, spec.Key)
-			} else {
-				missingOpt = append(missingOpt, spec.Key)
-			}
-			continue
-		}
-
 		total++
 		max += spec.Weight
 
+		// The datasets field counts as missing when no datasets are referenced.
 		ok := false
-		if spec.Present != nil {
+		if spec.Present != nil && (spec.Key != metadata.ModelCardModelParametersDatasets || datasetsReferenced) {
 			ok = spec.Present(bom)
 		}
 

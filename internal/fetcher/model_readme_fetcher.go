@@ -1,9 +1,7 @@
 package fetcher
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"net/http"
 	neturl "net/url"
 	"strings"
@@ -98,20 +96,14 @@ func (f *ModelReadmeFetcher) Fetch(modelID string) (*ModelReadmeCard, error) {
 // FetchRevision fetches the model card at a revision (branch, tag or commit).
 // An empty revision tries main, then master.
 func (f *ModelReadmeFetcher) FetchRevision(modelID, revision string) (*ModelReadmeCard, error) {
-	client := f.Client
-	if client == nil {
-		client = http.DefaultClient
-	}
+	client := httpClient(f.Client)
 
 	trimmedModelID := strings.TrimPrefix(strings.TrimSpace(modelID), "/")
 	if trimmedModelID == "" {
 		return nil, fmt.Errorf("empty model id")
 	}
 
-	baseURL := strings.TrimRight(strings.TrimSpace(f.BaseURL), "/")
-	if baseURL == "" {
-		baseURL = "https://huggingface.co"
-	}
+	baseURL := HFBaseURL(f.BaseURL)
 
 	// Try main then master, or only the requested revision.
 	candidates := []string{
@@ -124,42 +116,11 @@ func (f *ModelReadmeFetcher) FetchRevision(modelID, revision string) (*ModelRead
 		}
 	}
 
-	var lastErr error
-	for _, url := range candidates {
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Accept", "text/markdown, text/plain, */*")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		bodyBytes, readErr := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		if readErr != nil {
-			lastErr = readErr
-			continue
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			lastErr = &HFError{StatusCode: resp.StatusCode}
-			continue
-		}
-
-		raw := string(bodyBytes)
-		card := parseReadmeCard(raw)
-
-		return card, nil
+	raw, err := fetchFirstOK(client, candidates)
+	if err != nil {
+		return nil, err
 	}
-
-	if lastErr == nil {
-		lastErr = fmt.Errorf("unable to fetch README")
-	}
-
-	return nil, lastErr
+	return parseReadmeCard(raw), nil
 }
 
 func parseReadmeCard(raw string) *ModelReadmeCard {

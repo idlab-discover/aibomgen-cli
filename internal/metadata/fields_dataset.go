@@ -131,14 +131,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 						URL:  url,
 					}}
 				case datasetExternalRefsSource:
-					base := strings.TrimSpace(tgt.HuggingFaceBaseURL)
-					if base == "" {
-						base = "https://huggingface.co/"
-					}
-					if !strings.HasSuffix(base, "/") {
-						base += "/"
-					}
-					url := base + "datasets/" + strings.TrimPrefix(v.DatasetID, "/")
+					url := hfBaseURL(tgt.HuggingFaceBaseURL) + "datasets/" + strings.TrimPrefix(v.DatasetID, "/")
 					refs = []cdx.ExternalReference{{
 						Type: cdx.ExternalReferenceType("website"),
 						URL:  url,

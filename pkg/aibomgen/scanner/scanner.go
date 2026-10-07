@@ -77,12 +77,15 @@ func RuleConfidence(method string) float32 {
 	return 0.5
 }
 
-// detectionRule pairs a named detection method with a compiled pattern.
-// groupIdx is the capture group that contains the model ID.
+// detectionRule pairs a named detection method with a compiled pattern whose
+// first capture group contains the model ID.
 type detectionRule struct {
-	method   string
-	pattern  *regexp.Regexp
-	groupIdx int
+	method  string
+	pattern *regexp.Regexp
+}
+
+func r(method, pattern string) detectionRule {
+	return detectionRule{method, regexp.MustCompile(pattern)}
 }
 
 // HF model ID syntax: optional "org/" prefix followed by identifier segments.
@@ -95,286 +98,84 @@ const (
 // q matches a single or double quote character.
 const q = `["']`
 
+// yamlKeyAlt lists common config keys in HF Trainer, Accelerate, TRL, Axolotl,
+// LLaMA-Factory, etc.
+const yamlKeyAlt = `(?:model_name_or_path|pretrained_model_name_or_path|model_name|model_checkpoint` +
+	`|base_model|base_model_name_or_path|model_id|model|repo_id|hub_model_id` +
+	`|teacher_model_name_or_path|student_model_name_or_path|foundation_model|lm_model)`
+
+// mdKeyAlt lists model-card front-matter keys (model: org/model, base_model: org/model).
+const mdKeyAlt = `(?:model|base_model|model_id|model_name|model_name_or_path|widget_model)`
+
+// Rule order matters: on ties the first matching rule's method is reported.
 var (
 	// codeRules apply to Python source lines (.py, extracted notebook cells).
-	// Patterns cover every major HF Python API across transformers, diffusers,.
+	// Patterns cover every major HF Python API across transformers, diffusers,
 	// huggingface_hub, sentence-transformers, optimum, peft, langchain, evaluate, etc.
-	codeRules []detectionRule
+	codeRules = []detectionRule{
+		// .from_pretrained("model-id"): AutoModel, DiffusionPipeline, ORTModel*, PeftModel, etc.
+		r("from_pretrained", `\.from_pretrained\(\s*`+q+`(`+hfIDPat+`)`+q),
+		r("from_pretrained_kwarg", `\.from_pretrained\([^)]*?pretrained_model_name_or_path\s*=\s*`+q+`(`+hfIDPat+`)`+q),
+		// pipeline("text-generation", "gpt2") and pipeline("task", model="org/model").
+		r("pipeline_positional", `\bpipeline\(\s*`+q+`[^"']+`+q+`\s*,\s*`+q+`(`+hfIDPat+`)`+q),
+		r("pipeline_model_kwarg", `\bpipeline\([^)]*?\bmodel\s*=\s*`+q+`(`+hfIDPat+`)`+q),
+		r("hf_hub_download", `\bhf_hub_download\(\s*`+q+`(`+hfIDPat+`)`+q),
+		r("hf_hub_download_kwarg", `\bhf_hub_download\([^)]*?\brepo_id\s*=\s*`+q+`(`+hfIDPat+`)`+q),
+		r("snapshot_download", `\bsnapshot_download\(\s*`+q+`(`+hfIDPat+`)`+q),
+		r("snapshot_download_kwarg", `\bsnapshot_download\([^)]*?\brepo_id\s*=\s*`+q+`(`+hfIDPat+`)`+q),
+		r("InferenceClient", `\bInferenceClient\(\s*`+q+`(`+hfIDPat+`)`+q),
+		r("InferenceClient_model_kwarg", `\bInferenceClient\([^)]*?\bmodel\s*=\s*`+q+`(`+hfIDPat+`)`+q),
+		r("InferenceApi", `\bInferenceApi\(\s*`+q+`(`+hfIDPat+`)`+q),
+		r("SentenceTransformer", `\bSentenceTransformer\(\s*`+q+`(`+hfIDPat+`)`+q),
+		r("CrossEncoder", `\bCrossEncoder\(\s*`+q+`(`+hfIDPat+`)`+q),
+		// langchain.
+		r("HuggingFaceHub_repo_id", `\bHuggingFaceHub\([^)]*?\brepo_id\s*=\s*`+q+`(`+hfIDPat+`)`+q),
+		r("HuggingFaceEndpoint_repo_id", `\bHuggingFaceEndpoint\([^)]*?\brepo_id\s*=\s*`+q+`(`+hfIDPat+`)`+q),
+		r("HuggingFacePipeline_from_model_id", `\bHuggingFacePipeline\.from_model_id\([^)]*?\bmodel_id\s*=\s*`+q+`(`+hfIDPat+`)`+q),
+		// The rest require org/model to avoid false positives (e.g. evaluate.load("accuracy")).
+		r("evaluate_load", `\bevaluate\.load\(\s*`+q+`(`+hfIDSlashPat+`)`+q),
+		r("model_kwarg_slash", `\bmodel\s*=\s*`+q+`(`+hfIDSlashPat+`)`+q),
+		r("repo_id_kwarg_slash", `\brepo_id\s*=\s*`+q+`(`+hfIDSlashPat+`)`+q),
+		r("model_id_kwarg_slash", `\bmodel_id\s*=\s*`+q+`(`+hfIDSlashPat+`)`+q),
+	}
 
-	// yamlRules apply to YAML config files (.yaml, .yml).
-	yamlRules []detectionRule
+	// yamlRules apply to YAML config files (.yaml, .yml); org/model form only.
+	yamlRules = []detectionRule{
+		r("yaml_model_field", `^\s*`+yamlKeyAlt+`\s*:\s*["']?(`+hfIDSlashPat+`)["']?\s*(?:#.*)?$`),
+	}
 
-	// jsonRules apply to JSON files (.json).
-	jsonRules []detectionRule
+	// jsonRules apply to JSON files (.json). HF config.json "_name_or_path" may be single-segment.
+	jsonRules = []detectionRule{
+		r("json_name_or_path", `"_name_or_path"\s*:\s*"(`+hfIDPat+`)"`),
+		r("json_model_name_or_path", `"model_name_or_path"\s*:\s*"(`+hfIDSlashPat+`)"`),
+		r("json_base_model", `"base_model"\s*:\s*"(`+hfIDSlashPat+`)"`),
+		r("json_model_field", `"model"\s*:\s*"(`+hfIDSlashPat+`)"`),
+		r("json_repo_id", `"repo_id"\s*:\s*"(`+hfIDSlashPat+`)"`),
+	}
 
 	// mdFrontmatterRules apply to Markdown YAML front-matter sections.
-	mdFrontmatterRules []detectionRule
+	mdFrontmatterRules = []detectionRule{
+		r("markdown_frontmatter_model", `^\s*`+mdKeyAlt+`\s*:\s*["']?(`+hfIDSlashPat+`)["']?\s*(?:#.*)?$`),
+	}
 
-	// shellRules apply to shell scripts (.sh) and Dockerfiles.
-	shellRules []detectionRule
+	// shellRules apply to shell scripts (.sh) and Dockerfiles:
+	// huggingface-cli download org/model, MODEL_NAME=org/model, export HF_MODEL="org/model".
+	shellRules = []detectionRule{
+		r("hf_cli_download", `huggingface-cli\s+download\s+["']?(`+hfIDSlashPat+`)["']?`),
+		r("shell_model_env", `(?:MODEL(?:_NAME|_ID|_PATH)?|HF_MODEL(?:_ID)?|HUGGINGFACE_MODEL)\s*=\s*["']?(`+hfIDSlashPat+`)["']?`),
+	}
 
-	// jsRules apply to JavaScript / TypeScript (.js, .ts, .mjs, .cjs).
-	jsRules []detectionRule
+	// jsRules apply to JavaScript / TypeScript (.js, .ts, .mjs, .cjs): @xenova/transformers,
+	// @huggingface/transformers and @huggingface/inference ({ model: "org/model" }).
+	jsRules = []detectionRule{
+		r("js_pipeline_positional", `\bpipeline\(\s*["'][^"']+["']\s*,\s*["'](`+hfIDPat+`)["']`),
+		r("js_from_pretrained", `\.from_pretrained\(\s*["'](`+hfIDPat+`)["']`),
+		r("js_model_field", `\bmodel\s*:\s*["'](`+hfIDSlashPat+`)["']`),
+	}
+
+	// mdInlineRe matches bare org/model references in Markdown prose.
+	mdInlineRe = regexp.MustCompile(`\b(` + hfIDSlashPat + `)\b`)
 )
-
-func init() {
-	// ── Python / code rules ─────────────────────────────────────────────────.
-
-	// Generic positional: .from_pretrained("model-id").
-	// Covers AutoModel, AutoTokenizer, AutoConfig, BertModel, GPT2Model,.
-	// DiffusionPipeline, StableDiffusionPipeline, ORTModel*, PeftModel, etc.
-	codeRules = append(codeRules, detectionRule{
-		method:   "from_pretrained",
-		pattern:  regexp.MustCompile(`\.from_pretrained\(\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// Keyword form: from_pretrained(pretrained_model_name_or_path="model-id").
-	codeRules = append(codeRules, detectionRule{
-		method:   "from_pretrained_kwarg",
-		pattern:  regexp.MustCompile(`\.from_pretrained\([^)]*?pretrained_model_name_or_path\s*=\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// transformers pipeline – positional second argument (the model):.
-	//   pipeline("text-generation", "gpt2").
-	//   pipeline("text-generation", "facebook/opt-1.3b").
-	codeRules = append(codeRules, detectionRule{
-		method:   "pipeline_positional",
-		pattern:  regexp.MustCompile(`\bpipeline\(\s*` + q + `[^"']+` + q + `\s*,\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// transformers pipeline – named model kwarg:.
-	//   pipeline("task", model="facebook/opt-1.3b").
-	codeRules = append(codeRules, detectionRule{
-		method:   "pipeline_model_kwarg",
-		pattern:  regexp.MustCompile(`\bpipeline\([^)]*?\bmodel\s*=\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// huggingface_hub.hf_hub_download – positional repo_id.
-	codeRules = append(codeRules, detectionRule{
-		method:   "hf_hub_download",
-		pattern:  regexp.MustCompile(`\bhf_hub_download\(\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// huggingface_hub.hf_hub_download – keyword repo_id.
-	codeRules = append(codeRules, detectionRule{
-		method:   "hf_hub_download_kwarg",
-		pattern:  regexp.MustCompile(`\bhf_hub_download\([^)]*?\brepo_id\s*=\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// huggingface_hub.snapshot_download – positional.
-	codeRules = append(codeRules, detectionRule{
-		method:   "snapshot_download",
-		pattern:  regexp.MustCompile(`\bsnapshot_download\(\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// huggingface_hub.snapshot_download – keyword repo_id.
-	codeRules = append(codeRules, detectionRule{
-		method:   "snapshot_download_kwarg",
-		pattern:  regexp.MustCompile(`\bsnapshot_download\([^)]*?\brepo_id\s*=\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// huggingface_hub.InferenceClient – positional model.
-	codeRules = append(codeRules, detectionRule{
-		method:   "InferenceClient",
-		pattern:  regexp.MustCompile(`\bInferenceClient\(\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// huggingface_hub.InferenceClient – keyword model.
-	codeRules = append(codeRules, detectionRule{
-		method:   "InferenceClient_model_kwarg",
-		pattern:  regexp.MustCompile(`\bInferenceClient\([^)]*?\bmodel\s*=\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// older huggingface_hub.InferenceApi – positional.
-	codeRules = append(codeRules, detectionRule{
-		method:   "InferenceApi",
-		pattern:  regexp.MustCompile(`\bInferenceApi\(\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// sentence-transformers: SentenceTransformer("model-id").
-	codeRules = append(codeRules, detectionRule{
-		method:   "SentenceTransformer",
-		pattern:  regexp.MustCompile(`\bSentenceTransformer\(\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// sentence-transformers: CrossEncoder("model-id").
-	codeRules = append(codeRules, detectionRule{
-		method:   "CrossEncoder",
-		pattern:  regexp.MustCompile(`\bCrossEncoder\(\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// langchain: HuggingFaceHub(repo_id="model-id").
-	codeRules = append(codeRules, detectionRule{
-		method:   "HuggingFaceHub_repo_id",
-		pattern:  regexp.MustCompile(`\bHuggingFaceHub\([^)]*?\brepo_id\s*=\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// langchain: HuggingFaceEndpoint(repo_id="model-id").
-	codeRules = append(codeRules, detectionRule{
-		method:   "HuggingFaceEndpoint_repo_id",
-		pattern:  regexp.MustCompile(`\bHuggingFaceEndpoint\([^)]*?\brepo_id\s*=\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// langchain: HuggingFacePipeline.from_model_id(model_id="model-id").
-	codeRules = append(codeRules, detectionRule{
-		method:   "HuggingFacePipeline_from_model_id",
-		pattern:  regexp.MustCompile(`\bHuggingFacePipeline\.from_model_id\([^)]*?\bmodel_id\s*=\s*` + q + `(` + hfIDPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// evaluate.load("model-id") – e.g. evaluate.load("accuracy").
-	// Require org/model to reduce false positives (built-in metric names look like "accuracy").
-	codeRules = append(codeRules, detectionRule{
-		method:   "evaluate_load",
-		pattern:  regexp.MustCompile(`\bevaluate\.load\(\s*` + q + `(` + hfIDSlashPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// Generic model= kwarg – require org/model to avoid false positives.
-	codeRules = append(codeRules, detectionRule{
-		method:   "model_kwarg_slash",
-		pattern:  regexp.MustCompile(`\bmodel\s*=\s*` + q + `(` + hfIDSlashPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// Generic repo_id= kwarg – require org/model.
-	codeRules = append(codeRules, detectionRule{
-		method:   "repo_id_kwarg_slash",
-		pattern:  regexp.MustCompile(`\brepo_id\s*=\s*` + q + `(` + hfIDSlashPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// Generic model_id= kwarg – require org/model.
-	codeRules = append(codeRules, detectionRule{
-		method:   "model_id_kwarg_slash",
-		pattern:  regexp.MustCompile(`\bmodel_id\s*=\s*` + q + `(` + hfIDSlashPat + `)` + q),
-		groupIdx: 1,
-	})
-
-	// ── YAML rules ──────────────────────────────────────────────────────────.
-	// Common config keys in HF Trainer, Accelerate, TRL, Axolotl, LLaMA-Factory, etc.
-	// Require org/model form to reduce false positives from freeform text values.
-	yamlKeyAlt := `(?:` +
-		`model_name_or_path` +
-		`|pretrained_model_name_or_path` +
-		`|model_name` +
-		`|model_checkpoint` +
-		`|base_model` +
-		`|base_model_name_or_path` +
-		`|model_id` +
-		`|model` +
-		`|repo_id` +
-		`|hub_model_id` +
-		`|teacher_model_name_or_path` +
-		`|student_model_name_or_path` +
-		`|foundation_model` +
-		`|lm_model` +
-		`)`
-
-	yamlRules = append(yamlRules, detectionRule{
-		method:   "yaml_model_field",
-		pattern:  regexp.MustCompile(`^\s*` + yamlKeyAlt + `\s*:\s*["']?(` + hfIDSlashPat + `)["']?\s*(?:#.*)?$`),
-		groupIdx: 1,
-	})
-
-	// ── JSON rules ───────────────────────────────────────────────────────────.
-	// HF config.json: "_name_or_path" stores the original model ID (may be single-segment).
-	jsonRules = append(jsonRules, detectionRule{
-		method:   "json_name_or_path",
-		pattern:  regexp.MustCompile(`"_name_or_path"\s*:\s*"(` + hfIDPat + `)"`),
-		groupIdx: 1,
-	})
-
-	// adapter_config.json / training configs.
-	jsonRules = append(jsonRules, detectionRule{
-		method:   "json_model_name_or_path",
-		pattern:  regexp.MustCompile(`"model_name_or_path"\s*:\s*"(` + hfIDSlashPat + `)"`),
-		groupIdx: 1,
-	})
-
-	jsonRules = append(jsonRules, detectionRule{
-		method:   "json_base_model",
-		pattern:  regexp.MustCompile(`"base_model"\s*:\s*"(` + hfIDSlashPat + `)"`),
-		groupIdx: 1,
-	})
-
-	jsonRules = append(jsonRules, detectionRule{
-		method:   "json_model_field",
-		pattern:  regexp.MustCompile(`"model"\s*:\s*"(` + hfIDSlashPat + `)"`),
-		groupIdx: 1,
-	})
-
-	jsonRules = append(jsonRules, detectionRule{
-		method:   "json_repo_id",
-		pattern:  regexp.MustCompile(`"repo_id"\s*:\s*"(` + hfIDSlashPat + `)"`),
-		groupIdx: 1,
-	})
-
-	// ── Markdown front-matter rules ──────────────────────────────────────────.
-	// Model cards on HF Hub embed metadata in YAML front matter:.
-	//   model: org/model.
-	//   base_model: org/model.
-	mdKeyAlt := `(?:model|base_model|model_id|model_name|model_name_or_path|widget_model)`
-	mdFrontmatterRules = append(mdFrontmatterRules, detectionRule{
-		method:   "markdown_frontmatter_model",
-		pattern:  regexp.MustCompile(`^\s*` + mdKeyAlt + `\s*:\s*["']?(` + hfIDSlashPat + `)["']?\s*(?:#.*)?$`),
-		groupIdx: 1,
-	})
-
-	// ── Shell / Dockerfile rules ──────────────────────────────────────────────.
-	// huggingface-cli download org/model.
-	shellRules = append(shellRules, detectionRule{
-		method:   "hf_cli_download",
-		pattern:  regexp.MustCompile(`huggingface-cli\s+download\s+["']?(` + hfIDSlashPat + `)["']?`),
-		groupIdx: 1,
-	})
-
-	// ENV/ARG model assignments in Dockerfiles and shell scripts:.
-	//   MODEL_NAME=org/model  |  export HF_MODEL="org/model".
-	shellRules = append(shellRules, detectionRule{
-		method:   "shell_model_env",
-		pattern:  regexp.MustCompile(`(?:MODEL(?:_NAME|_ID|_PATH)?|HF_MODEL(?:_ID)?|HUGGINGFACE_MODEL)\s*=\s*["']?(` + hfIDSlashPat + `)["']?`),
-		groupIdx: 1,
-	})
-
-	// ── JavaScript / TypeScript rules ─────────────────────────────────────────.
-	// @xenova/transformers or @huggingface/transformers pipeline:.
-	//   await pipeline("task", "org/model").
-	jsRules = append(jsRules, detectionRule{
-		method:   "js_pipeline_positional",
-		pattern:  regexp.MustCompile(`\bpipeline\(\s*["'][^"']+["']\s*,\s*["'](` + hfIDPat + `)["']`),
-		groupIdx: 1,
-	})
-
-	// @xenova/transformers or @huggingface/transformers .from_pretrained.
-	jsRules = append(jsRules, detectionRule{
-		method:   "js_from_pretrained",
-		pattern:  regexp.MustCompile(`\.from_pretrained\(\s*["'](` + hfIDPat + `)["']`),
-		groupIdx: 1,
-	})
-
-	// @huggingface/inference: hf.textGeneration({ model: "org/model" }).
-	jsRules = append(jsRules, detectionRule{
-		method:   "js_model_field",
-		pattern:  regexp.MustCompile(`\bmodel\s*:\s*["'](` + hfIDSlashPat + `)["']`),
-		groupIdx: 1,
-	})
-}
 
 // Scan walks root and returns deduplicated discovered HF model references.
 // Files in common non-source directories (.git, node_modules, __pycache__,.
@@ -556,16 +357,7 @@ func scanFile(path string) []Discovery {
 	return nil
 }
 
-// scanLines reads a file line by line and applies the given rules.
-// When multiLine is true, lines belonging to the same open-paren call are.
-// accumulated and scanned as a single concatenated string once the parens.
-// balance. This correctly handles 3-or-more-line call expressions such as:.
-// .
-//
-//	pipeline(.
-//	    "text-classification",.
-//	    model="org/model",.
-//	).
+// scanLines reads a file line by line and applies the given rules via scanText.
 func scanLines(path string, rules []detectionRule, multiLine bool) []Discovery {
 	f, err := os.Open(path)
 	if err != nil {
@@ -573,21 +365,31 @@ func scanLines(path string, rules []detectionRule, multiLine bool) []Discovery {
 	}
 	defer f.Close()
 
-	var results []Discovery
+	var lines []string
 	sc := bufio.NewScanner(f)
-	lineNum := 0
+	for sc.Scan() {
+		lines = append(lines, sc.Text())
+	}
+	return scanText(nil, lines, rules, multiLine, 0, path)
+}
 
-	// Multi-line accumulation state (only used when multiLine=true).
+// scanText applies rules to each line. When multiLine is true, lines belonging to
+// the same open-paren call are also accumulated and scanned as a single concatenated
+// string once the parens balance. This handles 3-or-more-line call expressions:
+//
+//	pipeline(
+//	    "text-classification",
+//	    model="org/model",
+//	)
+func scanText(results []Discovery, lines []string, rules []detectionRule, multiLine bool, cell int, path string) []Discovery {
 	var callBuf []string
 	callStartLine := 0
 	depth := 0
 
-	for sc.Scan() {
-		lineNum++
-		line := sc.Text()
-
+	for i, line := range lines {
+		lineNum := i + 1
 		// Always scan each individual line.
-		results = applyRules(results, rules, line, lineNum, 0, path)
+		results = applyRules(results, rules, line, lineNum, cell, path)
 
 		if !multiLine {
 			continue
@@ -617,8 +419,7 @@ func scanLines(path string, rules []detectionRule, multiLine bool) []Discovery {
 
 		// Flush once parens are balanced.
 		if depth == 0 && len(callBuf) > 0 {
-			combined := strings.Join(callBuf, " ")
-			results = applyRules(results, rules, combined, callStartLine, 0, path)
+			results = applyRules(results, rules, strings.Join(callBuf, " "), callStartLine, cell, path)
 			callBuf = nil
 		}
 	}
@@ -631,10 +432,10 @@ func applyRules(results []Discovery, rules []detectionRule, text string, lineNum
 	for _, rule := range rules {
 		matches := rule.pattern.FindAllStringSubmatchIndex(text, -1)
 		for _, m := range matches {
-			if len(m) <= 2*rule.groupIdx+1 || m[2*rule.groupIdx] < 0 {
+			if m[2] < 0 {
 				continue
 			}
-			modelID := text[m[2*rule.groupIdx]:m[2*rule.groupIdx+1]]
+			modelID := text[m[2]:m[3]]
 			if !isPlausibleModelID(modelID) {
 				continue
 			}
@@ -745,46 +546,7 @@ func scanNotebook(path string) []Discovery {
 		// Source is either a JSON string or a JSON array of strings. Array entries
 		// end in "\n", so join them before splitting to get the cell's real lines.
 		lines := strings.Split(strings.Join(unmarshalSource(cell.Source), ""), "\n")
-		lineNum := 0
-
-		// Multi-line accumulation state.
-		var callBuf []string
-		callStartLine := 0
-		depth := 0
-
-		for _, subline := range lines {
-			lineNum++
-			results = applyRules(results, rules, subline, lineNum, cellNum, path)
-
-			if !multiLine {
-				continue
-			}
-
-			for _, ch := range subline {
-				switch ch {
-				case '(':
-					depth++
-				case ')':
-					depth--
-				}
-			}
-			if depth < 0 {
-				depth = 0
-			}
-
-			if depth > 0 || len(callBuf) > 0 {
-				if len(callBuf) == 0 {
-					callStartLine = lineNum
-				}
-				callBuf = append(callBuf, strings.TrimSpace(subline))
-			}
-
-			if depth == 0 && len(callBuf) > 0 {
-				combined := strings.Join(callBuf, " ")
-				results = applyRules(results, rules, combined, callStartLine, cellNum, path)
-				callBuf = nil
-			}
-		}
+		results = scanText(results, lines, rules, multiLine, cellNum, path)
 	}
 	return results
 }
@@ -818,15 +580,11 @@ func scanMarkdown(path string) []Discovery {
 	}
 	defer f.Close()
 
-	// Inline pattern for bare org/model references in prose.
-	inlinePattern := regexp.MustCompile(`\b(` + hfIDSlashPat + `)\b`)
-
 	var results []Discovery
 	sc := bufio.NewScanner(f)
 	lineNum := 0
 
 	inFrontmatter := false
-	frontmatterClosed := false
 	firstLine := true
 
 	for sc.Scan() {
@@ -846,7 +604,6 @@ func scanMarkdown(path string) []Discovery {
 		if inFrontmatter {
 			if trimmed == "---" || trimmed == "..." {
 				inFrontmatter = false
-				frontmatterClosed = true
 				continue
 			}
 			results = applyRules(results, mdFrontmatterRules, line, lineNum, 0, path)
@@ -854,29 +611,23 @@ func scanMarkdown(path string) []Discovery {
 		}
 
 		// Body of the document – scan for inline org/model references.
-		if frontmatterClosed || !inFrontmatter {
-			matches := inlinePattern.FindAllStringSubmatch(line, -1)
-			for _, m := range matches {
-				if len(m) < 2 {
-					continue
-				}
-				modelID := m[1]
-				if !isPlausibleModelID(modelID) {
-					continue
-				}
-				evidence := "markdown_inline at line " + strconv.Itoa(lineNum) + ": " + strings.TrimSpace(line)
-				results = append(results, Discovery{
-					ID:       modelID,
-					Name:     modelID,
-					Type:     "model",
-					Path:     path,
-					Evidence: evidence,
-					Method:   "markdown_inline",
-					Occurrences: []Occurrence{{
-						Location: path, Line: lineNum, Method: "markdown_inline", Symbol: modelID,
-					}},
-				})
+		for _, m := range mdInlineRe.FindAllStringSubmatch(line, -1) {
+			modelID := m[1]
+			if !isPlausibleModelID(modelID) {
+				continue
 			}
+			evidence := "markdown_inline at line " + strconv.Itoa(lineNum) + ": " + strings.TrimSpace(line)
+			results = append(results, Discovery{
+				ID:       modelID,
+				Name:     modelID,
+				Type:     "model",
+				Path:     path,
+				Evidence: evidence,
+				Method:   "markdown_inline",
+				Occurrences: []Occurrence{{
+					Location: path, Line: lineNum, Method: "markdown_inline", Symbol: modelID,
+				}},
+			})
 		}
 	}
 	return results

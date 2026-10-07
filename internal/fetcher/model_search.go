@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 // ModelSearchResult represents a single model in search results.
@@ -30,22 +29,11 @@ type ModelSearcher struct {
 
 // Search queries Hugging Face for models matching the search term.
 func (s *ModelSearcher) Search(query string, limit int) ([]ModelSearchResult, error) {
-	client := s.Client
-	if client == nil {
-		client = http.DefaultClient
-	}
-
-	baseURL := strings.TrimRight(strings.TrimSpace(s.BaseURL), "/")
-	if baseURL == "" {
-		baseURL = "https://huggingface.co"
-	}
-
 	if limit <= 0 {
 		limit = 20
 	}
 
 	// Build the search URL with parameters.
-	searchURL := fmt.Sprintf("%s/api/models", baseURL)
 	params := url.Values{}
 
 	if query != "" {
@@ -54,10 +42,7 @@ func (s *ModelSearcher) Search(query string, limit int) ([]ModelSearchResult, er
 	params.Add("limit", fmt.Sprintf("%d", limit))
 	params.Add("sort", "downloads") // Sort by downloads by default
 
-	if len(params) > 0 {
-		searchURL = searchURL + "?" + params.Encode()
-	}
-
+	searchURL := HFBaseURL(s.BaseURL) + "/api/models?" + params.Encode()
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, searchURL, nil)
 	if err != nil {
 		return nil, err
@@ -65,7 +50,7 @@ func (s *ModelSearcher) Search(query string, limit int) ([]ModelSearchResult, er
 
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := httpClient(s.Client).Do(req)
 	if err != nil {
 		return nil, err
 	}

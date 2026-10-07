@@ -122,14 +122,7 @@ func componentFields() []FieldSpec {
 						URL:  url,
 					}}
 				case componentExternalRefsSource:
-					base := strings.TrimSpace(tgt.HuggingFaceBaseURL)
-					if base == "" {
-						base = "https://huggingface.co/"
-					}
-					if !strings.HasSuffix(base, "/") {
-						base += "/"
-					}
-					url := base + strings.TrimPrefix(v.ModelID, "/")
+					url := hfBaseURL(tgt.HuggingFaceBaseURL) + strings.TrimPrefix(v.ModelID, "/")
 					refs = []cdx.ExternalReference{{
 						Type: cdx.ExternalReferenceType("website"),
 						URL:  url,

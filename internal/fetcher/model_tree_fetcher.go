@@ -86,24 +86,20 @@ func (f *ModelTreeFetcher) FetchRevision(modelID, revision string) ([]SecurityFi
 	if rev == "" {
 		rev = "main"
 	}
-	base := strings.TrimRight(f.BaseURL, "/")
-	if base == "" {
-		base = "https://huggingface.co"
-	}
-	client := f.Client
-	if client == nil {
-		client = http.DefaultClient
-	}
+	apiURL := fmt.Sprintf("%s/api/models/%s/tree/%s", HFBaseURL(f.BaseURL), modelID, url.PathEscape(rev))
+	return fetchTree(httpClient(f.Client), apiURL, "tree")
+}
 
+// fetchTree GETs a tree API URL (expand=true, recursive=true) and follows cursor-based
+// pagination up to maxTreePages pages. label names the tree in error messages.
+func fetchTree(client *http.Client, apiURL, label string) ([]SecurityFileEntry, error) {
 	var all []SecurityFileEntry
 	cursor := ""
 
 	for page := 0; page < maxTreePages; page++ {
-		// Construct paginated URL: /api/models/{modelID}/tree/{revision}.
-		apiURL := fmt.Sprintf("%s/api/models/%s/tree/%s", base, modelID, url.PathEscape(rev))
 		u, err := url.Parse(apiURL)
 		if err != nil {
-			return nil, fmt.Errorf("parse tree url: %w", err)
+			return nil, fmt.Errorf("parse %s url: %w", label, err)
 		}
 		q := u.Query()
 		q.Set("expand", "true")
@@ -115,17 +111,17 @@ func (f *ModelTreeFetcher) FetchRevision(modelID, revision string) ([]SecurityFi
 
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, u.String(), nil)
 		if err != nil {
-			return nil, fmt.Errorf("build tree request: %w", err)
+			return nil, fmt.Errorf("build %s request: %w", label, err)
 		}
 
 		resp, err := client.Do(req)
 		if err != nil {
-			return nil, fmt.Errorf("fetch tree: %w", err)
+			return nil, fmt.Errorf("fetch %s: %w", label, err)
 		}
 		body, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if readErr != nil {
-			return nil, fmt.Errorf("read tree body: %w", readErr)
+			return nil, fmt.Errorf("read %s body: %w", label, readErr)
 		}
 		if resp.StatusCode != http.StatusOK {
 			return nil, &HFError{StatusCode: resp.StatusCode}
@@ -133,7 +129,7 @@ func (f *ModelTreeFetcher) FetchRevision(modelID, revision string) ([]SecurityFi
 
 		var entries []SecurityFileEntry
 		if err := json.Unmarshal(body, &entries); err != nil {
-			return nil, fmt.Errorf("decode tree response: %w", err)
+			return nil, fmt.Errorf("decode %s response: %w", label, err)
 		}
 		all = append(all, entries...)
 

@@ -235,18 +235,7 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 	}
 
 	// Merge dependencies from SBOM and all AIBOMs.
-	var allDependencies []*[]cdx.Dependency
-	if sbom.Dependencies != nil {
-		allDependencies = append(allDependencies, sbom.Dependencies)
-	}
-	for _, aibom := range aiboms {
-		if aibom.Dependencies != nil {
-			allDependencies = append(allDependencies, aibom.Dependencies)
-		}
-	}
-	if len(allDependencies) > 0 {
-		result.MergedBOM.Dependencies = mergeDependenciesMultiple(allDependencies...)
-	}
+	result.MergedBOM.Dependencies = mergeDependenciesMultiple(collect(sbom, aiboms, func(b *cdx.BOM) *[]cdx.Dependency { return b.Dependencies })...)
 
 	// Link model components as dependencies of the SBOM application component.
 	// This ensures the dependency graph reflects that the application uses those models.
@@ -260,68 +249,15 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 		}
 	}
 
-	// Merge compositions from SBOM and AIBOMs.
-	var allCompositions []*[]cdx.Composition
-	if sbom.Compositions != nil {
-		allCompositions = append(allCompositions, sbom.Compositions)
-	}
-	for _, aibom := range aiboms {
-		if aibom.Compositions != nil {
-			allCompositions = append(allCompositions, aibom.Compositions)
-		}
-	}
-	if len(allCompositions) > 0 {
-		result.MergedBOM.Compositions = mergeCompositionsMultiple(allCompositions...)
-	}
+	// Merge compositions, services, external references and vulnerabilities.
+	result.MergedBOM.Compositions = concat(collect(sbom, aiboms, func(b *cdx.BOM) *[]cdx.Composition { return b.Compositions })...)
+	result.MergedBOM.Services = mergeServicesMultiple(collect(sbom, aiboms, func(b *cdx.BOM) *[]cdx.Service { return b.Services })...)
+	result.MergedBOM.ExternalReferences = concat(collect(sbom, aiboms, func(b *cdx.BOM) *[]cdx.ExternalReference { return b.ExternalReferences })...)
+	result.MergedBOM.Vulnerabilities = mergeVulnerabilitiesMultiple(collect(sbom, aiboms, func(b *cdx.BOM) *[]cdx.Vulnerability { return b.Vulnerabilities })...)
 
 	// Copy other fields from SBOM.
 	result.MergedBOM.SerialNumber = sbom.SerialNumber
 	result.MergedBOM.Version = sbom.Version
-
-	// Merge services if present.
-	var allServices []*[]cdx.Service
-	if sbom.Services != nil {
-		allServices = append(allServices, sbom.Services)
-	}
-	for _, aibom := range aiboms {
-		if aibom.Services != nil {
-			allServices = append(allServices, aibom.Services)
-		}
-	}
-	if len(allServices) > 0 {
-		mergedServices := mergeServicesMultiple(allServices...)
-		if len(*mergedServices) > 0 {
-			result.MergedBOM.Services = mergedServices
-		}
-	}
-
-	// Merge external references.
-	var allExternalRefs []*[]cdx.ExternalReference
-	if sbom.ExternalReferences != nil {
-		allExternalRefs = append(allExternalRefs, sbom.ExternalReferences)
-	}
-	for _, aibom := range aiboms {
-		if aibom.ExternalReferences != nil {
-			allExternalRefs = append(allExternalRefs, aibom.ExternalReferences)
-		}
-	}
-	if len(allExternalRefs) > 0 {
-		result.MergedBOM.ExternalReferences = mergeExternalReferencesMultiple(allExternalRefs...)
-	}
-
-	// Merge vulnerabilities from SBOM and all AIBOMs.
-	var allVulnerabilities []*[]cdx.Vulnerability
-	if sbom.Vulnerabilities != nil {
-		allVulnerabilities = append(allVulnerabilities, sbom.Vulnerabilities)
-	}
-	for _, aibom := range aiboms {
-		if aibom.Vulnerabilities != nil {
-			allVulnerabilities = append(allVulnerabilities, aibom.Vulnerabilities)
-		}
-	}
-	if len(allVulnerabilities) > 0 {
-		result.MergedBOM.Vulnerabilities = mergeVulnerabilitiesMultiple(allVulnerabilities...)
-	}
 
 	return result, nil
 }
@@ -458,24 +394,28 @@ func mergeDependenciesMultiple(deps ...*[]cdx.Dependency) *[]cdx.Dependency {
 	return &merged
 }
 
-// mergeCompositionsMultiple combines compositions from multiple BOMs.
-func mergeCompositionsMultiple(comps ...*[]cdx.Composition) *[]cdx.Composition {
-	if len(comps) == 0 {
-		return nil
-	}
-
-	var merged []cdx.Composition
-
-	for _, compList := range comps {
-		if compList != nil {
-			merged = append(merged, *compList...)
+// collect returns the non-nil lists get yields for the SBOM and each AIBOM, in order.
+func collect[T any](sbom *cdx.BOM, aiboms []*cdx.BOM, get func(*cdx.BOM) *[]T) []*[]T {
+	var lists []*[]T
+	for _, b := range append([]*cdx.BOM{sbom}, aiboms...) {
+		if l := get(b); l != nil {
+			lists = append(lists, l)
 		}
 	}
+	return lists
+}
 
+// concat appends the non-nil lists in order, returning nil when the result is empty.
+func concat[T any](lists ...*[]T) *[]T {
+	var merged []T
+	for _, l := range lists {
+		if l != nil {
+			merged = append(merged, *l...)
+		}
+	}
 	if len(merged) == 0 {
 		return nil
 	}
-
 	return &merged
 }
 
@@ -538,27 +478,6 @@ func mergeVulnerabilitiesMultiple(vulnLists ...*[]cdx.Vulnerability) *[]cdx.Vuln
 				seen[key] = true
 			}
 			merged = append(merged, v)
-		}
-	}
-
-	if len(merged) == 0 {
-		return nil
-	}
-
-	return &merged
-}
-
-// mergeExternalReferencesMultiple combines external references from multiple BOMs.
-func mergeExternalReferencesMultiple(refs ...*[]cdx.ExternalReference) *[]cdx.ExternalReference {
-	if len(refs) == 0 {
-		return nil
-	}
-
-	var merged []cdx.ExternalReference
-
-	for _, refList := range refs {
-		if refList != nil {
-			merged = append(merged, *refList...)
 		}
 	}
 

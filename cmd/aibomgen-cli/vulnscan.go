@@ -10,7 +10,6 @@ import (
 	"charm.land/huh/v2"
 	cdx "github.com/CycloneDX/cyclonedx-go"
 	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
-	"github.com/idlab-discover/aibomgen-cli/internal/fetcher"
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/bomio"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/vulnscan"
@@ -185,7 +184,7 @@ func printVulnReport(w io.Writer, results []vulnscan.ComponentScanResult) {
 			}
 		}
 
-		overallIcon, overallLabel := vulnStatusDisplay(r.Entries)
+		overallIcon, overallLabel := vulnStatusDisplay(unsafe, caution)
 		fmt.Fprintf(w, "%s  %s  %s\n",
 			overallIcon,
 			modelLabel,
@@ -213,25 +212,12 @@ func printVulnReport(w io.Writer, results []vulnscan.ComponentScanResult) {
 	}
 }
 
-// vulnStatusDisplay returns an icon and styled label for a set of entries.
-func vulnStatusDisplay(entries []fetcher.SecurityFileEntry) (string, string) {
-	unsafe := false
-	caution := false
-	for _, e := range entries {
-		if e.SecurityFileStatus == nil {
-			continue
-		}
-		switch e.SecurityFileStatus.Status {
-		case "unsafe":
-			unsafe = true
-		case "caution":
-			caution = true
-		}
-	}
+// vulnStatusDisplay returns an icon and styled label for the worst file status.
+func vulnStatusDisplay(unsafe, caution int) (string, string) {
 	switch {
-	case unsafe:
+	case unsafe > 0:
 		return ui.Error.Render("✗"), ui.Error.Render("unsafe")
-	case caution:
+	case caution > 0:
 		return ui.Warning.Render("⚠"), ui.Warning.Render("caution")
 	default:
 		return ui.Success.Render("✓"), ui.Success.Render("safe")

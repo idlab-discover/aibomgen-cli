@@ -1,8 +1,6 @@
 package fetcher
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -34,37 +32,10 @@ type DatasetAPIFetcher struct {
 
 // Fetch fetches dataset metadata for the given datasetID.
 func (f *DatasetAPIFetcher) Fetch(datasetID string) (*DatasetAPIResponse, error) {
-	client := f.Client
-	if client == nil {
-		client = http.DefaultClient
-	}
-
 	trimmedDatasetID := strings.TrimPrefix(strings.TrimSpace(datasetID), "/")
-
-	baseURL := strings.TrimRight(strings.TrimSpace(f.BaseURL), "/")
-	if baseURL == "" {
-		baseURL = "https://huggingface.co"
-	}
-
-	url := fmt.Sprintf("%s/api/datasets/%s", baseURL, trimmedDatasetID)
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, &HFError{StatusCode: resp.StatusCode}
-	}
-
+	url := fmt.Sprintf("%s/api/datasets/%s", HFBaseURL(f.BaseURL), trimmedDatasetID)
 	var parsed DatasetAPIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+	if err := getJSON(httpClient(f.Client), url, &parsed); err != nil {
 		return nil, err
 	}
 	return &parsed, nil

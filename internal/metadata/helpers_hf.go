@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	cdx "github.com/CycloneDX/cyclonedx-go"
+	"github.com/idlab-discover/aibomgen-cli/internal/fetcher"
 )
 
 // placeholderValues are card-template or "no value" strings that must never be written to a BOM.
@@ -91,14 +92,7 @@ func hfNamespace(ids ...string) (string, bool) {
 
 // hfBaseURL normalizes the Hugging Face base URL (defaults to https://huggingface.co/).
 func hfBaseURL(base string) string {
-	base = strings.TrimSpace(base)
-	if base == "" {
-		base = "https://huggingface.co/"
-	}
-	if !strings.HasSuffix(base, "/") {
-		base += "/"
-	}
-	return base
+	return fetcher.HFBaseURL(base) + "/"
 }
 
 // hfOrgURL returns the Hugging Face profile URL of a namespace.
