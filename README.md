@@ -184,7 +184,8 @@ aibomgen-cli validate -i dist/google-bert_bert-base-uncased.aibom.cdx.json --str
 Options:
 
 - `--input, -i <path>`: path to AIBOM file (required)
-- `--strict`: fail on missing required fields
+- `--strict`: fail on missing required fields and on vulnerabilities rated at or above `--fail-severity`
+- `--fail-severity critical|high|medium|low|info`: lowest vulnerability severity that fails `--strict` (default: `medium`). Vulnerabilities below it, or without a rated severity, are reported as warnings; without `--strict` every vulnerability is a warning. Hugging Face scanner findings are rated `critical` (unsafe), `high` (suspicious) or `medium` (caution).
 - `--min-score 0.0-1.0`: minimum acceptable completeness score
 - `--check-model-card`: validate model card fields (default: `false`)
 - `--log-level quiet|standard|debug`

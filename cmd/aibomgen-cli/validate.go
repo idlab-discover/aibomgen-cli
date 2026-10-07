@@ -3,6 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"strings"
+
+	cdx "github.com/CycloneDX/cyclonedx-go"
 
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/bomio"
@@ -28,6 +31,16 @@ var validateCmd = &cobra.Command{
 			return err
 		}
 
+		failSeverity := cdx.Severity(strings.ToLower(strings.TrimSpace(viper.GetString("validate.fail-severity"))))
+		switch failSeverity {
+		case "":
+			failSeverity = cdx.SeverityMedium
+		case cdx.SeverityCritical, cdx.SeverityHigh, cdx.SeverityMedium, cdx.SeverityLow, cdx.SeverityInfo:
+			// ok.
+		default:
+			return fmt.Errorf("invalid --fail-severity %q (expected critical|high|medium|low|info)", failSeverity)
+		}
+
 		// Read BOM.
 		bom, err := bomio.ReadBOM(inputPath)
 		if err != nil {
@@ -39,6 +52,7 @@ var validateCmd = &cobra.Command{
 			StrictMode:           viper.GetBool("validate.strict"),
 			MinCompletenessScore: viper.GetFloat64("validate.min-score"),
 			CheckModelCard:       viper.GetBool("validate.check-model-card"),
+			FailSeverity:         failSeverity,
 		}
 
 		result := validator.Validate(bom, opts)
@@ -58,7 +72,8 @@ var validateCmd = &cobra.Command{
 func init() {
 	validateCmd.Flags().StringP("input", "i", "", "Path to AIBOM file (required)")
 	addDeprecatedFlag(validateCmd, "format", "f", inputFormatDeprecation)
-	validateCmd.Flags().Bool("strict", false, "Strict mode: fail on missing required fields")
+	validateCmd.Flags().Bool("strict", false, "Strict mode: fail on missing required fields and on vulnerabilities at or above --fail-severity")
+	validateCmd.Flags().String("fail-severity", "", "Lowest vulnerability severity that fails --strict: critical|high|medium|low|info (default medium)")
 	validateCmd.Flags().Float64("min-score", 0.0, "Minimum completeness score (0.0-1.0)")
 	validateCmd.Flags().Bool("check-model-card", false, "Validate model card fields")
 	validateCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")

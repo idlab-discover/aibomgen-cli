@@ -13,7 +13,7 @@ func securityFields() []FieldSpec {
 			if len(src.SecurityTree) == 0 {
 				return nil, false
 			}
-			return overallSecurityStatus(src.SecurityTree), true
+			return OverallSecurityStatus(src.SecurityTree), true
 		}),
 		hfProp(ComponentPropertiesSecurityScannedFiles, 0.2, func(src Source) (any, bool) {
 			if len(src.SecurityTree) == 0 {
@@ -47,27 +47,18 @@ func countStatus(entries []fetcher.SecurityFileEntry, status string) string {
 	return strconv.Itoa(n)
 }
 
-// overallSecurityStatus derives a summary status string from the full tree.
-// Returns "unsafe", "caution", or "safe".
-func overallSecurityStatus(entries []fetcher.SecurityFileEntry) string {
-	hasUnsafe := false
-	hasCaution := false
+// OverallSecurityStatus derives a summary status from the full security tree:
+// the worst file status of "unsafe", "suspicious" or "caution", else "safe".
+func OverallSecurityStatus(entries []fetcher.SecurityFileEntry) string {
+	worst := "safe"
+	rank := map[string]int{"safe": 0, "caution": 1, "suspicious": 2, "unsafe": 3}
 	for _, e := range entries {
 		if e.SecurityFileStatus == nil {
 			continue
 		}
-		switch strings.ToLower(e.SecurityFileStatus.Status) {
-		case "unsafe":
-			hasUnsafe = true
-		case "caution":
-			hasCaution = true
+		if status := strings.ToLower(e.SecurityFileStatus.Status); rank[status] > rank[worst] {
+			worst = status
 		}
 	}
-	if hasUnsafe {
-		return "unsafe"
-	}
-	if hasCaution {
-		return "caution"
-	}
-	return "safe"
+	return worst
 }

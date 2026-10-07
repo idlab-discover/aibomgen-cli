@@ -3,10 +3,12 @@ package validator
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	cdx "github.com/CycloneDX/cyclonedx-go"
 	"github.com/idlab-discover/aibomgen-cli/internal/metadata"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/completeness"
+	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/vulnscan"
 )
 
 // ValidationResult is returned by [Validate] and summarises the outcome of.
@@ -42,6 +44,10 @@ type ValidationOptions struct {
 	StrictMode           bool    // Fail if required fields missing
 	MinCompletenessScore float64 // Minimum acceptable score (0.0-1.0)
 	CheckModelCard       bool    // Validate model card fields
+
+	// FailSeverity is the lowest vulnerability severity that is an error in
+	// strict mode (default medium). Other vulnerabilities are reported as warnings.
+	FailSeverity cdx.Severity
 }
 
 // Validate checks the structural and completeness properties of bom.
@@ -110,7 +116,10 @@ func Validate(bom *cdx.BOM, opts ValidationOptions) ValidationResult {
 	// 8. Reference integrity: every ref must point at an existing bom-ref.
 	result.Warnings = append(result.Warnings, DanglingRefs(bom)...)
 
-	// 9. Validate dataset components if they exist.
+	// 9. Vulnerabilities: errors in strict mode at or above FailSeverity, else warnings.
+	validateVulnerabilities(bom, opts, &result)
+
+	// 10. Validate dataset components if they exist.
 	for dsName, dsCompletenessResult := range completenessResult.DatasetResults {
 		dsResult := DatasetValidationResult{
 			DatasetRef:        dsCompletenessResult.DatasetRef,
@@ -140,6 +149,46 @@ func Validate(bom *cdx.BOM, opts ValidationOptions) ValidationResult {
 	}
 
 	return result
+}
+
+func validateVulnerabilities(bom *cdx.BOM, opts ValidationOptions, result *ValidationResult) {
+	if bom.Vulnerabilities == nil {
+		return
+	}
+	threshold := opts.FailSeverity
+	if threshold == "" {
+		threshold = cdx.SeverityMedium
+	}
+	for _, v := range *bom.Vulnerabilities {
+		sev := vulnscan.HighestSeverity(v)
+		msg := fmt.Sprintf("vulnerability %s [%s] affects %s", vulnName(v), sev, affectedRefs(v))
+		if opts.StrictMode && vulnscan.SeverityAtLeast(sev, threshold) {
+			result.Valid = false
+			result.Errors = append(result.Errors, msg)
+		} else {
+			result.Warnings = append(result.Warnings, msg)
+		}
+	}
+}
+
+// vulnName returns the vulnerability ID (e.g. a CVE) or, for findings without
+// one such as Hugging Face scanner results, its bom-ref.
+func vulnName(v cdx.Vulnerability) string {
+	if v.ID != "" {
+		return v.ID
+	}
+	return v.BOMRef
+}
+
+func affectedRefs(v cdx.Vulnerability) string {
+	if v.Affects == nil || len(*v.Affects) == 0 {
+		return "(no affected component)"
+	}
+	refs := make([]string, 0, len(*v.Affects))
+	for _, a := range *v.Affects {
+		refs = append(refs, a.Ref)
+	}
+	return strings.Join(refs, ", ")
 }
 
 func validateSpecVersion(bom *cdx.BOM, result *ValidationResult) {
