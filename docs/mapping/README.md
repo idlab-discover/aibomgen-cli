@@ -16,7 +16,7 @@ A test (`internal/metadata/mapping_docs_test.go`) fails when a FieldSpec key is 
 | Source | Request | Used for |
 |---|---|---|
 | Model API | `GET /api/models/{id}`, or `GET /api/models/{id}/revision/{revision}` when a revision is requested | The model component. `cardData` is the model card's YAML front matter as parsed by the Hub. |
-| Model README | `GET /{id}/resolve/main/README.md` (falls back to `master`), or `/{id}/resolve/{revision}/README.md` | YAML front matter plus template sections and bullets in the body (e.g. "Developed by", "Direct Use") |
+| Model README | `GET /{id}/resolve/main/README.md` (falls back to `master`), or `/{id}/resolve/{revision}/README.md` | YAML front matter plus template sections (with heading aliases, see [model.md](model.md#considerations-sections)) and bullets in the body (e.g. "Developed by", "Direct Use") |
 | Model tree | `GET /api/models/{id}/tree/{revision or main}?expand=true&recursive=true` | Security scan properties and vulnerabilities |
 | Dataset API | `GET /api/datasets/{id}` (HF redirects renamed datasets; the resolved ID is used from here on) | Data components |
 | Dataset README | `GET /datasets/{resolved id}/resolve/main/README.md` (falls back to `master`) | YAML front matter plus template sections and bullets in the body |

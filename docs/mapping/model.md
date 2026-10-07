@@ -27,11 +27,30 @@ The model is written as `metadata.component` with `type: machine-learning-model`
 | `modelParameters.architectureFamily` | `BOM.metadata.component.modelCard.modelParameters.architectureFamily` | `HF.config.model_type` | Trimmed (e.g. `bert`) | 0.5 |
 | `modelParameters.modelArchitecture` | `BOM.metadata.component.modelCard.modelParameters.modelArchitecture` | `HF.config.architectures[0]` | Trimmed (e.g. `BertForMaskedLM`) | 0.5 |
 | `modelParameters.datasets` | `BOM.metadata.component.modelCard.modelParameters.datasets` | `cardData.datasets` plus `dataset:*` tags → README front matter `datasets` | Linked to the data components after they are built: `{ref: <bom-ref>}` or an inline `{type: dataset, name}`, see [identity-and-links.md](identity-and-links.md#dataset-references) | 0.5 |
-| `considerations.useCases` | `BOM.metadata.component.modelCard.considerations.useCases` | README "Direct Use" section; README "Out-of-Scope Use" section | Out-of-scope text is prefixed with `out-of-scope: ` | 0.5 |
-| `considerations.technicalLimitations` | `BOM.metadata.component.modelCard.considerations.technicalLimitations` | README "Bias, Risks, and Limitations" section | One entry with the section text | 0.5 |
-| `considerations.ethicalConsiderations` | `BOM.metadata.component.modelCard.considerations.ethicalConsiderations` | README "Bias, Risks, and Limitations" (name) and "Recommendations" (mitigation) sections | One entry. If only recommendations exist, the name is `bias_risks_limitations`. | 0.25 |
+| `considerations.useCases` | `BOM.metadata.component.modelCard.considerations.useCases` | README use-case section; README out-of-scope section (heading aliases below) | Section text is cleaned (see below). Out-of-scope text is prefixed with `out-of-scope: ` | 0.5 |
+| `considerations.technicalLimitations` | `BOM.metadata.component.modelCard.considerations.technicalLimitations` | README limitations section (heading aliases below) | One entry with the cleaned section text | 0.5 |
+| `considerations.ethicalConsiderations` | `BOM.metadata.component.modelCard.considerations.ethicalConsiderations` | README ethics section → limitations section (name); README "Recommendations" section (mitigation) | One entry with cleaned text. If only recommendations exist, the name is `bias_risks_limitations`. | 0.25 |
 | `quantitativeAnalysis.performanceMetrics` | `BOM.metadata.component.modelCard.quantitativeAnalysis.performanceMetrics` | README front matter `model-index[0].results[0].metrics[]` (type and value) plus front matter `metrics` (type only) → README "Metrics" section (type) and "Results" section (value) | If only "Results" exists, the type is `testing_metrics` | 0.5 |
 | `considerations.environmentalConsiderations.properties` | `BOM.metadata.component.modelCard.considerations.environmentalConsiderations.properties` | README bullets "Hardware Type", "Hours used", "Cloud Provider", "Compute Region", "Carbon Emitted" | Properties `hardwareType`, `hoursUsed`, `cloudProvider`, `computeRegion`, `carbonEmitted` | 0.25 |
+
+### Considerations sections
+
+Most model cards don't use the exact Hugging Face template headings, so each considerations source accepts a list of heading aliases. The aliases are tried in order, and the first section with real text wins.
+
+| Source | Heading aliases (in order) |
+|---|---|
+| Use cases | Direct Use, Uses, Intended uses, Intended use, Intended uses & limitations, Intended uses and limitations, How to use |
+| Out-of-scope | Out-of-Scope Use, Out-of-scope uses, Misuse and out-of-scope use, Misuse, Malicious Use, and Out-of-Scope Use |
+| Limitations | Bias, Risks, and Limitations, Limitations, Limitations and bias, Limitations and biases, Bias and limitations, Known limitations, Risks and limitations |
+| Ethics | Bias, Ethical considerations, Ethics, Responsible AI |
+| Recommendations | Recommendations |
+
+Matching rules:
+- **Headings:** any level (`#` to `######`). Matching ignores case, `*`, `_`, `` ` ``, closing `#`s and trailing `:.!?`. Lines inside fenced code blocks are never headings.
+- **Section body:** runs to the next heading of any level, so a combined section like "Intended uses & limitations" gives its intro text to the use cases. A nested "Limitations and bias" subsection gives the limitations.
+- **Skipped sections:** a section that is empty after cleaning is skipped. A section holding only `[More Information Needed]` is skipped too, and kept verbatim only when no alias has real text.
+- **Cleaning:** fenced code blocks, HTML comments and tags, and Markdown images are removed, and blank lines are collapsed.
+- **Length cap:** the text is capped at 1000 characters. It is cut at the last sentence end, or else at a word boundary followed by `…`.
 
 ## Properties
 

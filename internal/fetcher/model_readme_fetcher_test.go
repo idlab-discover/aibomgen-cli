@@ -169,3 +169,35 @@ func TestParseReadmeCard_BaseModel(t *testing.T) {
 		}
 	}
 }
+
+// bert-base-uncased / roberta-base layout: one "Intended uses & limitations" section with
+// "How to use" and "Limitations and bias" subsections full of code.
+func TestParseReadmeCard_ConsiderationAliases_BertLayout(t *testing.T) {
+	readme := "---\nlicense: apache-2.0\n---\n# BERT base model (uncased)\n\n## Model description\n\nBERT is a transformers model.\n\n" +
+		"## Intended uses & limitations\n\nYou can use the raw model for masked language modeling, but it's mostly intended to be fine-tuned.\n\n" +
+		"### How to use\n\nYou can use this model directly with a pipeline:\n\n```python\n>>> from transformers import pipeline\n>>> unmasker = pipeline('fill-mask', model='bert-base-uncased')\n```\n\n" +
+		"### Limitations and bias\n\nThis model can have biased predictions:\n\n```python\n>>> unmasker(\"The man worked as a [MASK].\")\n```\n\nThis bias will also affect all fine-tuned versions of this model.\n\n" +
+		"## Training data\n\nBookCorpus and English Wikipedia.\n"
+	card := parseReadmeCard(readme)
+
+	if !strings.HasPrefix(card.DirectUse, "You can use the raw model") || strings.Contains(card.DirectUse, "pipeline") {
+		t.Fatalf("directUse = %q", card.DirectUse)
+	}
+	want := "This model can have biased predictions:\n\nThis bias will also affect all fine-tuned versions of this model."
+	if card.BiasRisksLimitations != want {
+		t.Fatalf("biasRisksLimitations = %q, want %q", card.BiasRisksLimitations, want)
+	}
+	if card.EthicalConsiderations != "" || card.OutOfScopeUse != "" {
+		t.Fatalf("unexpected ethical=%q outOfScope=%q", card.EthicalConsiderations, card.OutOfScopeUse)
+	}
+}
+
+// all-MiniLM-L6-v2 layout: usage code with "# comment" lines before "## Intended uses".
+func TestParseReadmeCard_ConsiderationAliases_MiniLMLayout(t *testing.T) {
+	readme := "# all-MiniLM-L6-v2\n\n## Usage (HuggingFace Transformers)\n\n```python\n# Sentences we want sentence embeddings for\nsentences = ['a', 'b']\n```\n\n" +
+		"## Intended uses\n\nOur model is intended to be used as a sentence and short paragraph encoder.\n\n## Training procedure\n\nX.\n"
+	card := parseReadmeCard(readme)
+	if card.DirectUse != "Our model is intended to be used as a sentence and short paragraph encoder." {
+		t.Fatalf("directUse = %q", card.DirectUse)
+	}
+}

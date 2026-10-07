@@ -13,8 +13,9 @@ import (
 // .
 // Hugging Face model cards usually contain a YAML front matter block (--- ... ---).
 // followed by Markdown sections. We parse both:.
-// - YAML front matter for structured fields (license, tags, datasets, metrics, base_model, model-index).
-// - Markdown sections/bullets using regex (e.g. Direct Use, Bias/Risks, Paper/Demo links).
+//   - YAML front matter for structured fields (license, tags, datasets, metrics, base_model, model-index).
+//   - Markdown sections/bullets using regex (e.g. Direct Use, Bias/Risks, Paper/Demo links).
+//     Considerations sections accept common heading aliases (see useCaseHeadings etc.).
 type ModelReadmeCard struct {
 	Raw         string
 	FrontMatter map[string]any
@@ -27,15 +28,16 @@ type ModelReadmeCard struct {
 	Metrics   []string
 	BaseModel string
 
-	// Extracted from Markdown body (template-based).
-	DevelopedBy          string
-	PaperURL             string
-	DemoURL              string
-	DirectUse            string
-	OutOfScopeUse        string
-	BiasRisksLimitations string
-	BiasRecommendations  string
-	ModelCardContact     string
+	// Extracted from Markdown body (template headings and their common aliases).
+	DevelopedBy           string
+	PaperURL              string
+	DemoURL               string
+	DirectUse             string
+	OutOfScopeUse         string
+	BiasRisksLimitations  string
+	EthicalConsiderations string
+	BiasRecommendations   string
+	ModelCardContact      string
 
 	// Environmental Impact (from Markdown body).
 	EnvironmentalHardwareType  string
@@ -171,10 +173,11 @@ func parseReadmeCard(raw string) *ModelReadmeCard {
 	card.DevelopedBy = strings.TrimSpace(extractBulletValue(body, "Developed by"))
 	card.PaperURL = strings.TrimSpace(extractBulletValue(body, "Paper"))
 	card.DemoURL = strings.TrimSpace(extractBulletValue(body, "Demo"))
-	card.DirectUse = strings.TrimSpace(extractSection(body, "Direct Use"))
-	card.OutOfScopeUse = strings.TrimSpace(extractSection(body, "Out-of-Scope Use"))
-	card.BiasRisksLimitations = strings.TrimSpace(extractSection(body, "Bias, Risks, and Limitations"))
-	card.BiasRecommendations = strings.TrimSpace(extractSection(body, "Recommendations"))
+	card.DirectUse = considerationSection(body, useCaseHeadings)
+	card.OutOfScopeUse = considerationSection(body, outOfScopeHeadings)
+	card.BiasRisksLimitations = considerationSection(body, limitationHeadings)
+	card.EthicalConsiderations = considerationSection(body, ethicalHeadings)
+	card.BiasRecommendations = considerationSection(body, recommendationHeadings)
 	card.ModelCardContact = strings.TrimSpace(extractSection(body, "Model Card Contact"))
 
 	// Quantitative Analysis sections.
@@ -192,4 +195,10 @@ func parseReadmeCard(raw string) *ModelReadmeCard {
 	// The fieldspecs layer can decide whether to use them or filter them out.
 
 	return card
+}
+
+// considerationSection returns the cleaned, length-capped text of the first section
+// matching one of the heading aliases.
+func considerationSection(body string, headings []string) string {
+	return cleanSectionText(extractSectionAny(body, headings), maxSectionRunes)
 }

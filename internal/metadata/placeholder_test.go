@@ -121,3 +121,27 @@ func TestModelCardReadmeTextVerbatim(t *testing.T) {
 		t.Fatalf("manufacturer = %+v, want none", comp.Manufacturer)
 	}
 }
+
+func TestModelCardEthicalConsiderationsName(t *testing.T) {
+	ethics := func(r *fetcher.ModelReadmeCard) []cdx.MLModelCardEthicalConsideration {
+		comp := applyModel(Source{ModelID: "org/m", Readme: r})
+		c := comp.ModelCard.Considerations
+		if c == nil || c.EthicalConsiderations == nil {
+			return nil
+		}
+		return *c.EthicalConsiderations
+	}
+
+	got := ethics(&fetcher.ModelReadmeCard{EthicalConsiderations: "Ethics text.", BiasRisksLimitations: "Limits.", BiasRecommendations: "Be careful."})
+	if len(got) != 1 || got[0].Name != "Ethics text." || got[0].MitigationStrategy != "Be careful." {
+		t.Fatalf("dedicated section: %+v", got)
+	}
+	got = ethics(&fetcher.ModelReadmeCard{BiasRisksLimitations: "Limits."})
+	if len(got) != 1 || got[0].Name != "Limits." {
+		t.Fatalf("limitations fallback: %+v", got)
+	}
+	got = ethics(&fetcher.ModelReadmeCard{BiasRecommendations: "Be careful."})
+	if len(got) != 1 || got[0].Name != "bias_risks_limitations" {
+		t.Fatalf("recommendations only: %+v", got)
+	}
+}

@@ -349,7 +349,11 @@ func modelCardFields() []FieldSpec {
 					if src.Readme == nil {
 						return nil, false
 					}
-					name := strings.TrimSpace(src.Readme.BiasRisksLimitations)
+					// Prefer a dedicated ethics/bias section, else the limitations section.
+					name := strings.TrimSpace(src.Readme.EthicalConsiderations)
+					if name == "" {
+						name = strings.TrimSpace(src.Readme.BiasRisksLimitations)
+					}
 					mit := strings.TrimSpace(src.Readme.BiasRecommendations)
 					if name == "" && mit == "" {
 						return nil, false

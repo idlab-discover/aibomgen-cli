@@ -25,15 +25,16 @@ func (f *DummyModelReadmeFetcher) Fetch(modelID string) (*ModelReadmeCard, error
 		Metrics:   []string{"perplexity", "accuracy"},
 		BaseModel: "gpt2",
 
-		// Extracted from Markdown body (template-based).
-		DevelopedBy:          "Dummy Organization",
-		PaperURL:             "https://arxiv.org/abs/1234.56789",
-		DemoURL:              "https://huggingface.co/spaces/dummy-org/dummy-demo",
-		DirectUse:            "This model is intended for text generation tasks in English. It can be used for creative writing, code generation, and general-purpose text completion.",
-		OutOfScopeUse:        "This model should not be used for generating harmful content, medical advice, or making critical decisions without human oversight.",
-		BiasRisksLimitations: "The model may exhibit biases present in the training data, including but not limited to gender, racial, and cultural biases. Users should be aware of potential risks when deploying in production environments.",
-		BiasRecommendations:  "We recommend implementing content filtering, human review for sensitive applications, and regular bias audits when using this model in production.",
-		ModelCardContact:     "contact@dummy-org.example.com",
+		// Extracted from Markdown body (template headings and their common aliases).
+		DevelopedBy:           "Dummy Organization",
+		PaperURL:              "https://arxiv.org/abs/1234.56789",
+		DemoURL:               "https://huggingface.co/spaces/dummy-org/dummy-demo",
+		DirectUse:             "This model is intended for text generation tasks in English. It can be used for creative writing, code generation, and general-purpose text completion.",
+		OutOfScopeUse:         "This model should not be used for generating harmful content, medical advice, or making critical decisions without human oversight.",
+		BiasRisksLimitations:  "The model may exhibit biases present in the training data, including but not limited to gender, racial, and cultural biases. Users should be aware of potential risks when deploying in production environments.",
+		EthicalConsiderations: "The model was trained on web text and may reproduce harmful stereotypes.",
+		BiasRecommendations:   "We recommend implementing content filtering, human review for sensitive applications, and regular bias audits when using this model in production.",
+		ModelCardContact:      "contact@dummy-org.example.com",
 
 		// Environmental Impact.
 		EnvironmentalHardwareType:  "NVIDIA A100 GPU",
