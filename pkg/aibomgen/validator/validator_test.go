@@ -156,7 +156,7 @@ func TestValidate(t *testing.T) {
 			wantDatasetCount: 0,
 		},
 		{
-			name: "with model card validation - missing card",
+			name: "min score is enforced without strict mode",
 			args: args{
 				bom: &cdx.BOM{
 					SpecVersion: cdx.SpecVersion1_5,
@@ -167,35 +167,36 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				opts: ValidationOptions{
-					CheckModelCard: true,
+					MinCompletenessScore: 0.5,
 				},
 			},
-			wantValid:        true,
+			wantValid:        false,
 			wantModelID:      "test-model",
 			wantScore:        1.0 / 14.65,
-			wantErrorCount:   0,
+			wantErrorCount:   1,
+			wantErrorContain: "completeness score 0.07 below minimum 0.50",
 			wantDatasetCount: 0,
 		},
 		{
-			name: "with model card present but no parameters",
+			name: "duplicate bom-ref is an error",
 			args: args{
 				bom: &cdx.BOM{
 					SpecVersion: cdx.SpecVersion1_5,
 					Metadata: &cdx.Metadata{
 						Component: &cdx.Component{
-							Name:      "test-model",
-							ModelCard: &cdx.MLModelCard{},
+							BOMRef: "dup",
+							Name:   "test-model",
 						},
 					},
+					Components: &[]cdx.Component{{BOMRef: "dup", Type: cdx.ComponentTypeLibrary, Name: "lib"}},
 				},
-				opts: ValidationOptions{
-					CheckModelCard: true,
-				},
+				opts: ValidationOptions{},
 			},
-			wantValid:        true,
+			wantValid:        false,
 			wantModelID:      "test-model",
 			wantScore:        1.0 / 14.65,
-			wantErrorCount:   0,
+			wantErrorCount:   1,
+			wantErrorContain: `duplicate bom-ref "dup" used 2 times`,
 			wantDatasetCount: 0,
 		},
 		{
@@ -258,7 +259,7 @@ func TestValidate(t *testing.T) {
 					StrictMode: true,
 				},
 			},
-			wantValid:        true,
+			wantValid:        false, // missing required dataset fields fail strict mode
 			wantModelID:      "test-model",
 			wantScore:        1.5 / 14.65,
 			wantErrorCount:   0,
@@ -383,22 +384,6 @@ func Test_validateSpecVersion(t *testing.T) {
 			wantErrors: 0,
 			wantWarns:  1,
 		},
-		{
-			name: "invalid spec version",
-			args: args{
-				bom: &cdx.BOM{
-					SpecVersion: 99,
-				},
-				result: &ValidationResult{
-					Valid:    true,
-					Errors:   []string{},
-					Warnings: []string{},
-				},
-			},
-			wantValid:  false,
-			wantErrors: 1,
-			wantWarns:  0,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -413,95 +398,6 @@ func Test_validateSpecVersion(t *testing.T) {
 			}
 			if len(tt.args.result.Warnings) != tt.wantWarns {
 				t.Errorf("validateSpecVersion() Warnings count = %v, want %v (warnings: %v)",
-					len(tt.args.result.Warnings), tt.wantWarns, tt.args.result.Warnings)
-			}
-		})
-	}
-}
-
-func Test_validateModelCard(t *testing.T) {
-	type args struct {
-		bom    *cdx.BOM
-		result *ValidationResult
-	}
-	tests := []struct {
-		name      string
-		args      args
-		wantWarns int
-	}{
-		{
-			name: "nil component",
-			args: args{
-				bom: &cdx.BOM{
-					Metadata: &cdx.Metadata{
-						Component: nil,
-					},
-				},
-				result: &ValidationResult{
-					Warnings: []string{},
-				},
-			},
-			wantWarns: 0,
-		},
-		{
-			name: "no model card",
-			args: args{
-				bom: &cdx.BOM{
-					Metadata: &cdx.Metadata{
-						Component: &cdx.Component{
-							Name: "test",
-						},
-					},
-				},
-				result: &ValidationResult{
-					Warnings: []string{},
-				},
-			},
-			wantWarns: 1,
-		},
-		{
-			name: "model card without parameters",
-			args: args{
-				bom: &cdx.BOM{
-					Metadata: &cdx.Metadata{
-						Component: &cdx.Component{
-							Name:      "test",
-							ModelCard: &cdx.MLModelCard{},
-						},
-					},
-				},
-				result: &ValidationResult{
-					Warnings: []string{},
-				},
-			},
-			wantWarns: 1,
-		},
-		{
-			name: "model card with parameters",
-			args: args{
-				bom: &cdx.BOM{
-					Metadata: &cdx.Metadata{
-						Component: &cdx.Component{
-							Name: "test",
-							ModelCard: &cdx.MLModelCard{
-								ModelParameters: &cdx.MLModelParameters{},
-							},
-						},
-					},
-				},
-				result: &ValidationResult{
-					Warnings: []string{},
-				},
-			},
-			wantWarns: 0,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			validateModelCard(tt.args.bom, tt.args.result)
-
-			if len(tt.args.result.Warnings) != tt.wantWarns {
-				t.Errorf("validateModelCard() Warnings count = %v, want %v (warnings: %v)",
 					len(tt.args.result.Warnings), tt.wantWarns, tt.args.result.Warnings)
 			}
 		})

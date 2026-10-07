@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/validator"
@@ -10,15 +11,18 @@ import (
 
 // ValidationUI provides a rich UI for the validation command.
 type ValidationUI struct {
-	writer io.Writer
-	quiet  bool
+	writer  io.Writer
+	quiet   bool
+	verbose bool // also list every missing field
 }
 
 // NewValidationUI creates a new UI handler for the validation command.
-func NewValidationUI(w io.Writer, quiet bool) *ValidationUI {
+// verbose additionally lists the names of missing completeness fields.
+func NewValidationUI(w io.Writer, quiet, verbose bool) *ValidationUI {
 	return &ValidationUI{
-		writer: w,
-		quiet:  quiet,
+		writer:  w,
+		quiet:   quiet,
+		verbose: verbose,
 	}
 }
 
@@ -82,19 +86,9 @@ func (v *ValidationUI) renderModelValidation(report validator.ValidationResult) 
 		sb.WriteString("\n")
 	}
 
-	// Completeness score.
-	scoreBar := v.renderProgressBar(report.CompletenessScore, 40)
-	scorePercent := v.renderScorePercentage(report.CompletenessScore)
-	sb.WriteString(FormatKeyValue("Completeness", scoreBar+" "+scorePercent))
+	sb.WriteString(FormatKeyValue("Completeness", scoreBar(report.CompletenessScore)))
 	sb.WriteString("\n")
-
-	// Missing fields summary.
-	totalMissing := len(report.MissingRequired) + len(report.MissingOptional)
-	if totalMissing > 0 {
-		sb.WriteString(Dim.Render(fmt.Sprintf("(%d required, %d optional missing)", len(report.MissingRequired), len(report.MissingOptional))))
-	} else {
-		sb.WriteString(Dim.Render("(all fields present)"))
-	}
+	sb.WriteString(v.renderMissing(len(report.MissingRequired), joinKeys(report.MissingOptional)))
 
 	return sb.String()
 }
@@ -140,24 +134,21 @@ func (v *ValidationUI) renderDatasetValidation(datasets map[string]validator.Dat
 	sb.WriteString(SectionHeader.Render("Dataset Components"))
 	sb.WriteString("\n")
 
-	for dsName, dsResult := range datasets {
+	names := make([]string, 0, len(datasets))
+	for name := range datasets {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, dsName := range names {
+		dsResult := datasets[dsName]
 		// Dataset name with label.
 		sb.WriteString(FormatKeyValue("ID", Highlight.Render(dsName)))
 		sb.WriteString("\n")
 
-		// Completeness score.
-		scoreBar := v.renderProgressBar(dsResult.CompletenessScore, 40)
-		scorePercent := v.renderScorePercentage(dsResult.CompletenessScore)
-		sb.WriteString(FormatKeyValue("Completeness", scoreBar+" "+scorePercent))
+		sb.WriteString(FormatKeyValue("Completeness", scoreBar(dsResult.CompletenessScore)))
 		sb.WriteString("\n")
-
-		// Missing fields summary.
-		totalMissing := len(dsResult.MissingRequired) + len(dsResult.MissingOptional)
-		if totalMissing > 0 {
-			sb.WriteString(Dim.Render(fmt.Sprintf("(%d required, %d optional missing)", len(dsResult.MissingRequired), len(dsResult.MissingOptional))))
-		} else {
-			sb.WriteString(Dim.Render("(all fields present)"))
-		}
+		sb.WriteString(v.renderMissing(len(dsResult.MissingRequired), joinKeys(dsResult.MissingOptional)))
 		sb.WriteString("\n")
 
 		// Dataset-specific errors.
@@ -176,11 +167,7 @@ func (v *ValidationUI) renderDatasetValidation(datasets map[string]validator.Dat
 
 		// Dataset-specific warnings.
 		if len(dsResult.Warnings) > 0 {
-			if len(dsResult.Errors) > 0 {
-				sb.WriteString("\n")
-			} else {
-				sb.WriteString("\n")
-			}
+			sb.WriteString("\n")
 			sb.WriteString(Warning.Render(fmt.Sprintf("▼ Warnings (%d)", len(dsResult.Warnings))))
 			sb.WriteString("\n")
 			for _, warn := range dsResult.Warnings {
@@ -198,31 +185,27 @@ func (v *ValidationUI) renderDatasetValidation(datasets map[string]validator.Dat
 	return strings.TrimRight(sb.String(), "\n")
 }
 
-// renderProgressBar creates a visual progress bar (same as completeness).
-func (v *ValidationUI) renderProgressBar(score float64, width int) string {
-	filled := int(score * float64(width))
-	empty := width - filled
-
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
-
-	// Color the bar based on score.
-	if score >= 0.8 {
-		return Success.Render(bar)
-	} else if score >= 0.5 {
-		return Warning.Render(bar)
+// renderMissing summarises missing fields; in verbose mode it also names the
+// missing optional fields (missing required ones are already listed as errors in --strict).
+func (v *ValidationUI) renderMissing(required int, optional []string) string {
+	if required == 0 && len(optional) == 0 {
+		return Dim.Render("(all fields present)")
 	}
-	return Error.Render(bar)
+	out := Dim.Render(fmt.Sprintf("(%d required, %d optional missing)", required, len(optional)))
+	if v.verbose && len(optional) > 0 {
+		out += "\n" + Dim.Render("missing optional:")
+		for _, key := range optional {
+			out += "\n" + Dim.Render("  - "+key)
+		}
+	}
+	return out
 }
 
-// renderScorePercentage formats the score as a percentage (same as completeness).
-func (v *ValidationUI) renderScorePercentage(score float64) string {
-	percentage := score * 100
-	formatted := fmt.Sprintf("%.1f%%", percentage)
-
-	if score >= 0.8 {
-		return Success.Render(formatted)
-	} else if score >= 0.5 {
-		return Warning.Render(formatted)
+// joinKeys converts completeness keys to strings.
+func joinKeys[K ~string](keys []K) []string {
+	out := make([]string, len(keys))
+	for i, k := range keys {
+		out[i] = string(k)
 	}
-	return Error.Render(formatted)
+	return out
 }

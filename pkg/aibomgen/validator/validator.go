@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -42,17 +43,54 @@ type DatasetValidationResult struct {
 // ValidationOptions configures the behaviour of [Validate].
 type ValidationOptions struct {
 	StrictMode           bool    // Fail if required fields missing
-	MinCompletenessScore float64 // Minimum acceptable score (0.0-1.0)
-	CheckModelCard       bool    // Validate model card fields
+	MinCompletenessScore float64 // Minimum acceptable score (0.0-1.0), enforced in every mode
 
 	// FailSeverity is the lowest vulnerability severity that is an error in
 	// strict mode (default medium). Other vulnerabilities are reported as warnings.
 	FailSeverity cdx.Severity
 }
 
-// Validate checks the structural and completeness properties of bom.
-// It returns a [ValidationResult] with errors and warnings; Valid is false.
+// ValidateData validates an encoded BOM (JSON or XML). JSON is first checked
+// against the official CycloneDX schema (see [ValidateJSONSchema]); XML gets a
+// warning that schema validation was skipped. The decoded BOM then goes through
+// [Validate]. A BOM that cannot be decoded is reported as invalid, not as an error.
+func ValidateData(data []byte, opts ValidationOptions) ValidationResult {
+	// Same content sniffing as bomio.ReadBOM (bomio can't be imported here: it
+	// depends on generator, whose tests import validator).
+	trimmed := bytes.TrimLeft(data, " \t\r\n\ufeff")
+	isXML := len(trimmed) > 0 && trimmed[0] == '<'
+
+	var violations []string
+	skipped := "XML BOM: CycloneDX schema validation is only performed for JSON"
+	fileFmt := cdx.BOMFileFormatXML
+	if !isXML {
+		violations, skipped = ValidateJSONSchema(data)
+		fileFmt = cdx.BOMFileFormatJSON
+	}
+
+	bom := new(cdx.BOM)
+	err := cdx.NewBOMDecoder(bytes.NewReader(data), fileFmt).Decode(bom)
+	var result ValidationResult
+	if err != nil {
+		result = ValidationResult{Errors: []string{fmt.Sprintf("cannot decode BOM: %v", err)}, DatasetResults: map[string]DatasetValidationResult{}}
+	} else {
+		result = Validate(bom, opts)
+	}
+
+	if len(violations) > 0 {
+		result.Valid = false
+		result.Errors = append(violations, result.Errors...)
+	}
+	if skipped != "" {
+		result.Warnings = append([]string{skipped}, result.Warnings...)
+	}
+	return result
+}
+
+// Validate checks the structural and completeness properties of a decoded bom.
+// It returns a [ValidationResult] with errors and warnings; Valid is false
 // when any hard error is found or when strict-mode thresholds are not met.
+// Missing optional fields are listed in the result, not reported as warnings.
 func Validate(bom *cdx.BOM, opts ValidationOptions) ValidationResult {
 
 	result := ValidationResult{
@@ -85,41 +123,31 @@ func Validate(bom *cdx.BOM, opts ValidationOptions) ValidationResult {
 	result.MissingRequired = completenessResult.MissingRequired
 	result.MissingOptional = completenessResult.MissingOptional
 
-	// 5. Strict mode enforcement.
+	// 5. Strict mode: missing required fields are errors.
 	if opts.StrictMode {
-		if len(completenessResult.MissingRequired) > 0 {
+		for _, key := range completenessResult.MissingRequired {
 			result.Valid = false
-			for _, key := range completenessResult.MissingRequired {
-				msg := fmt.Sprintf("required field missing: %s", key)
-				result.Errors = append(result.Errors, msg)
-			}
-		}
-
-		if completenessResult.Score < opts.MinCompletenessScore {
-			result.Valid = false
-			msg := fmt.Sprintf("completeness score %.2f below minimum %.2f", completenessResult.Score, opts.MinCompletenessScore)
-			result.Errors = append(result.Errors, msg)
+			result.Errors = append(result.Errors, fmt.Sprintf("required field missing: %s", key))
 		}
 	}
 
-	// 6. Add warnings for optional fields.
-	for _, key := range completenessResult.MissingOptional {
-		msg := fmt.Sprintf("optional field missing: %s", key)
-		result.Warnings = append(result.Warnings, msg)
+	// 6. Minimum completeness score (any mode).
+	if completenessResult.Score < opts.MinCompletenessScore {
+		result.Valid = false
+		result.Errors = append(result.Errors, fmt.Sprintf("completeness score %.2f below minimum %.2f", completenessResult.Score, opts.MinCompletenessScore))
 	}
 
-	// 7. Model card validation.
-	if opts.CheckModelCard {
-		validateModelCard(bom, &result)
+	// 7. Reference integrity: bom-refs must be unique, and every ref must resolve.
+	if dups := DuplicateBOMRefs(bom); len(dups) > 0 {
+		result.Valid = false
+		result.Errors = append(result.Errors, dups...)
 	}
-
-	// 8. Reference integrity: every ref must point at an existing bom-ref.
 	result.Warnings = append(result.Warnings, DanglingRefs(bom)...)
 
-	// 9. Vulnerabilities: errors in strict mode at or above FailSeverity, else warnings.
+	// 8. Vulnerabilities: errors in strict mode at or above FailSeverity, else warnings.
 	validateVulnerabilities(bom, opts, &result)
 
-	// 10. Validate dataset components if they exist.
+	// 9. Dataset components: missing required fields are errors in strict mode.
 	for dsName, dsCompletenessResult := range completenessResult.DatasetResults {
 		dsResult := DatasetValidationResult{
 			DatasetRef:        dsCompletenessResult.DatasetRef,
@@ -130,19 +158,11 @@ func Validate(bom *cdx.BOM, opts ValidationOptions) ValidationResult {
 			Warnings:          []string{},
 		}
 
-		// Strict mode for dataset components (optional fields only).
-		if opts.StrictMode && len(dsCompletenessResult.MissingRequired) > 0 {
+		if opts.StrictMode {
 			for _, key := range dsCompletenessResult.MissingRequired {
-				msg := fmt.Sprintf("required dataset field missing: %s", key)
-				dsResult.Errors = append(dsResult.Errors, msg)
-				result.Warnings = append(result.Warnings, fmt.Sprintf("dataset %s: %s", dsName, msg))
+				result.Valid = false
+				dsResult.Errors = append(dsResult.Errors, fmt.Sprintf("required dataset field missing: %s", key))
 			}
-		}
-
-		// Add warnings for optional dataset fields.
-		for _, key := range dsCompletenessResult.MissingOptional {
-			msg := fmt.Sprintf("optional dataset field missing: %s", key)
-			dsResult.Warnings = append(dsResult.Warnings, msg)
 		}
 
 		result.DatasetResults[dsName] = dsResult
@@ -198,19 +218,6 @@ func validateSpecVersion(bom *cdx.BOM, result *ValidationResult) {
 		return
 	}
 
-	// Check if spec version is valid.
-	switch bom.SpecVersion {
-	case cdx.SpecVersion1_0, cdx.SpecVersion1_1, cdx.SpecVersion1_2,
-		cdx.SpecVersion1_3, cdx.SpecVersion1_4, cdx.SpecVersion1_5,
-		cdx.SpecVersion1_6, cdx.SpecVersion1_7:
-		// Valid spec version.
-	default:
-		result.Valid = false
-		result.Errors = append(result.Errors,
-			fmt.Sprintf("invalid or unsupported spec version: %d", bom.SpecVersion))
-		return
-	}
-
 	// Warn about older spec versions (< 1.5 doesn't have full ML-BOM support).
 	if bom.SpecVersion < cdx.SpecVersion1_5 {
 		result.Warnings = append(result.Warnings,
@@ -219,26 +226,11 @@ func validateSpecVersion(bom *cdx.BOM, result *ValidationResult) {
 	}
 }
 
-func validateModelCard(bom *cdx.BOM, result *ValidationResult) {
-	comp := bom.Metadata.Component
-	if comp == nil {
-		return
-	}
-
-	if comp.ModelCard == nil {
-		result.Warnings = append(result.Warnings, "model card not present")
-		return
-	}
-
-	if comp.ModelCard.ModelParameters == nil {
-		result.Warnings = append(result.Warnings, "model parameters not present")
-	}
-}
-
 // DanglingRefs returns one message per reference in bom that does not resolve to a
 // bom-ref present in the BOM. It checks model-card dataset refs
-// (modelCard.modelParameters.datasets[].ref) and the dependency graph
-// (dependencies[].ref and dependsOn). A nil or empty BOM has no dangling refs.
+// (modelCard.modelParameters.datasets[].ref), the dependency graph
+// (dependencies[].ref and dependsOn) and vulnerabilities[].affects[].ref.
+// A nil or empty BOM has no dangling refs.
 func DanglingRefs(bom *cdx.BOM) []string {
 	if bom == nil {
 		return nil
@@ -283,6 +275,44 @@ func DanglingRefs(bom *cdx.BOM) []string {
 			}
 		}
 	}
+	if bom.Vulnerabilities != nil {
+		for _, v := range *bom.Vulnerabilities {
+			if v.Affects == nil {
+				continue
+			}
+			for _, a := range *v.Affects {
+				if _, ok := refs[a.Ref]; !ok {
+					out = append(out, fmt.Sprintf("dangling reference: vulnerability %s affects %q has no matching bom-ref", vulnName(v), a.Ref))
+				}
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// DuplicateBOMRefs returns one message per bom-ref that is used more than once
+// across components, their data entries, services and vulnerabilities. CycloneDX
+// requires bom-refs to be unique within a BOM.
+func DuplicateBOMRefs(bom *cdx.BOM) []string {
+	if bom == nil {
+		return nil
+	}
+	counts := map[string]int{}
+	forEachBOMRef(bom, func(ref string) { counts[ref]++ })
+	if bom.Vulnerabilities != nil {
+		for _, v := range *bom.Vulnerabilities {
+			if v.BOMRef != "" {
+				counts[v.BOMRef]++
+			}
+		}
+	}
+	var out []string
+	for ref, n := range counts {
+		if n > 1 {
+			out = append(out, fmt.Sprintf("duplicate bom-ref %q used %d times", ref, n))
+		}
+	}
 	sort.Strings(out)
 	return out
 }
@@ -291,15 +321,23 @@ func DanglingRefs(bom *cdx.BOM) []string {
 // components, their data entries and all (nested) services.
 func collectBOMRefs(bom *cdx.BOM) map[string]struct{} {
 	refs := map[string]struct{}{}
-	add := func(c *cdx.Component) {
-		if c.BOMRef != "" {
-			refs[c.BOMRef] = struct{}{}
+	forEachBOMRef(bom, func(ref string) { refs[ref] = struct{}{} })
+	return refs
+}
+
+// forEachBOMRef calls fn for every non-empty bom-ref of the metadata component,
+// all (nested) components, their data entries and all (nested) services.
+func forEachBOMRef(bom *cdx.BOM, fn func(string)) {
+	emit := func(ref string) {
+		if ref != "" {
+			fn(ref)
 		}
+	}
+	add := func(c *cdx.Component) {
+		emit(c.BOMRef)
 		if c.Data != nil {
 			for _, d := range *c.Data {
-				if d.BOMRef != "" {
-					refs[d.BOMRef] = struct{}{}
-				}
+				emit(d.BOMRef)
 			}
 		}
 	}
@@ -313,13 +351,8 @@ func collectBOMRefs(bom *cdx.BOM) map[string]struct{} {
 		walkComponents(*bom.Components, add)
 	}
 	if bom.Services != nil {
-		walkServices(*bom.Services, func(s *cdx.Service) {
-			if s.BOMRef != "" {
-				refs[s.BOMRef] = struct{}{}
-			}
-		})
+		walkServices(*bom.Services, func(s *cdx.Service) { emit(s.BOMRef) })
 	}
-	return refs
 }
 
 func walkComponents(components []cdx.Component, fn func(*cdx.Component)) {

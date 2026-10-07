@@ -174,7 +174,12 @@ Options:
 
 ### `validate`
 
-Validates an existing AIBOM file (JSON/XML), runs completeness checks, and can fail in strict mode.
+Validates an existing AIBOM file (JSON or XML).
+
+- **Schema:** JSON BOMs are checked against the official CycloneDX JSON schema for their spec version (1.2–1.7, embedded, no network), including formats such as `date-time` and `iri-reference`. XML BOMs and spec 1.0/1.1 skip this check with a warning.
+- **Integrity:** bom-refs must be unique; references (model-card datasets, dependencies, vulnerability `affects`) that don't resolve are reported as warnings.
+- **Completeness:** `--min-score` is enforced in every mode. With `--strict`, missing required model and dataset fields are errors.
+- **Vulnerabilities:** reported as warnings; with `--strict`, those rated at or above `--fail-severity` are errors.
 
 ```bash
 aibomgen-cli validate -i dist/google-bert_bert-base-uncased.aibom.cdx.json
@@ -185,10 +190,11 @@ Options:
 
 - `--input, -i <path>`: path to AIBOM file (required)
 - `--strict`: fail on missing required fields and on vulnerabilities rated at or above `--fail-severity`
-- `--fail-severity critical|high|medium|low|info`: lowest vulnerability severity that fails `--strict` (default: `medium`). Vulnerabilities below it, or without a rated severity, are reported as warnings; without `--strict` every vulnerability is a warning. Hugging Face scanner findings are rated `critical` (unsafe), `high` (suspicious) or `medium` (caution).
+- `--fail-severity critical|high|medium|low|info`: lowest vulnerability severity that fails `--strict` (default: `medium`). Vulnerabilities below it, or without a rated severity, are reported as warnings. Hugging Face scanner findings are rated `critical` (unsafe), `high` (suspicious) or `medium` (caution).
 - `--min-score 0.0-1.0`: minimum acceptable completeness score
-- `--check-model-card`: validate model card fields (default: `false`)
-- `--log-level quiet|standard|debug`
+- `--log-level quiet|standard|debug`: `debug` also lists the missing optional fields
+
+Exit codes: `0` valid, `1` error (unreadable file, invalid flag, …), `2` invalid BOM.
 
 ### `completeness`
 
