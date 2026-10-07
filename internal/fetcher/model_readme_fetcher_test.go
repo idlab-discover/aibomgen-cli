@@ -173,7 +173,8 @@ func TestParseReadmeCard_BaseModel(t *testing.T) {
 // bert-base-uncased / roberta-base layout: one "Intended uses & limitations" section with
 // "How to use" and "Limitations and bias" subsections full of code.
 func TestParseReadmeCard_ConsiderationAliases_BertLayout(t *testing.T) {
-	readme := "---\nlicense: apache-2.0\n---\n# BERT base model (uncased)\n\n## Model description\n\nBERT is a transformers model.\n\n" +
+	readme := "---\nlicense: apache-2.0\n---\n# BERT base model (uncased)\n\nPretrained model on English language using a masked language modeling (MLM) objective.\n\n" +
+		"## Model description\n\nBERT is a transformers model.\n\n" +
 		"## Intended uses & limitations\n\nYou can use the raw model for masked language modeling, but it's mostly intended to be fine-tuned.\n\n" +
 		"### How to use\n\nYou can use this model directly with a pipeline:\n\n```python\n>>> from transformers import pipeline\n>>> unmasker = pipeline('fill-mask', model='bert-base-uncased')\n```\n\n" +
 		"### Limitations and bias\n\nThis model can have biased predictions:\n\n```python\n>>> unmasker(\"The man worked as a [MASK].\")\n```\n\nThis bias will also affect all fine-tuned versions of this model.\n\n" +
@@ -189,6 +190,26 @@ func TestParseReadmeCard_ConsiderationAliases_BertLayout(t *testing.T) {
 	}
 	if card.EthicalConsiderations != "" || card.OutOfScopeUse != "" {
 		t.Fatalf("unexpected ethical=%q outOfScope=%q", card.EthicalConsiderations, card.OutOfScopeUse)
+	}
+	if card.DescriptionSection != "BERT is a transformers model." {
+		t.Fatalf("descriptionSection = %q", card.DescriptionSection)
+	}
+	if card.LeadParagraph != "Pretrained model on English language using a masked language modeling (MLM) objective." {
+		t.Fatalf("leadParagraph = %q", card.LeadParagraph)
+	}
+	if card.Summary != "" {
+		t.Fatalf("summary = %q, want empty", card.Summary)
+	}
+}
+
+func TestParseReadmeCard_FrontMatterSummary(t *testing.T) {
+	card := parseReadmeCard("---\nsummary: |\n  A small model\n  for **tests**.\n---\n# M\n\nLead paragraph with enough words.\n")
+	if card.Summary != "A small model for tests." {
+		t.Fatalf("summary = %q", card.Summary)
+	}
+	card = parseReadmeCard("---\nmodel_description: Preferred text.\nsummary: Other text.\n---\n")
+	if card.Summary != "Preferred text." {
+		t.Fatalf("summary = %q, want model_description first", card.Summary)
 	}
 }
 

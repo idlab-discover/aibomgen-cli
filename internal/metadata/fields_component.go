@@ -555,6 +555,81 @@ func componentFields() []FieldSpec {
 			InputType:   InputTypeText,
 			Placeholder: "Model revision (commit SHA or tag)",
 		},
+		{
+			Key:      ComponentDescription,
+			Weight:   0.5,
+			Required: false,
+			Sources: []func(Source) (any, bool){
+				func(src Source) (any, bool) {
+					// Front matter model_description / summary.
+					if src.Readme != nil {
+						if s := realString(src.Readme.Summary); s != "" {
+							return s, true
+						}
+					}
+					return nil, false
+				},
+				func(src Source) (any, bool) {
+					// The same front matter via the API, for when the README fetch failed.
+					if src.HF == nil {
+						return nil, false
+					}
+					for _, key := range []string{"model_description", "summary"} {
+						s, _ := src.HF.CardData[key].(string)
+						if s = realString(strings.Join(strings.Fields(s), " ")); s != "" {
+							return s, true
+						}
+					}
+					return nil, false
+				},
+				func(src Source) (any, bool) {
+					// First prose paragraph under a description-like section.
+					if src.Readme != nil {
+						if s := realString(src.Readme.DescriptionSection); s != "" {
+							return s, true
+						}
+					}
+					return nil, false
+				},
+				func(src Source) (any, bool) {
+					// First prose paragraph after the title.
+					if src.Readme != nil {
+						if s := realString(src.Readme.LeadParagraph); s != "" {
+							return s, true
+						}
+					}
+					return nil, false
+				},
+			},
+			Parse: func(value string) (any, error) {
+				return parseNonEmptyString(value, "description")
+			},
+			Apply: func(tgt Target, value any) error {
+				input, ok := value.(applyInput)
+				if !ok {
+					return fmt.Errorf("invalid input for %s", ComponentDescription)
+				}
+				v, _ := input.Value.(string)
+				v = strings.TrimSpace(v)
+				if v == "" {
+					return fmt.Errorf("description value is empty")
+				}
+				if tgt.Component == nil {
+					return fmt.Errorf("component is nil")
+				}
+				if !input.Force && strings.TrimSpace(tgt.Component.Description) != "" {
+					return nil
+				}
+				tgt.Component.Description = v
+				return nil
+			},
+			Present: func(b *cdx.BOM) bool {
+				c := bomComponent(b)
+				return c != nil && strings.TrimSpace(c.Description) != ""
+			},
+			InputType:   InputTypeTextArea,
+			Placeholder: "One or two sentences describing the model",
+		},
 	}
 }
 

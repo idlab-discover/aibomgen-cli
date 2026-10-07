@@ -24,6 +24,7 @@ const (
 	ComponentSupplier           Key = "BOM.metadata.component.supplier"
 	ComponentAuthors            Key = "BOM.metadata.component.authors"
 	ComponentVersion            Key = "BOM.metadata.component.version"
+	ComponentDescription        Key = "BOM.metadata.component.description"
 
 	// Component-level extra properties (stored later as CycloneDX Component.Properties).
 	ComponentPropertiesHuggingFaceLastModified Key = "BOM.metadata.component.properties.huggingface:lastModified"

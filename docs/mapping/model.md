@@ -16,8 +16,36 @@ The model is written as `metadata.component` with `type: machine-learning-model`
 | `supplier` | `BOM.metadata.component.supplier` | namespace | `{name: namespace, url: [https://huggingface.co/{namespace}]}` | 0.5 |
 | `authors` | `BOM.metadata.component.authors` | README "Developed by" (placeholders skipped) → namespace | `[{name}]` | 0.5 |
 | `version` | `BOM.metadata.component.version` | requested revision, if it isn't a 40-hex commit SHA → `HF.sha` | Named revision as is (e.g. `v1.0`, `main`); otherwise the lowercased commit SHA, equal to the purl version | 0.5 |
+| `description` | `BOM.metadata.component.description` | README front matter `model_description` → `summary` → `cardData.model_description` → `cardData.summary` → README description section → README lead paragraph (see [Description](#description)) | One line of plain text, at most 300 characters, cut at a sentence end. Placeholders are skipped; absent when no source has prose. | 0.5 |
 
 `purl` and `bom-ref` are computed after these fields, see [identity-and-links.md](identity-and-links.md).
+
+### Description
+
+The description is one or two sentences of plain text. The sources are tried in order:
+
+1. **Front matter.** The `model_description` or `summary` key. None of the popular cards checked use either key.
+2. **Description section.** The first prose paragraph under the first of these headings that has one: Model description, Model Summary, Description, Model Overview, Overview, Introduction, Model Details, Model Information, Model.
+3. **Lead paragraph.** The first prose paragraph after the title. Only the text before the first heading and under `#` headings counts; the search stops at the first `##` or deeper heading.
+
+Headings match the same way as the [considerations sections](#considerations-sections), and a leading section number (`## 1. Introduction`) is ignored.
+
+A paragraph counts as prose after code, HTML and images are removed and it is not one of the following:
+- a list, table, quote or label line such as `**Model developer**: Meta`;
+- shorter than four words;
+- a single sentence ending with `:` once URLs are removed, such as "Try it here: https://…";
+- a pointer elsewhere, such as "For more details, please refer to…";
+- a template placeholder, including the Hugging Face template's auto-generated "This is the model card of a 🤗 transformers model…".
+
+A bold-only line (`**Post-Training: …**`) counts as a heading, not prose.
+
+The chosen paragraph is then flattened:
+- a list or table glued to the paragraph is cut off;
+- a final lead-in sentence ending in `:` ("It has the following features:") is dropped;
+- links become their text;
+- bare URLs (and a parenthetical holding one) and emphasis markers are removed.
+
+Whole sentences are kept up to 300 characters. A first sentence longer than that is cut at a word boundary with `…`.
 
 ## Model card (`modelCard`)
 
@@ -46,7 +74,7 @@ Most model cards don't use the exact Hugging Face template headings, so each con
 | Recommendations | Recommendations |
 
 Matching rules:
-- **Headings:** any level (`#` to `######`). Matching ignores case, `*`, `_`, `` ` ``, closing `#`s and trailing `:.!?`. Lines inside fenced code blocks are never headings.
+- **Headings:** any level (`#` to `######`). Matching ignores case, `*`, `_`, `` ` ``, closing `#`s, a leading section number and trailing `:.!?`. Lines inside fenced code blocks are never headings.
 - **Section body:** runs to the next heading of any level, so a combined section like "Intended uses & limitations" gives its intro text to the use cases. A nested "Limitations and bias" subsection gives the limitations.
 - **Skipped sections:** a section that is empty after cleaning is skipped. A section holding only `[More Information Needed]` is skipped too, and kept verbatim only when no alias has real text.
 - **Cleaning:** fenced code blocks, HTML comments and tags, and Markdown images are removed, and blank lines are collapsed.

@@ -85,6 +85,9 @@ func TestNormalizeHeading(t *testing.T) {
 		"LIMITATIONS AND  BIAS ##":          "limitations and bias",
 		"Bias, Risks, and Limitations":      "bias, risks, and limitations",
 		"_Intended uses & limitations_ ...": "intended uses & limitations",
+		"1. Introduction":                   "introduction",
+		"2.1 Model Summary":                 "model summary",
+		"3) Limitations":                    "limitations",
 	}
 	for in, want := range tests {
 		if got := normalizeHeading(in); got != want {
@@ -207,5 +210,159 @@ func TestCleanSectionText_Cap(t *testing.T) {
 
 	if got := cleanSectionText("short", maxSectionRunes); got != "short" {
 		t.Fatalf("short text changed: %q", got)
+	}
+}
+
+func TestExtractDescriptionSection(t *testing.T) {
+	for _, alias := range descriptionHeadings {
+		t.Run(alias, func(t *testing.T) {
+			md := "# Title\n\n## " + alias + "\n\nThis model does a useful thing well.\n\n## Training\n\nX y z w."
+			if got := extractDescriptionSection(md); got != "This model does a useful thing well." {
+				t.Fatalf("extractDescriptionSection() = %q", got)
+			}
+		})
+	}
+
+	tests := []struct {
+		name string
+		md   string
+		want string
+	}{
+		{
+			name: "numbered heading",
+			md:   "# DeepSeek-R1\n\n## 1. Introduction\n\nWe introduce our first-generation reasoning models.",
+			want: "We introduce our first-generation reasoning models.",
+		},
+		{
+			name: "falls through a section without prose",
+			md:   "## Model Details\n\n- **Developed by:** org\n- **License:** mit\n\n## Introduction\n\nQwen2 is a new series of large language models.",
+			want: "Qwen2 is a new series of large language models.",
+		},
+		{
+			name: "HF template boilerplate is skipped",
+			md: "## Model Details\n\n### Model Description\n\n<!-- Provide a longer summary of what this model is. -->\n\n" +
+				"This is the model card of a 🤗 transformers model that has been pushed on the Hub. This model card has been automatically generated.\n\n" +
+				"- **Developed by:** [More Information Needed]",
+			want: "",
+		},
+		{
+			name: "heading inside a code fence is ignored",
+			md:   "## Usage\n\n```python\n## Introduction\nprint('this is not a heading at all')\n```\n",
+			want: "",
+		},
+		{
+			name: "bold pseudo-heading is skipped",
+			md:   "## 2. Model Summary\n\n---\n\n**Post-Training: Large-Scale Reinforcement Learning on the Base Model**\n\n- We directly apply RL.\n\n## 1. Introduction\n\nWe introduce our reasoning models.",
+			want: "We introduce our reasoning models.",
+		},
+		{
+			name: "glued list and lead-in sentence are cut",
+			md:   "## Introduction\n\nQwen2.5 is the latest series of Qwen models. It brings the following improvements:\n- More knowledge\n- Better coding",
+			want: "Qwen2.5 is the latest series of Qwen models.",
+		},
+		{
+			name: "pointer paragraph is skipped",
+			md:   "## Model Overview\n\nFor more details, including benchmark evaluation, please refer to our [blog](https://x.example).",
+			want: "",
+		},
+		{
+			name: "single-sentence lead-in is not prose",
+			md:   "## Model Overview\n\nQwen3-4B-Instruct-2507 has the following features:\n- Type: Causal Language Models",
+			want: "",
+		},
+		{
+			name: "label lines and lead-ins are skipped",
+			md:   "### Description\n\n**Model developer**: Meta\n\nThe model has the following features:\n\nGemma is a family of lightweight open models.",
+			want: "Gemma is a family of lightweight open models.",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := extractDescriptionSection(tt.md); got != tt.want {
+				t.Fatalf("extractDescriptionSection() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExtractLeadParagraph(t *testing.T) {
+	tests := []struct {
+		name string
+		md   string
+		want string
+	}{
+		{
+			name: "badge-only README",
+			md: "# My Model\n\n[![Build](https://img.shields.io/badge/build-passing-green)](https://ci.example.com)\n" +
+				"[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)\n\n" +
+				"<a href=\"https://chat.example.com\"><img alt=\"Chat\" src=\"https://img.shields.io/badge/chat-blue\"/></a>\n\n## Usage\n\nRun the model with the pipeline.",
+			want: "",
+		},
+		{
+			name: "HTML-only README",
+			md:   "<div align=\"center\">\n  <img src=\"logo.svg\" width=\"60%\" />\n</div>\n<hr>\n<p align=\"center\"><a href=\"https://x.example\">Homepage</a></p>\n",
+			want: "",
+		},
+		{
+			name: "prose inside HTML counts once tags are stripped",
+			md:   "<p align=\"center\">A compact vision model for image tagging.</p>\n",
+			want: "A compact vision model for image tagging.",
+		},
+		{
+			name: "lead-in ending in a URL is skipped",
+			md: "# GPT-2\n\nTest the whole generation capabilities here: https://transformer.huggingface.co/doc/gpt2-large\n\n" +
+				"Pretrained model on English language using a causal language modeling (CLM) objective.",
+			want: "Pretrained model on English language using a causal language modeling (CLM) objective.",
+		},
+		{
+			name: "list and table before prose",
+			md:   "# Model\n\n- item one here\n- item two here\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nA ResNet-B image classification model.",
+			want: "A ResNet-B image classification model.",
+		},
+		{
+			name: "stops at the first level-2 heading",
+			md:   "# Model Card for Mistral\n\n## Encode and Decode\n\n```py\nfrom mistral_common import x\n```\n\nThis paragraph is not after the title.",
+			want: "",
+		},
+		{
+			name: "links flattened and lines joined",
+			md:   "# all-MiniLM-L6-v2\n\nThis is a [sentence-transformers](https://www.SBERT.net) model: It maps sentences\nto a **384 dimensional** dense vector space.",
+			want: "This is a sentence-transformers model: It maps sentences to a 384 dimensional dense vector space.",
+		},
+		{
+			name: "parenthetical URL and emphasis removed",
+			md:   "# SDXL\n\nThe base model feeds a refinement model (available here: https://huggingface.co/x/y) and is a _sequence-to-sequence_ model, see *paper*.",
+			want: "The base model feeds a refinement model and is a sequence-to-sequence model, see paper.",
+		},
+		{
+			name: "snake_case is kept",
+			md:   "# M\n\nSet the model_type field to bert in the config file.",
+			want: "Set the model_type field to bert in the config file.",
+		},
+		{
+			name: "text under a later level-1 heading",
+			md:   "For more details please refer to our github repo: https://github.com/x/y\n\n# BGE-M3 ([paper](https://arxiv.org/x))\n\nIn this project, we introduce BGE-M3.",
+			want: "In this project, we introduce BGE-M3.",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := extractLeadParagraph(tt.md); got != tt.want {
+				t.Fatalf("extractLeadParagraph() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+
+	long := "# Model\n\n" + strings.Repeat("This model is good at many things. ", 20)
+	got := extractLeadParagraph(long)
+	if n := utf8.RuneCountInString(got); n > maxDescriptionRunes || !strings.HasSuffix(got, "things.") {
+		t.Fatalf("want <= %d runes ending at a sentence, got %d: %q", maxDescriptionRunes, n, got)
+	}
+
+	// A short first sentence is kept whole instead of being cut mid-sentence later on.
+	first := "GPT-2 is a transformers model pretrained on English data."
+	got = extractLeadParagraph("# GPT-2\n\n" + first + " " + strings.Repeat("word ", 80) + "end.")
+	if got != first {
+		t.Fatalf("want the first sentence only, got %q", got)
 	}
 }

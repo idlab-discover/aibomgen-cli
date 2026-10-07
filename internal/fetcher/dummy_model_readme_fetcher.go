@@ -34,6 +34,7 @@ func (f *DummyModelReadmeFetcher) Fetch(modelID string) (*ModelReadmeCard, error
 		BiasRisksLimitations:  "The model may exhibit biases present in the training data, including but not limited to gender, racial, and cultural biases. Users should be aware of potential risks when deploying in production environments.",
 		EthicalConsiderations: "The model was trained on web text and may reproduce harmful stereotypes.",
 		BiasRecommendations:   "We recommend implementing content filtering, human review for sensitive applications, and regular bias audits when using this model in production.",
+		DescriptionSection:    "A dummy GPT-2 style language model used for testing and demos.",
 		ModelCardContact:      "contact@dummy-org.example.com",
 
 		// Environmental Impact.

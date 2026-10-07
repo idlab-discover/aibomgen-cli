@@ -60,6 +60,7 @@ func TestRegistryApplyAndPresent(t *testing.T) {
 			License:                    "apache-2.0",
 			Datasets:                   []string{"glue"},
 			Metrics:                    []string{"accuracy"},
+			DescriptionSection:         "A BERT model fine-tuned for classification.",
 			DirectUse:                  "Use for classification.",
 			OutOfScopeUse:              "Do not use for medical.",
 			BiasRisksLimitations:       "May be biased.",

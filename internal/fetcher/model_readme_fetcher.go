@@ -27,6 +27,8 @@ type ModelReadmeCard struct {
 	Datasets  []string
 	Metrics   []string
 	BaseModel string
+	// Summary is front matter model_description (else summary), flattened and capped.
+	Summary string
 
 	// Extracted from Markdown body (template headings and their common aliases).
 	DevelopedBy           string
@@ -38,6 +40,11 @@ type ModelReadmeCard struct {
 	EthicalConsiderations string
 	BiasRecommendations   string
 	ModelCardContact      string
+
+	// Description candidates (first prose paragraph, flattened and capped): under a
+	// description-like section, and right after the title.
+	DescriptionSection string
+	LeadParagraph      string
 
 	// Environmental Impact (from Markdown body).
 	EnvironmentalHardwareType  string
@@ -163,6 +170,12 @@ func parseReadmeCard(raw string) *ModelReadmeCard {
 	card.Metrics = stringSliceFromAny(fm["metrics"])
 	// base_model may be a single ID or a list (merges, adapters): join lists with ",".
 	card.BaseModel = strings.Join(stringSliceFromAny(fm["base_model"]), ",")
+	for _, key := range []string{"model_description", "summary"} {
+		if s := flattenInline(stringFromAny(fm[key])); s != "" {
+			card.Summary = truncateDescription(s)
+			break
+		}
+	}
 
 	// model-index task + metrics (best effort).
 	if mi, ok := fm["model-index"]; ok {
@@ -179,6 +192,8 @@ func parseReadmeCard(raw string) *ModelReadmeCard {
 	card.EthicalConsiderations = considerationSection(body, ethicalHeadings)
 	card.BiasRecommendations = considerationSection(body, recommendationHeadings)
 	card.ModelCardContact = strings.TrimSpace(extractSection(body, "Model Card Contact"))
+	card.DescriptionSection = extractDescriptionSection(body)
+	card.LeadParagraph = extractLeadParagraph(body)
 
 	// Quantitative Analysis sections.
 	card.TestingMetrics = strings.TrimSpace(extractSection(body, "Metrics"))

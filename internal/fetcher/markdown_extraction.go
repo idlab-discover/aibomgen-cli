@@ -186,13 +186,30 @@ var (
 	recommendationHeadings = []string{
 		"Recommendations",
 	}
+	// descriptionHeadings hold a short summary of the model, tried in order.
+	descriptionHeadings = []string{
+		"Model description",
+		"Model Summary",
+		"Description",
+		"Model Overview",
+		"Overview",
+		"Introduction",
+		"Model Details",
+		"Model Information",
+		"Model", // last resort: generic
+	}
 )
 
-// maxSectionRunes caps free text taken from a model card section.
-const maxSectionRunes = 1000
+const (
+	// maxSectionRunes caps free text taken from a model card section.
+	maxSectionRunes = 1000
+	// maxDescriptionRunes caps the one-line model description.
+	maxDescriptionRunes = 300
+)
 
 var (
-	headingLineRe   = regexp.MustCompile(`^#{1,6}\s+(.+?)\s*$`)
+	headingLineRe   = regexp.MustCompile(`^(#{1,6})\s+(.+?)\s*$`)
+	headingNumberRe = regexp.MustCompile(`^\d+(?:\.\d+)*[.)]?\s+`)
 	headingMarkupRe = regexp.MustCompile("[*_`]")
 	spaceRe         = regexp.MustCompile(`\s+`)
 	fencedCodeRe    = regexp.MustCompile("(?ms)^[ \t]*(```|~~~).*?^[ \t]*(```|~~~)[^\n]*$")
@@ -205,11 +222,13 @@ var (
 	sentenceEndRe = regexp.MustCompile(`[^\d\s][.!?]\s`)
 )
 
-// normalizeHeading lowercases a heading and drops markup (*, _, `), closing #s and
-// trailing punctuation so "## **Limitations:**" and "### limitations" compare equal.
+// normalizeHeading lowercases a heading and drops markup (*, _, `), closing #s, a
+// leading section number and trailing punctuation, so "## **Limitations:**",
+// "### limitations" and "## 2. Limitations" compare equal.
 func normalizeHeading(s string) string {
 	s = headingMarkupRe.ReplaceAllString(s, "")
 	s = strings.TrimSpace(strings.TrimRight(strings.TrimSpace(s), "#"))
+	s = headingNumberRe.ReplaceAllString(s, "")
 	s = strings.TrimRight(s, ":.!? ")
 	s = spaceRe.ReplaceAllString(s, " ")
 	return strings.ToLower(strings.TrimSpace(s))
@@ -221,24 +240,24 @@ func isFenceLine(line string) bool {
 }
 
 type mdSection struct {
-	heading string // normalized
+	heading string // normalized; empty for the preamble
+	level   int    // number of #s; 0 for the preamble
 	body    string
 }
 
 // splitSections splits Markdown into sections, one per heading (any level). A section's
-// body runs up to the next heading of any level. Lines inside fenced code blocks are
+// body runs up to the next heading of any level. Text before the first heading is a
+// level-0 preamble section with an empty heading. Lines inside fenced code blocks are
 // never treated as headings.
 func splitSections(markdown string) []mdSection {
 	lines := strings.Split(strings.ReplaceAll(markdown, "\r\n", "\n"), "\n")
 
 	var sections []mdSection
-	var cur *mdSection
+	cur := &mdSection{}
 	var buf []string
 	flush := func() {
-		if cur != nil {
-			cur.body = strings.TrimSpace(strings.Join(buf, "\n"))
-			sections = append(sections, *cur)
-		}
+		cur.body = strings.TrimSpace(strings.Join(buf, "\n"))
+		sections = append(sections, *cur)
 		buf = buf[:0]
 	}
 
@@ -249,7 +268,7 @@ func splitSections(markdown string) []mdSection {
 		} else if !inFence {
 			if m := headingLineRe.FindStringSubmatch(line); m != nil {
 				flush()
-				cur = &mdSection{heading: normalizeHeading(m[1])}
+				cur = &mdSection{heading: normalizeHeading(m[2]), level: len(m[1])}
 				continue
 			}
 		}
@@ -263,7 +282,7 @@ func splitSections(markdown string) []mdSection {
 func extractSection(markdown string, heading string) string {
 	want := normalizeHeading(heading)
 	for _, s := range splitSections(markdown) {
-		if s.heading == want {
+		if s.level > 0 && s.heading == want {
 			return s.body
 		}
 	}
@@ -280,7 +299,7 @@ func extractSectionAny(markdown string, headings []string) string {
 	for _, h := range headings {
 		want := normalizeHeading(h)
 		for _, s := range sections {
-			if s.heading != want {
+			if s.level == 0 || s.heading != want {
 				continue
 			}
 			c := cleanSectionText(s.body, 0)
@@ -323,14 +342,23 @@ func cleanSectionText(s string, maxRunes int) string {
 // truncateText cuts s to at most maxRunes runes (plus an ellipsis), preferring the end
 // of a sentence, then a word boundary.
 func truncateText(s string, maxRunes int) string {
+	return truncateAtSentence(s, maxRunes, 0.5)
+}
+
+// truncateAtSentence cuts s to at most maxRunes runes. It keeps whole sentences when the
+// last sentence end within the limit lies past minFrac of it; otherwise it cuts at a
+// word boundary and appends an ellipsis.
+func truncateAtSentence(s string, maxRunes int, minFrac float64) string {
 	r := []rune(s)
 	if len(r) <= maxRunes {
 		return s
 	}
 	cut := string(r[:maxRunes])
-	if locs := sentenceEndRe.FindAllStringIndex(cut, -1); len(locs) > 0 {
+	// Look one rune past the limit so a sentence ending exactly at it is found.
+	probe := string(r[:maxRunes+1])
+	if locs := sentenceEndRe.FindAllStringIndex(probe, -1); len(locs) > 0 {
 		// Keep up to and including the punctuation (\s is a single ASCII byte in RE2).
-		if end := locs[len(locs)-1][1] - 1; end >= len(cut)/2 {
+		if end := locs[len(locs)-1][1] - 1; float64(end) >= float64(len(cut))*minFrac {
 			return cut[:end]
 		}
 	}
@@ -354,4 +382,112 @@ func extractBulletValue(markdown string, label string) string {
 		return ""
 	}
 	return strings.TrimSpace(m[1])
+}
+
+var (
+	mdLinkRe        = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
+	urlParenRe      = regexp.MustCompile(`\s*\([^()]*https?://[^()]*\)`)
+	bareURLRe       = regexp.MustCompile(`<?https?://[^\s)>]+>?`)
+	inlineMarkupRe  = regexp.MustCompile("\\*\\*|__|`")
+	emphasisRe      = regexp.MustCompile(`(^|[\s(])[*_]([^*_\n]+)[*_]([\s.,;:!?)]|$)`)
+	listItemRe      = regexp.MustCompile(`^\s*(?:[-*+]|\d+[.)])\s`)
+	boldLabelLineRe = regexp.MustCompile(`^\s*\*\*[^*]+(?::\*\*|\*\*\s*:)`)
+	boldOnlyRe      = regexp.MustCompile(`^\*\*[^*]+\*\*$`)
+	// pointerRe matches paragraphs that only point elsewhere ("For more details, please refer to ...").
+	pointerRe = regexp.MustCompile(`(?i)^(?:for (?:more|further) (?:details|information)|please (?:refer|see|check|visit)|refer to|check out|see )`)
+)
+
+// truncateDescription caps a description, keeping whole sentences when it can.
+func truncateDescription(s string) string {
+	return truncateAtSentence(s, maxDescriptionRunes, 0)
+}
+
+// hfBoilerplatePrefix starts the auto-generated text of the HF model card template.
+const hfBoilerplatePrefix = "this is the model card of a 🤗 transformers model"
+
+// extractDescriptionSection returns the first prose paragraph of the first
+// description-like section (see descriptionHeadings) that has one.
+func extractDescriptionSection(body string) string {
+	sections := splitSections(body)
+	for _, h := range descriptionHeadings {
+		want := normalizeHeading(h)
+		for _, s := range sections {
+			if s.level == 0 || s.heading != want {
+				continue
+			}
+			if p := firstProseParagraph(s.body); p != "" {
+				return truncateDescription(p)
+			}
+		}
+	}
+	return ""
+}
+
+// extractLeadParagraph returns the first prose paragraph after the title: it looks at
+// the text before the first heading and under level-1 headings, and stops at the first
+// heading of level 2 or deeper.
+func extractLeadParagraph(body string) string {
+	for _, s := range splitSections(body) {
+		if s.level >= 2 {
+			break
+		}
+		if p := firstProseParagraph(s.body); p != "" {
+			return truncateDescription(p)
+		}
+	}
+	return ""
+}
+
+// firstProseParagraph returns the first paragraph of s that reads as prose, flattened
+// to one line. Code, HTML, images, badges, lists, tables, label lines and bold
+// pseudo-headings are skipped, as are paragraphs that only point elsewhere. A list glued to a paragraph is cut off, and so is a
+// trailing lead-in sentence ending in ":" ("It has the following features:").
+func firstProseParagraph(s string) string {
+	for _, para := range strings.Split(cleanSectionText(s, 0), "\n\n") {
+		lines := strings.Split(strings.TrimSpace(para), "\n")
+		first := lines[0]
+		if first == "" || listItemRe.MatchString(first) || boldLabelLineRe.MatchString(first) ||
+			boldOnlyRe.MatchString(strings.TrimSpace(first)) ||
+			strings.HasPrefix(first, "|") || strings.HasPrefix(first, ">") || strings.HasPrefix(first, "#") {
+			continue
+		}
+		// Keep the prose lines before a list or table.
+		for i, l := range lines {
+			if listItemRe.MatchString(l) || strings.HasPrefix(strings.TrimSpace(l), "|") {
+				lines = lines[:i]
+				break
+			}
+		}
+		flat := flattenInline(strings.Join(lines, "\n"))
+		if strings.HasSuffix(flat, ":") {
+			flat = dropLastSentence(flat)
+		}
+		if len(strings.Fields(flat)) < 4 || isTemplatePlaceholder(flat) || pointerRe.MatchString(flat) ||
+			strings.HasPrefix(strings.ToLower(flat), hfBoilerplatePrefix) {
+			continue
+		}
+		return flat
+	}
+	return ""
+}
+
+// dropLastSentence removes the last sentence of s, returning "" if s is one sentence.
+func dropLastSentence(s string) string {
+	locs := sentenceEndRe.FindAllStringIndex(s, -1)
+	if len(locs) == 0 {
+		return ""
+	}
+	return s[:locs[len(locs)-1][1]-1]
+}
+
+// flattenInline turns a Markdown paragraph into one plain line: links become their
+// text, bare URLs (and parentheticals holding one) and emphasis markers are dropped and
+// whitespace is collapsed.
+func flattenInline(s string) string {
+	s = mdLinkRe.ReplaceAllString(s, "$1")
+	s = urlParenRe.ReplaceAllString(s, "")
+	s = bareURLRe.ReplaceAllString(s, "")
+	s = inlineMarkupRe.ReplaceAllString(s, "")
+	s = emphasisRe.ReplaceAllString(s, "$1$2$3")
+	return strings.Join(strings.Fields(s), " ")
 }
