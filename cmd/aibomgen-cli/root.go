@@ -67,54 +67,38 @@ func initConfig() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	viper.AutomaticEnv()
 
+	notFound := &viper.ConfigFileNotFoundError{}
+	var err error
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
+		err = viper.ReadInConfig()
 	} else {
 		// Find home directory.
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
+		home, herr := os.UserHomeDir()
+		cobra.CheckErr(herr)
 
 		viper.SetConfigType("yaml")
 		viper.AddConfigPath(home)
 		viper.AddConfigPath("./config")
 
-		// Try .aibomgen-cli first.
+		// Try .aibomgen-cli first, then defaults.yaml.
 		viper.SetConfigName(".aibomgen-cli")
 		err = viper.ReadInConfig()
-
-		// If not found, try defaults.yaml.
-		notFound := &viper.ConfigFileNotFoundError{}
-		if err != nil && errors.As(err, notFound) {
+		if errors.As(err, notFound) {
 			viper.SetConfigName("defaults")
 			err = viper.ReadInConfig()
 		}
-
-		if err != nil && !errors.As(err, notFound) {
-			cobra.CheckErr(err)
-		}
-
-		if err == nil {
-			configMsg := ui.Dim.Render("Using config file: ") + ui.Secondary.Render(viper.ConfigFileUsed())
-			fmt.Fprintln(os.Stderr, configMsg)
-		}
-
-		return
 	}
 
-	err := viper.ReadInConfig()
-
-	notFound := &viper.ConfigFileNotFoundError{}
 	switch {
-	case err != nil && !errors.As(err, notFound):
-		cobra.CheckErr(err)
-	case err != nil && errors.As(err, notFound):
-		// The config file is optional, we shouldn't exit when the config is not found.
-		break
-	default:
+	case err == nil:
 		configMsg := ui.Dim.Render("Using config file: ") + ui.Secondary.Render(viper.ConfigFileUsed())
 		fmt.Fprintln(os.Stderr, configMsg)
+	case !errors.As(err, notFound):
+		cobra.CheckErr(err)
 	}
+	// The config file is optional, we shouldn't exit when the config is not found.
 }
 
 const longDescription = "BOM Generator for Software Projects using AI. Helps PDE manufacturers create accurate Bills of Materials for their AI-based software projects."

@@ -25,6 +25,8 @@ generate:
   hf-token: ""
   # Log level: quiet|standard|debug
   log-level: "standard"
+  # Skip fetching the HuggingFace security scan tree
+  no-security-scan: false
 
 # ============================================================================
 # Command: scan
@@ -46,6 +48,8 @@ scan:
   hf-token: ""
   # Log level: quiet|standard|debug
   log-level: "standard"
+  # Skip fetching the HuggingFace security scan tree
+  no-security-scan: false
 
 # ============================================================================
 # Command: enrich

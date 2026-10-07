@@ -42,14 +42,9 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 		inputFormat = "auto"
 	}
 
-	logLevel := strings.ToLower(strings.TrimSpace(viper.GetString("vuln-scan.log-level")))
-	if logLevel == "" {
-		logLevel = "standard"
-	}
-	switch logLevel {
-	case "quiet", "standard", "debug":
-	default:
-		return fmt.Errorf("invalid --log-level %q (expected quiet|standard|debug)", logLevel)
+	quiet, err := quietFrom(viper.GetString("vuln-scan.log-level"))
+	if err != nil {
+		return err
 	}
 
 	enrich := viper.GetBool("vuln-scan.enrich")
@@ -80,7 +75,7 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 
 	// ── Workflow / progress ──────────────────────────────────────────────────.
 	var workflow *ui.Workflow
-	if logLevel != "quiet" {
+	if !quiet {
 		workflow = ui.NewWorkflow(w)
 		workflow.AddTask("Scanning components")
 		workflow.AddTask("Building report")
@@ -122,7 +117,7 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 		total += len(r.Vulnerabilities)
 	}
 	if total == 0 {
-		if logLevel != "quiet" {
+		if !quiet {
 			fmt.Fprintf(w, "\n%s\n", ui.SuccessBox.Render(ui.GetCheckMark()+" No vulnerabilities found – AIBOM not modified."))
 		}
 		return nil
@@ -145,7 +140,7 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to write enriched BOM: %w", err)
 	}
 
-	if logLevel != "quiet" {
+	if !quiet {
 		msg := fmt.Sprintf("Enriched BOM with %d vulnerabilities → %s", total, outPath)
 		fmt.Fprintf(w, "\n%s\n", ui.SuccessBox.Render(ui.GetCheckMark()+" "+msg))
 	}
@@ -315,50 +310,22 @@ func confirmVulnEnrich(results []vulnscan.ComponentScanResult) (bool, error) {
 	return confirm, nil
 }
 
-// ── Flag vars ─────────────────────────────────────────────────────────────────.
-
-var (
-	vulnScanInput        string
-	vulnScanInputFormat  string
-	vulnScanOutput       string
-	vulnScanOutputFormat string
-	vulnScanSpecVersion  string
-	vulnScanEnrich       bool
-	vulnScanInteractive  bool
-	vulnScanNoPreview    bool
-	vulnScanLogLevel     string
-	vulnScanHFToken      string
-	vulnScanHFBaseURL    string
-	vulnScanHFTimeout    int
-)
-
 func init() {
-	vulnScanCmd.Flags().StringVarP(&vulnScanInput, "input", "i", "", "Path to existing AIBOM (required)")
-	vulnScanCmd.Flags().StringVarP(&vulnScanOutput, "output", "o", "", "Output path when --enrich is set (default: overwrite input)")
-	vulnScanCmd.Flags().StringVarP(&vulnScanInputFormat, "format", "f", "", "Input BOM format: json|xml|auto")
-	vulnScanCmd.Flags().StringVar(&vulnScanOutputFormat, "output-format", "", "Output BOM format: json|xml|auto")
-	vulnScanCmd.Flags().StringVar(&vulnScanSpecVersion, "spec", "", "CycloneDX spec version for output")
+	vulnScanCmd.Flags().StringP("input", "i", "", "Path to existing AIBOM (required)")
+	vulnScanCmd.Flags().StringP("output", "o", "", "Output path when --enrich is set (default: overwrite input)")
+	vulnScanCmd.Flags().StringP("format", "f", "", "Input BOM format: json|xml|auto")
+	vulnScanCmd.Flags().String("output-format", "", "Output BOM format: json|xml|auto")
+	vulnScanCmd.Flags().String("spec", "", "CycloneDX spec version for output")
 
-	vulnScanCmd.Flags().BoolVar(&vulnScanEnrich, "enrich", false, "Inject discovered vulnerabilities back into the AIBOM")
-	vulnScanCmd.Flags().BoolVar(&vulnScanInteractive, "interactive", true, "Show confirmation prompt before saving (only with --enrich)")
-	vulnScanCmd.Flags().BoolVar(&vulnScanNoPreview, "no-preview", false, "Skip preview prompt (only with --enrich)")
+	vulnScanCmd.Flags().Bool("enrich", false, "Inject discovered vulnerabilities back into the AIBOM")
+	vulnScanCmd.Flags().Bool("interactive", true, "Show confirmation prompt before saving (only with --enrich)")
+	vulnScanCmd.Flags().Bool("no-preview", false, "Skip preview prompt (only with --enrich)")
 
-	vulnScanCmd.Flags().StringVar(&vulnScanLogLevel, "log-level", "", "Log level: quiet|standard|debug")
-	vulnScanCmd.Flags().StringVar(&vulnScanHFToken, "hf-token", "", "Hugging Face API token")
-	vulnScanCmd.Flags().StringVar(&vulnScanHFBaseURL, "hf-base-url", "", "Hugging Face base URL override")
-	vulnScanCmd.Flags().IntVar(&vulnScanHFTimeout, "hf-timeout", 15, "Hugging Face API timeout in seconds")
+	vulnScanCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")
+	vulnScanCmd.Flags().String("hf-token", "", "Hugging Face API token")
+	vulnScanCmd.Flags().String("hf-base-url", "", "Hugging Face base URL override")
+	vulnScanCmd.Flags().Int("hf-timeout", 15, "Hugging Face API timeout in seconds")
 
 	// Bind to viper.
-	viper.BindPFlag("vuln-scan.input", vulnScanCmd.Flags().Lookup("input"))
-	viper.BindPFlag("vuln-scan.output", vulnScanCmd.Flags().Lookup("output"))
-	viper.BindPFlag("vuln-scan.format", vulnScanCmd.Flags().Lookup("format"))
-	viper.BindPFlag("vuln-scan.output-format", vulnScanCmd.Flags().Lookup("output-format"))
-	viper.BindPFlag("vuln-scan.spec", vulnScanCmd.Flags().Lookup("spec"))
-	viper.BindPFlag("vuln-scan.enrich", vulnScanCmd.Flags().Lookup("enrich"))
-	viper.BindPFlag("vuln-scan.interactive", vulnScanCmd.Flags().Lookup("interactive"))
-	viper.BindPFlag("vuln-scan.no-preview", vulnScanCmd.Flags().Lookup("no-preview"))
-	viper.BindPFlag("vuln-scan.log-level", vulnScanCmd.Flags().Lookup("log-level"))
-	viper.BindPFlag("vuln-scan.hf-token", vulnScanCmd.Flags().Lookup("hf-token"))
-	viper.BindPFlag("vuln-scan.hf-base-url", vulnScanCmd.Flags().Lookup("hf-base-url"))
-	viper.BindPFlag("vuln-scan.hf-timeout", vulnScanCmd.Flags().Lookup("hf-timeout"))
+	bindFlags(vulnScanCmd, "vuln-scan")
 }

@@ -33,15 +33,9 @@ from Hugging Face API and README before enrichment.`,
 		}
 
 		// Get log level from viper.
-		level := strings.ToLower(strings.TrimSpace(viper.GetString("enrich.log-level")))
-		if level == "" {
-			level = "standard"
-		}
-		switch level {
-		case "quiet", "standard", "debug":
-			// ok.
-		default:
-			return fmt.Errorf("invalid --log-level %q (expected quiet|standard|debug)", level)
+		quiet, err := quietFrom(viper.GetString("enrich.log-level"))
+		if err != nil {
+			return err
 		}
 
 		// Read existing BOM.
@@ -114,7 +108,7 @@ from Hugging Face API and README before enrichment.`,
 			return fmt.Errorf("failed to write output: %w", err)
 		}
 
-		if level != "quiet" {
+		if !quiet {
 			msg := fmt.Sprintf("Enriched BOM saved to %s", outPath)
 			fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n", ui.SuccessBox.Render(ui.GetCheckMark()+" "+msg))
 		}
@@ -123,59 +117,27 @@ from Hugging Face API and README before enrichment.`,
 	},
 }
 
-var (
-	enrichInput        string
-	enrichInputFormat  string
-	enrichOutput       string
-	enrichOutputFormat string
-	enrichSpecVersion  string
-	enrichStrategy     string
-	enrichConfigFile   string
-	enrichRequiredOnly bool
-	enrichMinWeight    float64
-	enrichRefetch      bool
-	enrichNoPreview    bool
-	enrichLogLevel     string
-	enrichHFToken      string
-	enrichHFBaseURL    string
-	enrichHFTimeout    int
-)
-
 func init() {
-	enrichCmd.Flags().StringVarP(&enrichInput, "input", "i", "", "Path to existing AIBOM (required)")
-	enrichCmd.Flags().StringVarP(&enrichOutput, "output", "o", "", "Output file path (default: overwrite input)")
-	enrichCmd.Flags().StringVarP(&enrichInputFormat, "format", "f", "", "Input BOM format: json|xml|auto")
-	enrichCmd.Flags().StringVar(&enrichOutputFormat, "output-format", "", "Output BOM format: json|xml|auto")
-	enrichCmd.Flags().StringVar(&enrichSpecVersion, "spec", "", "CycloneDX spec version for output (default: same as input)")
+	enrichCmd.Flags().StringP("input", "i", "", "Path to existing AIBOM (required)")
+	enrichCmd.Flags().StringP("output", "o", "", "Output file path (default: overwrite input)")
+	enrichCmd.Flags().StringP("format", "f", "", "Input BOM format: json|xml|auto")
+	enrichCmd.Flags().String("output-format", "", "Output BOM format: json|xml|auto")
+	enrichCmd.Flags().String("spec", "", "CycloneDX spec version for output (default: same as input)")
 
-	enrichCmd.Flags().StringVar(&enrichStrategy, "strategy", "", "Enrichment strategy: interactive|file")
-	enrichCmd.Flags().StringVar(&enrichConfigFile, "file", "", "Path to enrichment config file (YAML)")
-	enrichCmd.Flags().BoolVar(&enrichRequiredOnly, "required-only", false, "Only prompt for required fields")
-	enrichCmd.Flags().Float64Var(&enrichMinWeight, "min-weight", 0.0, "Only prompt for fields with weight >= this value")
-	enrichCmd.Flags().BoolVar(&enrichRefetch, "refetch", false, "Refetch model metadata from Hugging Face before enrichment")
-	enrichCmd.Flags().BoolVar(&enrichNoPreview, "no-preview", false, "Skip preview before saving")
+	enrichCmd.Flags().String("strategy", "", "Enrichment strategy: interactive|file")
+	enrichCmd.Flags().String("file", "", "Path to enrichment config file (YAML)")
+	enrichCmd.Flags().Bool("required-only", false, "Only prompt for required fields")
+	enrichCmd.Flags().Float64("min-weight", 0.0, "Only prompt for fields with weight >= this value")
+	enrichCmd.Flags().Bool("refetch", false, "Refetch model metadata from Hugging Face before enrichment")
+	enrichCmd.Flags().Bool("no-preview", false, "Skip preview before saving")
 
-	enrichCmd.Flags().StringVar(&enrichLogLevel, "log-level", "", "Log level: quiet|standard|debug")
-	enrichCmd.Flags().StringVar(&enrichHFToken, "hf-token", "", "Hugging Face API token (for refetch)")
-	enrichCmd.Flags().StringVar(&enrichHFBaseURL, "hf-base-url", "", "Hugging Face base URL (for refetch)")
-	enrichCmd.Flags().IntVar(&enrichHFTimeout, "hf-timeout", 0, "Hugging Face API timeout in seconds (for refetch)")
+	enrichCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")
+	enrichCmd.Flags().String("hf-token", "", "Hugging Face API token (for refetch)")
+	enrichCmd.Flags().String("hf-base-url", "", "Hugging Face base URL (for refetch)")
+	enrichCmd.Flags().Int("hf-timeout", 0, "Hugging Face API timeout in seconds (for refetch)")
 
 	// Bind all flags to viper for config file support.
-	viper.BindPFlag("enrich.input", enrichCmd.Flags().Lookup("input"))
-	viper.BindPFlag("enrich.output", enrichCmd.Flags().Lookup("output"))
-	viper.BindPFlag("enrich.format", enrichCmd.Flags().Lookup("format"))
-	viper.BindPFlag("enrich.output-format", enrichCmd.Flags().Lookup("output-format"))
-	viper.BindPFlag("enrich.spec", enrichCmd.Flags().Lookup("spec"))
-	viper.BindPFlag("enrich.strategy", enrichCmd.Flags().Lookup("strategy"))
-	viper.BindPFlag("enrich.file", enrichCmd.Flags().Lookup("file"))
-	viper.BindPFlag("enrich.required-only", enrichCmd.Flags().Lookup("required-only"))
-	viper.BindPFlag("enrich.min-weight", enrichCmd.Flags().Lookup("min-weight"))
-	viper.BindPFlag("enrich.refetch", enrichCmd.Flags().Lookup("refetch"))
-	viper.BindPFlag("enrich.no-preview", enrichCmd.Flags().Lookup("no-preview"))
-	viper.BindPFlag("enrich.log-level", enrichCmd.Flags().Lookup("log-level"))
-	viper.BindPFlag("enrich.hf-token", enrichCmd.Flags().Lookup("hf-token"))
-	viper.BindPFlag("enrich.hf-base-url", enrichCmd.Flags().Lookup("hf-base-url"))
-	viper.BindPFlag("enrich.hf-timeout", enrichCmd.Flags().Lookup("hf-timeout"))
+	bindFlags(enrichCmd, "enrich")
 }
 
 // loadEnrichmentConfig loads enrichment values from a YAML config file.

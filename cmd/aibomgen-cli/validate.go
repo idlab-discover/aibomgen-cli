@@ -3,22 +3,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/bomio"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/validator"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-)
-
-var (
-	validateInput          string
-	validateFormat         string
-	validateStrict         bool
-	validateMinScore       float64
-	validateCheckModelCard bool
-	validateLogLevel       string
 )
 
 var validateCmd = &cobra.Command{
@@ -32,16 +22,10 @@ var validateCmd = &cobra.Command{
 			return errors.New("--input is required")
 		}
 
-		// Get log level from viper (respects config file).
-		level := strings.ToLower(strings.TrimSpace(viper.GetString("validate.log-level")))
-		if level == "" {
-			level = "standard"
-		}
-		switch level {
-		case "quiet", "standard", "debug":
-			// ok.
-		default:
-			return fmt.Errorf("invalid --log-level %q (expected quiet|standard|debug)", level)
+		// Get log level from viper.
+		quiet, err := quietFrom(viper.GetString("validate.log-level"))
+		if err != nil {
+			return err
 		}
 
 		// Get format from viper.
@@ -66,7 +50,7 @@ var validateCmd = &cobra.Command{
 		result := validator.Validate(bom, opts)
 
 		// Use the new UI for rendering if not in quiet mode.
-		ui := ui.NewValidationUI(cmd.OutOrStdout(), level == "quiet")
+		ui := ui.NewValidationUI(cmd.OutOrStdout(), quiet)
 		ui.PrintReport(result)
 
 		if !result.Valid {
@@ -78,18 +62,13 @@ var validateCmd = &cobra.Command{
 }
 
 func init() {
-	validateCmd.Flags().StringVarP(&validateInput, "input", "i", "", "Path to AIBOM file (required)")
-	validateCmd.Flags().StringVarP(&validateFormat, "format", "f", "", "Input format: json|xml|auto")
-	validateCmd.Flags().BoolVar(&validateStrict, "strict", false, "Strict mode: fail on missing required fields")
-	validateCmd.Flags().Float64Var(&validateMinScore, "min-score", 0.0, "Minimum completeness score (0.0-1.0)")
-	validateCmd.Flags().BoolVar(&validateCheckModelCard, "check-model-card", false, "Validate model card fields")
-	validateCmd.Flags().StringVar(&validateLogLevel, "log-level", "", "Log level: quiet|standard|debug")
+	validateCmd.Flags().StringP("input", "i", "", "Path to AIBOM file (required)")
+	validateCmd.Flags().StringP("format", "f", "", "Input format: json|xml|auto")
+	validateCmd.Flags().Bool("strict", false, "Strict mode: fail on missing required fields")
+	validateCmd.Flags().Float64("min-score", 0.0, "Minimum completeness score (0.0-1.0)")
+	validateCmd.Flags().Bool("check-model-card", false, "Validate model card fields")
+	validateCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")
 
 	// Bind all flags to viper for config file support.
-	viper.BindPFlag("validate.input", validateCmd.Flags().Lookup("input"))
-	viper.BindPFlag("validate.format", validateCmd.Flags().Lookup("format"))
-	viper.BindPFlag("validate.strict", validateCmd.Flags().Lookup("strict"))
-	viper.BindPFlag("validate.min-score", validateCmd.Flags().Lookup("min-score"))
-	viper.BindPFlag("validate.check-model-card", validateCmd.Flags().Lookup("check-model-card"))
-	viper.BindPFlag("validate.log-level", validateCmd.Flags().Lookup("log-level"))
+	bindFlags(validateCmd, "validate")
 }
