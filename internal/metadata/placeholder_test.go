@@ -121,3 +121,51 @@ func TestModelCardReadmeTextVerbatim(t *testing.T) {
 		t.Fatalf("manufacturer = %+v, want none", comp.Manufacturer)
 	}
 }
+
+func TestModelCardEthicalConsiderationsName(t *testing.T) {
+	ethics := func(r *fetcher.ModelReadmeCard) []cdx.MLModelCardEthicalConsideration {
+		comp := applyModel(Source{ModelID: "org/m", Readme: r})
+		c := comp.ModelCard.Considerations
+		if c == nil || c.EthicalConsiderations == nil {
+			return nil
+		}
+		return *c.EthicalConsiderations
+	}
+
+	got := ethics(&fetcher.ModelReadmeCard{EthicalConsiderations: "Ethics text.", BiasRisksLimitations: "Limits.", BiasRecommendations: "Be careful."})
+	if len(got) != 1 || got[0].Name != "Ethics text." || got[0].MitigationStrategy != "Be careful." {
+		t.Fatalf("dedicated section: %+v", got)
+	}
+	got = ethics(&fetcher.ModelReadmeCard{BiasRisksLimitations: "Limits."})
+	if len(got) != 1 || got[0].Name != "Limits." {
+		t.Fatalf("limitations fallback: %+v", got)
+	}
+	got = ethics(&fetcher.ModelReadmeCard{BiasRecommendations: "Be careful."})
+	if len(got) != 1 || got[0].Name != "bias_risks_limitations" {
+		t.Fatalf("recommendations only: %+v", got)
+	}
+}
+
+func TestModelDescriptionSources(t *testing.T) {
+	desc := func(src Source) string {
+		src.ModelID = "org/m"
+		return applyModel(src).Description
+	}
+	full := &fetcher.ModelReadmeCard{Summary: "From front matter.", DescriptionSection: "From a section.", LeadParagraph: "From the lead."}
+	if got := desc(Source{Readme: full}); got != "From front matter." {
+		t.Fatalf("summary first: %q", got)
+	}
+	if got := desc(Source{Readme: &fetcher.ModelReadmeCard{Summary: "[More Information Needed]", DescriptionSection: "From a section.", LeadParagraph: "From the lead."}}); got != "From a section." {
+		t.Fatalf("placeholder summary should fall through: %q", got)
+	}
+	if got := desc(Source{Readme: &fetcher.ModelReadmeCard{LeadParagraph: "From the lead."}}); got != "From the lead." {
+		t.Fatalf("lead paragraph last: %q", got)
+	}
+	api := &fetcher.ModelAPIResponse{CardData: map[string]any{"summary": "  From\n the API.  "}}
+	if got := desc(Source{HF: api, Readme: &fetcher.ModelReadmeCard{DescriptionSection: "From a section."}}); got != "From the API." {
+		t.Fatalf("cardData before README body: %q", got)
+	}
+	if got := desc(Source{Readme: &fetcher.ModelReadmeCard{}}); got != "" {
+		t.Fatalf("want no description, got %q", got)
+	}
+}

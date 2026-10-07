@@ -24,13 +24,11 @@ type DatasetBuildContext struct {
 }
 
 type Options struct {
-	IncludeEvidenceProperties bool
-	HuggingFaceBaseURL        string
+	HuggingFaceBaseURL string
 }
 
 func DefaultOptions() Options {
 	return Options{
-		IncludeEvidenceProperties: true,
-		HuggingFaceBaseURL:        "https://huggingface.co/",
+		HuggingFaceBaseURL: "https://huggingface.co/",
 	}
 }

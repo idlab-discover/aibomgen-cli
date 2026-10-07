@@ -734,6 +734,32 @@ func Test_extractDatasetsFromModel(t *testing.T) {
 			want: nil,
 		},
 		{
+			name: "dataset tags as fallback",
+			args: args{
+				modelResp: &fetcher.ModelAPIResponse{Tags: []string{"pytorch", "dataset:wikipedia", "license:mit", "dataset:org/ds", "dataset:wikipedia", "dataset:"}},
+				readme:    &fetcher.ModelReadmeCard{},
+			},
+			want: []string{"wikipedia", "org/ds"},
+		},
+		{
+			name: "cardData datasets win over tags",
+			args: args{
+				modelResp: &fetcher.ModelAPIResponse{
+					CardData: map[string]interface{}{"datasets": []interface{}{"glue"}},
+					Tags:     []string{"dataset:wikipedia"},
+				},
+			},
+			want: []string{"glue"},
+		},
+		{
+			name: "README datasets win over tags",
+			args: args{
+				modelResp: &fetcher.ModelAPIResponse{Tags: []string{"dataset:wikipedia"}},
+				readme:    &fetcher.ModelReadmeCard{Datasets: []string{"squad"}},
+			},
+			want: []string{"squad"},
+		},
+		{
 			name: "datasets from API response - single string",
 			args: args{
 				modelResp: &fetcher.ModelAPIResponse{

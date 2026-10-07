@@ -24,6 +24,8 @@ const (
 	ComponentSupplier           Key = "BOM.metadata.component.supplier"
 	ComponentAuthors            Key = "BOM.metadata.component.authors"
 	ComponentVersion            Key = "BOM.metadata.component.version"
+	ComponentDescription        Key = "BOM.metadata.component.description"
+	ComponentPedigreeAncestors  Key = "BOM.metadata.component.pedigree.ancestors"
 
 	// Component-level extra properties (stored later as CycloneDX Component.Properties).
 	ComponentPropertiesHuggingFaceLastModified Key = "BOM.metadata.component.properties.huggingface:lastModified"
@@ -42,6 +44,8 @@ const (
 	ModelCardModelParametersArchitectureFamily                   Key = "BOM.metadata.component.modelCard.modelParameters.architectureFamily"
 	ModelCardModelParametersModelArchitecture                    Key = "BOM.metadata.component.modelCard.modelParameters.modelArchitecture"
 	ModelCardModelParametersDatasets                             Key = "BOM.metadata.component.modelCard.modelParameters.datasets"
+	ModelCardModelParametersInputs                               Key = "BOM.metadata.component.modelCard.modelParameters.inputs"
+	ModelCardModelParametersOutputs                              Key = "BOM.metadata.component.modelCard.modelParameters.outputs"
 	ModelCardConsiderationsUseCases                              Key = "BOM.metadata.component.modelCard.considerations.useCases"
 	ModelCardConsiderationsTechnicalLimitations                  Key = "BOM.metadata.component.modelCard.considerations.technicalLimitations"
 	ModelCardConsiderationsEthicalConsiderations                 Key = "BOM.metadata.component.modelCard.considerations.ethicalConsiderations"
@@ -100,8 +104,7 @@ type Target struct {
 	ModelCard *cdx.MLModelCard
 
 	// Options (builder can set these when calling Apply).
-	IncludeEvidenceProperties bool
-	HuggingFaceBaseURL        string
+	HuggingFaceBaseURL string
 }
 
 // DatasetSource mirrors Source but for datasets.
@@ -117,8 +120,7 @@ type DatasetTarget struct {
 	Component *cdx.Component
 
 	// Options.
-	IncludeEvidenceProperties bool
-	HuggingFaceBaseURL        string
+	HuggingFaceBaseURL string
 }
 
 // InputType defines the type of input field for interactive enrichment.
@@ -177,7 +179,7 @@ type DatasetFieldSpec struct {
 func Registry() []FieldSpec {
 	specs := make([]FieldSpec, 0, 32)
 	specs = append(specs, componentFields()...)
-	specs = append(specs, evidenceFields()...)
+	specs = append(specs, pedigreeFields()...)
 	specs = append(specs, hfPropFields()...)
 	specs = append(specs, modelCardFields()...)
 	specs = append(specs, securityFields()...)

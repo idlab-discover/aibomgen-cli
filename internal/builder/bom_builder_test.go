@@ -17,7 +17,7 @@ func TestNewBOMBuilder(t *testing.T) {
 		args args
 		want *BOMBuilder
 	}{
-		{name: "returns builder with opts", args: args{opts: Options{IncludeEvidenceProperties: false, HuggingFaceBaseURL: "https://example/"}}, want: &BOMBuilder{Opts: Options{IncludeEvidenceProperties: false, HuggingFaceBaseURL: "https://example/"}}},
+		{name: "returns builder with opts", args: args{opts: Options{HuggingFaceBaseURL: "https://example/"}}, want: &BOMBuilder{Opts: Options{HuggingFaceBaseURL: "https://example/"}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

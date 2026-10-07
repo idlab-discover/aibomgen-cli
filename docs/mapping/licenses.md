@@ -31,10 +31,16 @@ A license object never has both `id` and `name`.
 
 ## 4. Link to the license text
 
-If exactly one license object results and `license_link` is set, the link becomes `license.url`:
+If exactly one license object results, `license.url` is the first of these that applies:
 
-- An absolute `http(s)://` link is used as is.
-- A relative path (e.g. `LICENSE`) is resolved against the repository at the resolved commit: `https://huggingface.co/{id}/blob/{sha}/{path}`, or `https://huggingface.co/datasets/{id}/blob/{sha}/{path}` for datasets. If the commit is unknown, the relative link is dropped.
+1. **`license_link`.**
+   - An absolute `http(s)://` link is used as is.
+   - A relative path (e.g. `LICENSE`) is resolved against the repository at the resolved commit: `https://huggingface.co/{id}/blob/{sha}/{path}`, or `https://huggingface.co/datasets/{id}/blob/{sha}/{path}` for datasets.
+   - If the commit is unknown, the relative link is dropped.
+2. **A license file at the repository root** (models only): `LICENSE`, `LICENSE.txt`, `LICENSE.md`, `LICENSE.rst` or the `LICENCE` spellings, any case, with `LICENSE` preferred. It is taken from the model API's file list (`siblings`) and linked at the resolved commit: `https://huggingface.co/{id}/blob/{sha}/LICENSE`.
+3. **The SPDX page** for an SPDX `id`: `https://spdx.org/licenses/{id}.html`.
+
+With several license objects, a single link or file can't be attributed to one of them. So only the SPDX objects get a URL, their SPDX page. A `name` license with no link and no file has no URL.
 
 ## SPDX list
 
@@ -44,9 +50,9 @@ The SPDX IDs come from `internal/metadata/spdx.schema.json`, a verbatim copy of 
 
 | Repository | Hugging Face values | Result |
 |---|---|---|
-| `google-bert/bert-base-uncased` | `cardData.license: apache-2.0` | `[{license: {id: Apache-2.0}}]` |
-| `openai-community/gpt2` | `cardData.license: mit` | `[{license: {id: MIT}}]` |
-| `meta-llama/Llama-3.2-1B-Instruct` | `cardData.license: llama3.2` | `[{license: {name: llama3.2}}]` |
-| `legacy-datasets/wikipedia` | `cardData.license: [cc-by-sa-3.0, gfdl]` | `[{license: {id: CC-BY-SA-3.0}}, {license: {name: gfdl}}]` |
+| `google-bert/bert-base-uncased` | `cardData.license: apache-2.0`, root `LICENSE` file | `[{license: {id: Apache-2.0, url: https://huggingface.co/google-bert/bert-base-uncased/blob/{sha}/LICENSE}}]` |
+| `openai-community/gpt2` | `cardData.license: mit`, no license file | `[{license: {id: MIT, url: https://spdx.org/licenses/MIT.html}}]` |
+| `meta-llama/Llama-3.2-1B-Instruct` | `cardData.license: llama3.2`, root `LICENSE.txt` file | `[{license: {name: llama3.2, url: https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/blob/{sha}/LICENSE.txt}}]` |
+| `legacy-datasets/wikipedia` | `cardData.license: [cc-by-sa-3.0, gfdl]` | `[{license: {id: CC-BY-SA-3.0, url: https://spdx.org/licenses/CC-BY-SA-3.0.html}}, {license: {name: gfdl}}]` |
 | `bookcorpus/bookcorpus` | `cardData.license: [unknown]` | no `licenses` field |
 | a card with `license: other`, `license_name: acme-1`, `license_link: LICENSE` | | `[{license: {name: acme-1, url: https://huggingface.co/{id}/blob/{sha}/LICENSE}}]` |

@@ -48,6 +48,17 @@ var DefaultToolAuthors = []cyclonedx.OrganizationalContact{
 	},
 }
 
+// AddMetaLifecycles declares the post-build lifecycle phase: the BOM describes an
+// already-published model, with metadata gathered after the model was built.
+func AddMetaLifecycles(bom *cyclonedx.BOM) {
+	if bom.Metadata == nil {
+		bom.Metadata = &cyclonedx.Metadata{}
+	}
+	if bom.Metadata.Lifecycles == nil {
+		bom.Metadata.Lifecycles = &[]cyclonedx.Lifecycle{{Phase: cyclonedx.LifecyclePhasePostBuild}}
+	}
+}
+
 // AddMetaTools adds a Component entry for the tool into bom.metadata.tools.Components.
 // If toolName or toolVersion are empty the defaults above are used.
 func AddMetaTools(bom *cyclonedx.BOM, toolName string, toolVersion string) error {

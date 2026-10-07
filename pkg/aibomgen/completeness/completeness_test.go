@@ -11,14 +11,14 @@ import (
 )
 
 // Test Strategy:.
-// - Uses calculated score values (e.g., 1.0 / 13.65) instead of hardcoded floats to avoid precision issues.
+// - Uses calculated score values (e.g., 1.0 / 14.65) instead of hardcoded floats to avoid precision issues.
 // - Implements tolerance-based comparison (1e-9) for floating point scores.
 // - Helper functions resultsEqual() and datasetResultsEqual() compare results with proper float handling.
 // - Best practice: never hardcode floating point literals in test expectations.
 
-// Constants from metadata registry (total weight: 13.65 for model, 9.8 for dataset).
+// Constants from metadata registry (total weight: 14.65 for model, 9.8 for dataset).
 const (
-	totalModelFields   = 33
+	totalModelFields   = 36
 	totalDatasetFields = 18
 	floatTolerance     = 1e-9 // Tolerance for floating point comparison
 )
@@ -101,6 +101,7 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentSupplier,
 					metadata.ComponentAuthors,
 					metadata.ComponentVersion,
+					metadata.ComponentDescription,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -115,6 +116,8 @@ func TestCheck(t *testing.T) {
 					metadata.ModelCardModelParametersArchitectureFamily,
 					metadata.ModelCardModelParametersModelArchitecture,
 					metadata.ModelCardModelParametersDatasets,
+					metadata.ModelCardModelParametersInputs,
+					metadata.ModelCardModelParametersOutputs,
 					metadata.ModelCardConsiderationsUseCases,
 					metadata.ModelCardConsiderationsTechnicalLimitations,
 					metadata.ModelCardConsiderationsEthicalConsiderations,
@@ -141,7 +144,7 @@ func TestCheck(t *testing.T) {
 			},
 			want: Result{
 				ModelID:         "test-model",
-				Score:           1.0 / 13.65, // ComponentName weight (1.0) / total weight (13.65)
+				Score:           1.0 / 14.65, // ComponentName weight (1.0) / total weight (14.65)
 				Passed:          1,
 				Total:           totalModelFields,
 				MissingRequired: nil, // ComponentName is satisfied
@@ -155,6 +158,7 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentSupplier,
 					metadata.ComponentAuthors,
 					metadata.ComponentVersion,
+					metadata.ComponentDescription,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -169,6 +173,8 @@ func TestCheck(t *testing.T) {
 					metadata.ModelCardModelParametersArchitectureFamily,
 					metadata.ModelCardModelParametersModelArchitecture,
 					metadata.ModelCardModelParametersDatasets,
+					metadata.ModelCardModelParametersInputs,
+					metadata.ModelCardModelParametersOutputs,
 					metadata.ModelCardConsiderationsUseCases,
 					metadata.ModelCardConsiderationsTechnicalLimitations,
 					metadata.ModelCardConsiderationsEthicalConsiderations,
@@ -202,7 +208,7 @@ func TestCheck(t *testing.T) {
 			},
 			want: Result{
 				ModelID:         "test-model",
-				Score:           1.5 / 13.65, // ComponentName (1.0) + Datasets (0.5) / total (13.65)
+				Score:           1.5 / 14.65, // ComponentName (1.0) + Datasets (0.5) / total (14.65)
 				Passed:          2,
 				Total:           totalModelFields,
 				MissingRequired: nil,
@@ -216,6 +222,7 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentSupplier,
 					metadata.ComponentAuthors,
 					metadata.ComponentVersion,
+					metadata.ComponentDescription,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -229,6 +236,8 @@ func TestCheck(t *testing.T) {
 					metadata.ModelCardModelParametersTask,
 					metadata.ModelCardModelParametersArchitectureFamily,
 					metadata.ModelCardModelParametersModelArchitecture,
+					metadata.ModelCardModelParametersInputs,
+					metadata.ModelCardModelParametersOutputs,
 					// Datasets is now present, so it's not in missing list.
 					metadata.ModelCardConsiderationsUseCases,
 					metadata.ModelCardConsiderationsTechnicalLimitations,
@@ -269,7 +278,7 @@ func TestCheck(t *testing.T) {
 			},
 			want: Result{
 				ModelID:         "test-model",
-				Score:           1.5 / 13.65,
+				Score:           1.5 / 14.65,
 				Passed:          2,
 				Total:           totalModelFields,
 				MissingRequired: nil,
@@ -283,6 +292,7 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentSupplier,
 					metadata.ComponentAuthors,
 					metadata.ComponentVersion,
+					metadata.ComponentDescription,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -296,6 +306,8 @@ func TestCheck(t *testing.T) {
 					metadata.ModelCardModelParametersTask,
 					metadata.ModelCardModelParametersArchitectureFamily,
 					metadata.ModelCardModelParametersModelArchitecture,
+					metadata.ModelCardModelParametersInputs,
+					metadata.ModelCardModelParametersOutputs,
 					metadata.ModelCardConsiderationsUseCases,
 					metadata.ModelCardConsiderationsTechnicalLimitations,
 					metadata.ModelCardConsiderationsEthicalConsiderations,
@@ -354,7 +366,7 @@ func TestCheck(t *testing.T) {
 			},
 			want: Result{
 				ModelID:         "test-model",
-				Score:           1.0 / 13.65, // Only ComponentName is present
+				Score:           1.0 / 14.65, // Only ComponentName is present
 				Passed:          1,
 				Total:           totalModelFields,
 				MissingRequired: nil,
@@ -368,6 +380,7 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentSupplier,
 					metadata.ComponentAuthors,
 					metadata.ComponentVersion,
+					metadata.ComponentDescription,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -382,6 +395,8 @@ func TestCheck(t *testing.T) {
 					metadata.ModelCardModelParametersArchitectureFamily,
 					metadata.ModelCardModelParametersModelArchitecture,
 					metadata.ModelCardModelParametersDatasets, // Counted as missing when no datasets referenced
+					metadata.ModelCardModelParametersInputs,
+					metadata.ModelCardModelParametersOutputs,
 					metadata.ModelCardConsiderationsUseCases,
 					metadata.ModelCardConsiderationsTechnicalLimitations,
 					metadata.ModelCardConsiderationsEthicalConsiderations,
@@ -415,7 +430,7 @@ func TestCheck(t *testing.T) {
 			},
 			want: Result{
 				ModelID:         "test-model",
-				Score:           1.0 / 13.65,
+				Score:           1.0 / 14.65,
 				Passed:          1,
 				Total:           totalModelFields,
 				MissingRequired: nil,
@@ -429,6 +444,7 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentSupplier,
 					metadata.ComponentAuthors,
 					metadata.ComponentVersion,
+					metadata.ComponentDescription,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -443,6 +459,8 @@ func TestCheck(t *testing.T) {
 					metadata.ModelCardModelParametersArchitectureFamily,
 					metadata.ModelCardModelParametersModelArchitecture,
 					metadata.ModelCardModelParametersDatasets,
+					metadata.ModelCardModelParametersInputs,
+					metadata.ModelCardModelParametersOutputs,
 					metadata.ModelCardConsiderationsUseCases,
 					metadata.ModelCardConsiderationsTechnicalLimitations,
 					metadata.ModelCardConsiderationsEthicalConsiderations,
@@ -494,7 +512,7 @@ func TestCheck(t *testing.T) {
 			},
 			want: Result{
 				ModelID:         "test-model",
-				Score:           1.5 / 13.65,
+				Score:           1.5 / 14.65,
 				Passed:          2,
 				Total:           totalModelFields,
 				MissingRequired: nil,
@@ -508,6 +526,7 @@ func TestCheck(t *testing.T) {
 					metadata.ComponentSupplier,
 					metadata.ComponentAuthors,
 					metadata.ComponentVersion,
+					metadata.ComponentDescription,
 					metadata.ComponentPropertiesHuggingFaceLastModified,
 					metadata.ComponentPropertiesHuggingFaceCreatedAt,
 					metadata.ComponentPropertiesHuggingFaceLanguage,
@@ -521,6 +540,8 @@ func TestCheck(t *testing.T) {
 					metadata.ModelCardModelParametersTask,
 					metadata.ModelCardModelParametersArchitectureFamily,
 					metadata.ModelCardModelParametersModelArchitecture,
+					metadata.ModelCardModelParametersInputs,
+					metadata.ModelCardModelParametersOutputs,
 					metadata.ModelCardConsiderationsUseCases,
 					metadata.ModelCardConsiderationsTechnicalLimitations,
 					metadata.ModelCardConsiderationsEthicalConsiderations,

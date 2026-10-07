@@ -9,14 +9,16 @@ This folder documents where every value in an aibomgen-cli AIBOM comes from. It 
 | [licenses.md](licenses.md) | How license values become `license.id` or `license.name`, for models and datasets |
 | [identity-and-links.md](identity-and-links.md) | Name, purl, bom-ref, version, revisions, dataset references, dependencies and output file names |
 
+Every BOM declares `metadata.lifecycles: [{phase: post-build}]`: it describes an already-published model, with metadata gathered after the model was built. This holds for both `generate` and `scan`.
+
 A test (`internal/metadata/mapping_docs_test.go`) fails when a FieldSpec key is missing from these documents or when the documents list a key that no longer exists. If you change a FieldSpec, update the tables here.
 
 ## Sources
 
 | Source | Request | Used for |
 |---|---|---|
-| Model API | `GET /api/models/{id}`, or `GET /api/models/{id}/revision/{revision}` when a revision is requested | The model component. `cardData` is the model card's YAML front matter as parsed by the Hub. |
-| Model README | `GET /{id}/resolve/main/README.md` (falls back to `master`), or `/{id}/resolve/{revision}/README.md` | YAML front matter plus template sections and bullets in the body (e.g. "Developed by", "Direct Use") |
+| Model API | `GET /api/models/{id}`, or `GET /api/models/{id}/revision/{revision}` when a revision is requested. If `cardData` declares a `base_model`, one more request with `?expand[]=baseModels` fetches the Hub's lineage (see [model.md](model.md#lineage)). | The model component. `cardData` is the model card's YAML front matter as parsed by the Hub. `siblings` (the file list) locates a root `LICENSE` file. |
+| Model README | `GET /{id}/resolve/main/README.md` (falls back to `master`), or `/{id}/resolve/{revision}/README.md` | YAML front matter plus template sections (with heading aliases, see [model.md](model.md#considerations-sections)) and bullets in the body (e.g. "Developed by", "Direct Use") |
 | Model tree | `GET /api/models/{id}/tree/{revision or main}?expand=true&recursive=true` | Security scan properties and vulnerabilities |
 | Dataset API | `GET /api/datasets/{id}` (HF redirects renamed datasets; the resolved ID is used from here on) | Data components |
 | Dataset README | `GET /datasets/{resolved id}/resolve/main/README.md` (falls back to `master`) | YAML front matter plus template sections and bullets in the body |
@@ -55,7 +57,7 @@ There is no offline mode.
 The default output version is 1.7 (`--spec 1.7`). Selecting `--spec 1.0` to `1.6` down-converts the output with cyclonedx-go, which drops fields that the target version doesn't define:
 
 - below 1.6: component `manufacturer`, `authors` and `tags`
-- below 1.5: `modelCard` and `data` (the ML-BOM fields)
+- below 1.5: `modelCard`, `data` (the ML-BOM fields) and `metadata.lifecycles`
 - below 1.3: `properties`
 - below 1.2: `supplier`
 

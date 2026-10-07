@@ -9,15 +9,74 @@ The model is written as `metadata.component` with `type: machine-learning-model`
 | `name` | `BOM.metadata.component.name` | `HF.id` → `HF.modelId` → discovery name → requested ID | Trimmed. The resolved ID wins, so `gpt2` becomes `openai-community/gpt2`. | 1.0, required |
 | `externalReferences` | `BOM.metadata.component.externalReferences` | resolved ID (`HF.id`, else requested ID); README "Paper" and "Demo" bullets | `website` = `https://huggingface.co/{id}`; `documentation` = Paper URL; `other` = Demo URL. A bullet only counts if it holds an `http(s)` URL; the URL is taken from a Markdown link's target. | 0.5 |
 | `tags` | `BOM.metadata.component.tags` | `HF.tags` → README front matter `tags` | Trimmed, deduplicated | 0.5 |
-| `licenses` | `BOM.metadata.component.licenses` | `cardData.license` → `HF.license` → `license:*` tags → README front matter `license`; plus `license_name` and `license_link` | SPDX `id` or `name`, see [licenses.md](licenses.md) | 1.0 |
+| `licenses` | `BOM.metadata.component.licenses` | `cardData.license` → `HF.license` → `license:*` tags → README front matter `license`; plus `license_name` and `license_link` | SPDX `id` or `name`, with a `url` to the license text, see [licenses.md](licenses.md) | 1.0 |
 | `hashes` | `BOM.metadata.component.hashes` | `HF.sha` | `[{alg: SHA-1, content: sha}]` (the git commit SHA) | 1.0 |
 | `manufacturer` | `BOM.metadata.component.manufacturer` | `HF.author` → README "Developed by" (placeholders skipped) | `{name}`, plus `url: [https://huggingface.co/{namespace}]` when the name is the namespace | 0.5 |
 | `group` | `BOM.metadata.component.group` | namespace → README "Developed by" (placeholders skipped) | Only IDs with an `org/` part yield a namespace; `gpt2` without HF data gets no group | 0.25 |
 | `supplier` | `BOM.metadata.component.supplier` | namespace | `{name: namespace, url: [https://huggingface.co/{namespace}]}` | 0.5 |
 | `authors` | `BOM.metadata.component.authors` | README "Developed by" (placeholders skipped) → namespace | `[{name}]` | 0.5 |
 | `version` | `BOM.metadata.component.version` | requested revision, if it isn't a 40-hex commit SHA → `HF.sha` | Named revision as is (e.g. `v1.0`, `main`); otherwise the lowercased commit SHA, equal to the purl version | 0.5 |
+| `description` | `BOM.metadata.component.description` | README front matter `model_description` → `summary` → `cardData.model_description` → `cardData.summary` → README description section → README lead paragraph (see [Description](#description)) | One line of plain text, at most 300 characters, cut at a sentence end. Placeholders are skipped; absent when no source has prose. | 0.5 |
+| `pedigree.ancestors`, `pedigree.notes` | `BOM.metadata.component.pedigree.ancestors` | README front matter `base_model` → `cardData.base_model` → Hub `baseModels` (see [Lineage](#lineage)) | One `machine-learning-model` ancestor per base model; `notes` holds the relation | 0, not scored |
 
 `purl` and `bom-ref` are computed after these fields, see [identity-and-links.md](identity-and-links.md).
+
+### Description
+
+The description is one or two sentences of plain text. The sources are tried in order:
+
+1. **Front matter.** The `model_description` or `summary` key. None of the popular cards checked use either key.
+2. **Description section.** The first prose paragraph under the first of these headings that has one: Model description, Model Summary, Description, Model Overview, Overview, Introduction, Model Details, Model Information, Model.
+3. **Lead paragraph.** The first prose paragraph after the title. Only the text before the first heading and under `#` headings counts; the search stops at the first `##` or deeper heading.
+
+Headings match the same way as the [considerations sections](#considerations-sections), and a leading section number (`## 1. Introduction`) is ignored.
+
+A paragraph counts as prose after code, HTML and images are removed and it is not one of the following:
+- a list, table, quote or label line such as `**Model developer**: Meta`;
+- shorter than four words;
+- a single sentence ending with `:` once URLs are removed, such as "Try it here: https://…";
+- a pointer elsewhere, such as "For more details, please refer to…";
+- a template placeholder, including the Hugging Face template's auto-generated "This is the model card of a 🤗 transformers model…".
+
+A bold-only line (`**Post-Training: …**`) counts as a heading, not prose.
+
+The chosen paragraph is then flattened:
+- a list or table glued to the paragraph is cut off;
+- a final lead-in sentence ending in `:` ("It has the following features:") is dropped;
+- links become their text;
+- bare URLs (and a parenthetical holding one) and emphasis markers are removed.
+
+Whole sentences are kept up to 300 characters. A first sentence longer than that is cut at a word boundary with `…`.
+
+### Lineage
+
+`base_model` is written to `pedigree`, the standard CycloneDX place for lineage. The `huggingface:baseModel` property is kept for backward compatibility. The field has weight 0: it is applied, but it isn't scored or offered by `enrich`, because foundation models legitimately have no base model.
+
+**Ancestors.** The first non-empty source gives the base model IDs:
+1. README front matter `base_model`;
+2. `cardData.base_model`;
+3. the Hub's `baseModels`.
+
+Each ID becomes one ancestor:
+
+```json
+{"type": "machine-learning-model", "group": "Qwen", "name": "Qwen/Qwen2.5-7B",
+ "purl": "pkg:huggingface/Qwen/Qwen2.5-7B", "bom-ref": "pkg:huggingface/Qwen/Qwen2.5-7B",
+ "externalReferences": [{"type": "website", "url": "https://huggingface.co/Qwen/Qwen2.5-7B"}]}
+```
+
+- `name` and `group` follow the main component: `name` is the full ID and `group` the namespace. A legacy single-segment ID such as `gpt2` gets no group.
+- The purl has no version. The ancestor's commit is not resolved, to avoid a Hub request per ancestor. The `bom-ref` equals the purl.
+- Values that aren't Hub repository IDs are dropped: URLs, local paths and placeholders. So are duplicates (ignoring case) and the model's own ID.
+
+**Relation.** The relation is `finetune`, `adapter`, `quantized` or `merge`. The first non-empty source wins:
+1. README front matter `base_model_relation`;
+2. `cardData.base_model_relation`;
+3. the relation the Hub infers.
+
+Most cards don't set `base_model_relation`. For a model whose `cardData` declares a `base_model`, the model API fetcher makes one extra request, `GET /api/models/{id}?expand[]=baseModels`, which returns the Hub's base models and inferred relation. It is a separate request because `expand[]` limits the response to the expanded fields. It is best-effort: a failure leaves the Hub relation out and doesn't fail generation.
+
+**Notes.** `pedigree.notes` reads `{relation} of {id}, {id}`, e.g. `finetune of Qwen/Qwen2.5-7B` or `merge of Qwen/Qwen2.5-7B-Instruct, google/siglip2-so400m-patch16-512`. Without a relation it reads `derived from {ids} (relation unknown)`.
 
 ## Model card (`modelCard`)
 
@@ -27,11 +86,81 @@ The model is written as `metadata.component` with `type: machine-learning-model`
 | `modelParameters.architectureFamily` | `BOM.metadata.component.modelCard.modelParameters.architectureFamily` | `HF.config.model_type` | Trimmed (e.g. `bert`) | 0.5 |
 | `modelParameters.modelArchitecture` | `BOM.metadata.component.modelCard.modelParameters.modelArchitecture` | `HF.config.architectures[0]` | Trimmed (e.g. `BertForMaskedLM`) | 0.5 |
 | `modelParameters.datasets` | `BOM.metadata.component.modelCard.modelParameters.datasets` | `cardData.datasets` plus `dataset:*` tags → README front matter `datasets` | Linked to the data components after they are built: `{ref: <bom-ref>}` or an inline `{type: dataset, name}`, see [identity-and-links.md](identity-and-links.md#dataset-references) | 0.5 |
-| `considerations.useCases` | `BOM.metadata.component.modelCard.considerations.useCases` | README "Direct Use" section; README "Out-of-Scope Use" section | Out-of-scope text is prefixed with `out-of-scope: ` | 0.5 |
-| `considerations.technicalLimitations` | `BOM.metadata.component.modelCard.considerations.technicalLimitations` | README "Bias, Risks, and Limitations" section | One entry with the section text | 0.5 |
-| `considerations.ethicalConsiderations` | `BOM.metadata.component.modelCard.considerations.ethicalConsiderations` | README "Bias, Risks, and Limitations" (name) and "Recommendations" (mitigation) sections | One entry. If only recommendations exist, the name is `bias_risks_limitations`. | 0.25 |
-| `quantitativeAnalysis.performanceMetrics` | `BOM.metadata.component.modelCard.quantitativeAnalysis.performanceMetrics` | README front matter `model-index[0].results[0].metrics[]` (type and value) plus front matter `metrics` (type only) → README "Metrics" section (type) and "Results" section (value) | If only "Results" exists, the type is `testing_metrics` | 0.5 |
+| `modelParameters.inputs` | `BOM.metadata.component.modelCard.modelParameters.inputs` | `HF.pipeline_tag` → README front matter `model-index[0].results[0].task.type` (same as `task`) | Pipeline tag mapped to input formats, one `{format}` per entry (see [Inputs and outputs](#inputs-and-outputs)). Absent for unmapped tags. | 0.25 |
+| `modelParameters.outputs` | `BOM.metadata.component.modelCard.modelParameters.outputs` | Same as `inputs` | Pipeline tag mapped to output formats, one `{format}` per entry. Absent for unmapped tags. | 0.25 |
+| `considerations.useCases` | `BOM.metadata.component.modelCard.considerations.useCases` | README use-case section; README out-of-scope section (heading aliases below) | Section text is cleaned (see below). Out-of-scope text is prefixed with `out-of-scope: ` | 0.5 |
+| `considerations.technicalLimitations` | `BOM.metadata.component.modelCard.considerations.technicalLimitations` | README limitations section (heading aliases below) | One entry with the cleaned section text | 0.5 |
+| `considerations.ethicalConsiderations` | `BOM.metadata.component.modelCard.considerations.ethicalConsiderations` | README ethics section → limitations section (name); README "Recommendations" section (mitigation) | One entry with cleaned text. If only recommendations exist, the name is `bias_risks_limitations`. | 0.25 |
+| `quantitativeAnalysis.performanceMetrics` | `BOM.metadata.component.modelCard.quantitativeAnalysis.performanceMetrics` | README front matter `model-index[0].results[*].metrics[]` (type, value, and the result's dataset and split) plus front matter `metrics` (type only, skipped if model-index has that type) → README "Metrics" section (type) and "Results" section (value) | Every result is read, in card order, up to 100 metrics (MTEB-style cards have thousands). `slice` is `{dataset} / {split}`, e.g. `MTEB AmazonCounterfactualClassification (en) / test`. The dataset is `dataset.name`, else `dataset.type (config)`. If only "Results" exists, the type is `testing_metrics`. | 0.5 |
 | `considerations.environmentalConsiderations.properties` | `BOM.metadata.component.modelCard.considerations.environmentalConsiderations.properties` | README bullets "Hardware Type", "Hours used", "Cloud Provider", "Compute Region", "Carbon Emitted" | Properties `hardwareType`, `hoursUsed`, `cloudProvider`, `computeRegion`, `carbonEmitted` | 0.25 |
+
+### Considerations sections
+
+Most model cards don't use the exact Hugging Face template headings, so each considerations source accepts a list of heading aliases. The aliases are tried in order, and the first section with real text wins.
+
+| Source | Heading aliases (in order) |
+|---|---|
+| Use cases | Direct Use, Uses, Intended uses, Intended use, Intended uses & limitations, Intended uses and limitations, How to use |
+| Out-of-scope | Out-of-Scope Use, Out-of-scope uses, Misuse and out-of-scope use, Misuse, Malicious Use, and Out-of-Scope Use |
+| Limitations | Bias, Risks, and Limitations, Limitations, Limitations and bias, Limitations and biases, Bias and limitations, Known limitations, Risks and limitations |
+| Ethics | Bias, Ethical considerations, Ethics, Responsible AI |
+| Recommendations | Recommendations |
+
+Matching rules:
+- **Headings:** any level (`#` to `######`). Matching ignores case, `*`, `_`, `` ` ``, closing `#`s, a leading section number and trailing `:.!?`. Lines inside fenced code blocks are never headings.
+- **Section body:** runs to the next heading of any level, so a combined section like "Intended uses & limitations" gives its intro text to the use cases. A nested "Limitations and bias" subsection gives the limitations.
+- **Skipped sections:** a section that is empty after cleaning is skipped. A section holding only `[More Information Needed]` is skipped too, and kept verbatim only when no alias has real text.
+- **Cleaning:** fenced code blocks, HTML comments and tags, and Markdown images are removed, and blank lines are collapsed.
+- **Length cap:** the text is capped at 1000 characters. It is cut at the last sentence end, or else at a word boundary followed by `…`.
+
+### Inputs and outputs
+
+The pipeline tag is lowercased and looked up in a static map in [task_io.go](../../internal/metadata/task_io.go). The keys are the pipeline tags that the Hub offers for models, from [huggingface.js `pipelines.ts`](https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/src/pipelines.ts).
+
+| Pipeline tag | `inputs` | `outputs` |
+|---|---|---|
+| text-generation, fill-mask, summarization, translation, question-answering | text | text |
+| feature-extraction, sentence-similarity | text | embedding |
+| text-classification, zero-shot-classification | text | label |
+| token-classification | text | token labels |
+| text-ranking | text | score |
+| table-question-answering | tabular, text | text |
+| image-classification | image | label |
+| zero-shot-image-classification | image, text | label |
+| object-detection | image | bounding boxes |
+| zero-shot-object-detection | image, text | bounding boxes |
+| image-segmentation, mask-generation | image | segmentation mask |
+| keypoint-detection | image | keypoints |
+| image-feature-extraction | image | embedding |
+| visual-document-retrieval | image, text | embedding |
+| image-to-text | image | text |
+| image-text-to-text, visual-question-answering, document-question-answering | image, text | text |
+| image-to-image, depth-estimation | image | image |
+| image-text-to-image | image, text | image |
+| unconditional-image-generation | (none; field absent) | image |
+| text-to-image | text | image |
+| automatic-speech-recognition | audio | text |
+| audio-text-to-text | audio, text | text |
+| audio-classification | audio | label |
+| voice-activity-detection | audio | segments |
+| text-to-speech, text-to-audio | text | audio |
+| audio-to-audio | audio | audio |
+| video-classification | video | label |
+| video-text-to-text | video, text | text |
+| text-to-video | text | video |
+| image-to-video | image | video |
+| image-text-to-video | image, text | video |
+| video-to-video | video | video |
+| text-to-3d | text | 3d |
+| image-to-3d | image | 3d |
+| tabular-classification | tabular | label |
+| tabular-regression | tabular | score |
+| time-series-forecasting | time-series | time-series |
+
+Unmapped tags leave both fields out rather than guessing:
+- `any-to-any`, `reinforcement-learning`, `robotics` and `graph-ml` have no fixed inputs or outputs.
+- `multiple-choice`, `table-to-text`, `tabular-to-text`, `text-retrieval` and `other` are not offered for models.
+- `text2text-generation` is no longer a pipeline tag; it is now a `text-generation` subtask.
 
 ## Properties
 
@@ -49,7 +178,8 @@ Each property below is written to `properties[]` with the name shown (the key's 
 | `huggingface:likes` | `BOM.metadata.component.properties.huggingface:likes` | `HF.likes` | Greater than 0 | 0.2 |
 | `huggingface:baseModel` | `BOM.metadata.component.properties.huggingface:baseModel` | README front matter `base_model` | A string, or a list joined with `,` (e.g. merged models) | 0.2 |
 | `huggingface:modelCardContact` | `BOM.metadata.component.properties.huggingface:modelCardContact` | README "Model Card Contact" section | Non-empty | 0.2 |
-| `aibomgen.type`, `aibomgen.evidence`, `aibomgen.path` | `aibomgen.evidence` | Discovery type, evidence text and file path | Written when evidence properties are enabled (the default). The evidence records the ID as it was found or requested. | 0 (not scored) |
+
+How the model was found (scan hits or the requested model ID) is recorded in the standard `evidence` block, not in properties; see [identity-and-links.md](identity-and-links.md#evidence).
 
 ## Security scan
 

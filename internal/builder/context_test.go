@@ -10,7 +10,7 @@ func TestDefaultOptions(t *testing.T) {
 		name string
 		want Options
 	}{
-		{name: "defaults", want: Options{IncludeEvidenceProperties: true, HuggingFaceBaseURL: "https://huggingface.co/"}},
+		{name: "defaults", want: Options{HuggingFaceBaseURL: "https://huggingface.co/"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -241,6 +241,12 @@ func modelCardFields() []FieldSpec {
 			InputType:   InputTypeMultiText,
 			Placeholder: "dataset1, dataset2, dataset3",
 		},
+		ioFieldSpec(ModelCardModelParametersInputs, "inputs", "text, image",
+			func(t taskIO) []string { return t.inputs },
+			func(mp *cdx.MLModelParameters) **[]cdx.MLInputOutputParameters { return &mp.Inputs }),
+		ioFieldSpec(ModelCardModelParametersOutputs, "outputs", "text",
+			func(t taskIO) []string { return t.outputs },
+			func(mp *cdx.MLModelParameters) **[]cdx.MLInputOutputParameters { return &mp.Outputs }),
 		{
 			Key:      ModelCardConsiderationsUseCases,
 			Weight:   0.5,
@@ -349,7 +355,11 @@ func modelCardFields() []FieldSpec {
 					if src.Readme == nil {
 						return nil, false
 					}
-					name := strings.TrimSpace(src.Readme.BiasRisksLimitations)
+					// Prefer a dedicated ethics/bias section, else the limitations section.
+					name := strings.TrimSpace(src.Readme.EthicalConsiderations)
+					if name == "" {
+						name = strings.TrimSpace(src.Readme.BiasRisksLimitations)
+					}
 					mit := strings.TrimSpace(src.Readme.BiasRecommendations)
 					if name == "" && mit == "" {
 						return nil, false
@@ -407,13 +417,14 @@ func modelCardFields() []FieldSpec {
 						if mt == "" && mv == "" {
 							continue
 						}
-						metrics = append(metrics, cdx.MLPerformanceMetric{Type: mt, Value: mv})
+						metrics = append(metrics, cdx.MLPerformanceMetric{Type: mt, Value: mv, Slice: metricSlice(m.Dataset, m.Split)})
 					}
 					for _, mt := range src.Readme.Metrics {
 						mt = strings.TrimSpace(mt)
 						if mt == "" {
 							continue
 						}
+						// A front matter metric name is covered by any model-index metric of that type.
 						alreadyExists := false
 						for _, existing := range metrics {
 							if existing.Type == mt {
@@ -541,5 +552,81 @@ func modelCardFields() []FieldSpec {
 			InputType:   InputTypeTextArea,
 			Placeholder: "hardwareType:GPU,hoursUsed:100,carbonEmitted:50kg",
 		},
+	}
+}
+
+// ioFieldSpec builds the FieldSpec for modelParameters.inputs or .outputs. The formats
+// come from the model's pipeline tag (see pipelineTagIO); pick selects inputs or
+// outputs and field points at the matching slice in the model parameters.
+func ioFieldSpec(key Key, name, placeholder string, pick func(taskIO) []string, field func(*cdx.MLModelParameters) **[]cdx.MLInputOutputParameters) FieldSpec {
+	return FieldSpec{
+		Key:      key,
+		Weight:   0.25,
+		Required: false,
+		Sources: []func(Source) (any, bool){
+			func(src Source) (any, bool) {
+				t, ok := pipelineTagFormats(modelTaskTag(src))
+				if !ok || len(pick(t)) == 0 {
+					return nil, false
+				}
+				return pick(t), true
+			},
+		},
+		Parse: func(value string) (any, error) {
+			return parseCommaList(value, name)
+		},
+		Apply: func(tgt Target, value any) error {
+			input, ok := value.(applyInput)
+			if !ok {
+				return fmt.Errorf("invalid input for %s", key)
+			}
+			if tgt.ModelCard == nil {
+				return fmt.Errorf("modelCard is nil")
+			}
+			fmts, _ := input.Value.([]string)
+			params := ioParams(fmts)
+			if len(params) == 0 {
+				return fmt.Errorf("%s value is empty", name)
+			}
+			if !input.Force && tgt.ModelCard.ModelParameters != nil {
+				if cur := *field(tgt.ModelCard.ModelParameters); cur != nil && len(*cur) > 0 {
+					return nil
+				}
+			}
+			*field(ensureModelParameters(tgt.ModelCard)) = &params
+			return nil
+		},
+		Present: func(b *cdx.BOM) bool {
+			mp := bomModelParameters(b)
+			if mp == nil {
+				return false
+			}
+			cur := *field(mp)
+			if cur == nil {
+				return false
+			}
+			for _, p := range *cur {
+				if strings.TrimSpace(p.Format) != "" {
+					return true
+				}
+			}
+			return false
+		},
+		InputType:   InputTypeMultiText,
+		Placeholder: placeholder,
+	}
+}
+
+// metricSlice describes what a metric was measured on, e.g.
+// "MTEB AmazonCounterfactualClassification (en) / test".
+func metricSlice(dataset, split string) string {
+	dataset, split = strings.TrimSpace(dataset), strings.TrimSpace(split)
+	switch {
+	case dataset != "" && split != "":
+		return dataset + " / " + split
+	case dataset != "":
+		return dataset
+	default:
+		return split
 	}
 }

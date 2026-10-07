@@ -13,8 +13,9 @@ import (
 // .
 // Hugging Face model cards usually contain a YAML front matter block (--- ... ---).
 // followed by Markdown sections. We parse both:.
-// - YAML front matter for structured fields (license, tags, datasets, metrics, base_model, model-index).
-// - Markdown sections/bullets using regex (e.g. Direct Use, Bias/Risks, Paper/Demo links).
+//   - YAML front matter for structured fields (license, tags, datasets, metrics, base_model, model-index).
+//   - Markdown sections/bullets using regex (e.g. Direct Use, Bias/Risks, Paper/Demo links).
+//     Considerations sections accept common heading aliases (see useCaseHeadings etc.).
 type ModelReadmeCard struct {
 	Raw         string
 	FrontMatter map[string]any
@@ -26,16 +27,29 @@ type ModelReadmeCard struct {
 	Datasets  []string
 	Metrics   []string
 	BaseModel string
+	// BaseModels is the base_model list (a single ID gives one entry).
+	BaseModels []string
+	// BaseModelRelation is front matter base_model_relation, lowercased
+	// (finetune, adapter, quantized or merge).
+	BaseModelRelation string
+	// Summary is front matter model_description (else summary), flattened and capped.
+	Summary string
 
-	// Extracted from Markdown body (template-based).
-	DevelopedBy          string
-	PaperURL             string
-	DemoURL              string
-	DirectUse            string
-	OutOfScopeUse        string
-	BiasRisksLimitations string
-	BiasRecommendations  string
-	ModelCardContact     string
+	// Extracted from Markdown body (template headings and their common aliases).
+	DevelopedBy           string
+	PaperURL              string
+	DemoURL               string
+	DirectUse             string
+	OutOfScopeUse         string
+	BiasRisksLimitations  string
+	EthicalConsiderations string
+	BiasRecommendations   string
+	ModelCardContact      string
+
+	// Description candidates (first prose paragraph, flattened and capped): under a
+	// description-like section, and right after the title.
+	DescriptionSection string
+	LeadParagraph      string
 
 	// Environmental Impact (from Markdown body).
 	EnvironmentalHardwareType  string
@@ -58,6 +72,9 @@ type ModelReadmeCard struct {
 type ModelIndexMetric struct {
 	Type  string
 	Value string
+	// Dataset and Split say what the metric was measured on (from the result's dataset).
+	Dataset string
+	Split   string
 }
 
 // ModelReadmeFetcher fetches the README.md (model card) for a model repo.
@@ -160,7 +177,15 @@ func parseReadmeCard(raw string) *ModelReadmeCard {
 	card.Datasets = stringSliceFromAny(fm["datasets"])
 	card.Metrics = stringSliceFromAny(fm["metrics"])
 	// base_model may be a single ID or a list (merges, adapters): join lists with ",".
-	card.BaseModel = strings.Join(stringSliceFromAny(fm["base_model"]), ",")
+	card.BaseModels = stringSliceFromAny(fm["base_model"])
+	card.BaseModel = strings.Join(card.BaseModels, ",")
+	card.BaseModelRelation = strings.ToLower(strings.TrimSpace(stringFromAny(fm["base_model_relation"])))
+	for _, key := range []string{"model_description", "summary"} {
+		if s := flattenInline(stringFromAny(fm[key])); s != "" {
+			card.Summary = truncateDescription(s)
+			break
+		}
+	}
 
 	// model-index task + metrics (best effort).
 	if mi, ok := fm["model-index"]; ok {
@@ -171,11 +196,14 @@ func parseReadmeCard(raw string) *ModelReadmeCard {
 	card.DevelopedBy = strings.TrimSpace(extractBulletValue(body, "Developed by"))
 	card.PaperURL = strings.TrimSpace(extractBulletValue(body, "Paper"))
 	card.DemoURL = strings.TrimSpace(extractBulletValue(body, "Demo"))
-	card.DirectUse = strings.TrimSpace(extractSection(body, "Direct Use"))
-	card.OutOfScopeUse = strings.TrimSpace(extractSection(body, "Out-of-Scope Use"))
-	card.BiasRisksLimitations = strings.TrimSpace(extractSection(body, "Bias, Risks, and Limitations"))
-	card.BiasRecommendations = strings.TrimSpace(extractSection(body, "Recommendations"))
+	card.DirectUse = considerationSection(body, useCaseHeadings)
+	card.OutOfScopeUse = considerationSection(body, outOfScopeHeadings)
+	card.BiasRisksLimitations = considerationSection(body, limitationHeadings)
+	card.EthicalConsiderations = considerationSection(body, ethicalHeadings)
+	card.BiasRecommendations = considerationSection(body, recommendationHeadings)
 	card.ModelCardContact = strings.TrimSpace(extractSection(body, "Model Card Contact"))
+	card.DescriptionSection = extractDescriptionSection(body)
+	card.LeadParagraph = extractLeadParagraph(body)
 
 	// Quantitative Analysis sections.
 	card.TestingMetrics = strings.TrimSpace(extractSection(body, "Metrics"))
@@ -192,4 +220,10 @@ func parseReadmeCard(raw string) *ModelReadmeCard {
 	// The fieldspecs layer can decide whether to use them or filter them out.
 
 	return card
+}
+
+// considerationSection returns the cleaned, length-capped text of the first section
+// matching one of the heading aliases.
+func considerationSection(body string, headings []string) string {
+	return cleanSectionText(extractSectionAny(body, headings), maxSectionRunes)
 }

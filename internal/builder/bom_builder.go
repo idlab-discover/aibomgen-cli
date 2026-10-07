@@ -32,6 +32,7 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 	if err := AddMetaTools(bom, "", GetAIBoMGenVersion()); err != nil {
 		return nil, err
 	}
+	AddMetaLifecycles(bom)
 
 	// Apply registry exactly once (no duplication).
 	src := metadata.Source{
@@ -43,11 +44,10 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 		SecurityTree: ctx.SecurityTree,
 	}
 	tgt := metadata.Target{
-		BOM:                       bom,
-		Component:                 comp,
-		ModelCard:                 comp.ModelCard,
-		IncludeEvidenceProperties: b.Opts.IncludeEvidenceProperties,
-		HuggingFaceBaseURL:        b.Opts.HuggingFaceBaseURL,
+		BOM:                bom,
+		Component:          comp,
+		ModelCard:          comp.ModelCard,
+		HuggingFaceBaseURL: b.Opts.HuggingFaceBaseURL,
 	}
 
 	for _, spec := range metadata.Registry() {
@@ -57,6 +57,17 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 	// Now properties, hashes and tags are populated — compute deterministic PURL and BOMRef.
 	AddComponentPurl(comp)
 	AddComponentBOMRef(comp)
+
+	// Base models (pedigree ancestors) get a version-less purl and matching bom-ref:
+	// their commit is not resolved, to avoid a Hub call per ancestor.
+	if comp.Pedigree != nil && comp.Pedigree.Ancestors != nil {
+		for i := range *comp.Pedigree.Ancestors {
+			AddComponentPurl(&(*comp.Pedigree.Ancestors)[i])
+			AddComponentBOMRef(&(*comp.Pedigree.Ancestors)[i])
+		}
+	}
+
+	AddComponentEvidence(comp, ctx, b.Opts.HuggingFaceBaseURL)
 
 	// Inject security scan findings as Component.Properties and BOM.Vulnerabilities.
 	InjectSecurityData(bom, comp, ctx.SecurityTree, strings.TrimSpace(ctx.ModelID), strings.TrimSpace(ctx.Revision))
@@ -77,9 +88,8 @@ func (b BOMBuilder) BuildDataset(ctx DatasetBuildContext) (*cdx.Component, error
 		Readme:    ctx.Readme,
 	}
 	tgt := metadata.DatasetTarget{
-		Component:                 comp,
-		IncludeEvidenceProperties: b.Opts.IncludeEvidenceProperties,
-		HuggingFaceBaseURL:        b.Opts.HuggingFaceBaseURL,
+		Component:          comp,
+		HuggingFaceBaseURL: b.Opts.HuggingFaceBaseURL,
 	}
 
 	for _, spec := range metadata.DatasetRegistry() {

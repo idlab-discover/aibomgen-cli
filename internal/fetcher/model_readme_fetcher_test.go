@@ -169,3 +169,136 @@ func TestParseReadmeCard_BaseModel(t *testing.T) {
 		}
 	}
 }
+
+// bert-base-uncased / roberta-base layout: one "Intended uses & limitations" section with
+// "How to use" and "Limitations and bias" subsections full of code.
+func TestParseReadmeCard_ConsiderationAliases_BertLayout(t *testing.T) {
+	readme := "---\nlicense: apache-2.0\n---\n# BERT base model (uncased)\n\nPretrained model on English language using a masked language modeling (MLM) objective.\n\n" +
+		"## Model description\n\nBERT is a transformers model.\n\n" +
+		"## Intended uses & limitations\n\nYou can use the raw model for masked language modeling, but it's mostly intended to be fine-tuned.\n\n" +
+		"### How to use\n\nYou can use this model directly with a pipeline:\n\n```python\n>>> from transformers import pipeline\n>>> unmasker = pipeline('fill-mask', model='bert-base-uncased')\n```\n\n" +
+		"### Limitations and bias\n\nThis model can have biased predictions:\n\n```python\n>>> unmasker(\"The man worked as a [MASK].\")\n```\n\nThis bias will also affect all fine-tuned versions of this model.\n\n" +
+		"## Training data\n\nBookCorpus and English Wikipedia.\n"
+	card := parseReadmeCard(readme)
+
+	if !strings.HasPrefix(card.DirectUse, "You can use the raw model") || strings.Contains(card.DirectUse, "pipeline") {
+		t.Fatalf("directUse = %q", card.DirectUse)
+	}
+	want := "This model can have biased predictions:\n\nThis bias will also affect all fine-tuned versions of this model."
+	if card.BiasRisksLimitations != want {
+		t.Fatalf("biasRisksLimitations = %q, want %q", card.BiasRisksLimitations, want)
+	}
+	if card.EthicalConsiderations != "" || card.OutOfScopeUse != "" {
+		t.Fatalf("unexpected ethical=%q outOfScope=%q", card.EthicalConsiderations, card.OutOfScopeUse)
+	}
+	if card.DescriptionSection != "BERT is a transformers model." {
+		t.Fatalf("descriptionSection = %q", card.DescriptionSection)
+	}
+	if card.LeadParagraph != "Pretrained model on English language using a masked language modeling (MLM) objective." {
+		t.Fatalf("leadParagraph = %q", card.LeadParagraph)
+	}
+	if card.Summary != "" {
+		t.Fatalf("summary = %q, want empty", card.Summary)
+	}
+}
+
+func TestParseReadmeCard_FrontMatterSummary(t *testing.T) {
+	card := parseReadmeCard("---\nsummary: |\n  A small model\n  for **tests**.\n---\n# M\n\nLead paragraph with enough words.\n")
+	if card.Summary != "A small model for tests." {
+		t.Fatalf("summary = %q", card.Summary)
+	}
+	card = parseReadmeCard("---\nmodel_description: Preferred text.\nsummary: Other text.\n---\n")
+	if card.Summary != "Preferred text." {
+		t.Fatalf("summary = %q, want model_description first", card.Summary)
+	}
+}
+
+// all-MiniLM-L6-v2 layout: usage code with "# comment" lines before "## Intended uses".
+func TestParseReadmeCard_ConsiderationAliases_MiniLMLayout(t *testing.T) {
+	readme := "# all-MiniLM-L6-v2\n\n## Usage (HuggingFace Transformers)\n\n```python\n# Sentences we want sentence embeddings for\nsentences = ['a', 'b']\n```\n\n" +
+		"## Intended uses\n\nOur model is intended to be used as a sentence and short paragraph encoder.\n\n## Training procedure\n\nX.\n"
+	card := parseReadmeCard(readme)
+	if card.DirectUse != "Our model is intended to be used as a sentence and short paragraph encoder." {
+		t.Fatalf("directUse = %q", card.DirectUse)
+	}
+}
+
+func TestParseReadmeCard_BaseModelLineage(t *testing.T) {
+	card := parseReadmeCard("---\nbase_model:\n- org/a\n- org/b\nbase_model_relation: Merge\n---\n# M\n")
+	if len(card.BaseModels) != 2 || card.BaseModels[1] != "org/b" || card.BaseModel != "org/a,org/b" {
+		t.Fatalf("baseModels = %v, baseModel = %q", card.BaseModels, card.BaseModel)
+	}
+	if card.BaseModelRelation != "merge" {
+		t.Fatalf("baseModelRelation = %q", card.BaseModelRelation)
+	}
+}
+
+func TestParseReadmeCard_ModelIndexSlices(t *testing.T) {
+	readme := `---
+model-index:
+- name: m
+  results:
+  - task:
+      type: Classification
+    dataset:
+      type: mteb/amazon_counterfactual
+      name: MTEB AmazonCounterfactualClassification (en)
+      config: en
+      split: test
+    metrics:
+    - type: accuracy
+      value: 73.79
+    - type: f1
+      value: 67.9
+  - task:
+      type: Retrieval
+    dataset:
+      type: mteb/arguana
+      config: default
+      split: dev
+    metrics:
+    - type: ndcg_at_10
+      value: 59.5
+  - task:
+      type: Other
+    metrics:
+    - type: loss
+      value: 0.1
+---
+# m
+`
+	card := parseReadmeCard(readme)
+	if card.TaskType != "Classification" {
+		t.Fatalf("taskType = %q, want the first result's task", card.TaskType)
+	}
+	want := []ModelIndexMetric{
+		{Type: "accuracy", Value: "73.79", Dataset: "MTEB AmazonCounterfactualClassification (en)", Split: "test"},
+		{Type: "f1", Value: "67.9", Dataset: "MTEB AmazonCounterfactualClassification (en)", Split: "test"},
+		{Type: "ndcg_at_10", Value: "59.5", Dataset: "mteb/arguana (default)", Split: "dev"},
+		{Type: "loss", Value: "0.1"},
+	}
+	if len(card.ModelIndexMetrics) != len(want) {
+		t.Fatalf("metrics = %+v", card.ModelIndexMetrics)
+	}
+	for i := range want {
+		if card.ModelIndexMetrics[i] != want[i] {
+			t.Errorf("metric %d = %+v, want %+v", i, card.ModelIndexMetrics[i], want[i])
+		}
+	}
+}
+
+func TestParseReadmeCard_ModelIndexCap(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("---\nmodel-index:\n- name: m\n  results:\n")
+	for r := 0; r < 15; r++ { // 15 results x 10 metrics = 150
+		b.WriteString("  - dataset:\n      name: d" + strings.Repeat("x", r) + "\n      split: test\n    metrics:\n")
+		for m := 0; m < 10; m++ {
+			b.WriteString("    - type: m\n      value: 1\n")
+		}
+	}
+	b.WriteString("---\n")
+	card := parseReadmeCard(b.String())
+	if len(card.ModelIndexMetrics) != maxModelIndexMetrics {
+		t.Fatalf("metrics = %d, want the cap %d", len(card.ModelIndexMetrics), maxModelIndexMetrics)
+	}
+}

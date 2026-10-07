@@ -276,3 +276,72 @@ func TestModelFetchersUseRevisionURLs(t *testing.T) {
 		t.Fatalf("requested paths = %v, want %v", paths, want)
 	}
 }
+
+// lineageServer serves a model API response and, for ?expand[]=baseModels, the lineage.
+// It records the request URIs.
+func lineageServer(t *testing.T, cardData string, lineageStatus int) (*httptest.Server, *[]string) {
+	t.Helper()
+	var requests []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests = append(requests, r.URL.RequestURI())
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Query().Get("expand[]") == "baseModels" {
+			w.WriteHeader(lineageStatus)
+			_, _ = io.WriteString(w, `{"_id":"x","id":"org/m","baseModels":{"relation":"finetune","models":[{"_id":"y","id":"org/base"}]}}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"id":"org/m","sha":"abc","cardData":`+cardData+`}`)
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &requests
+}
+
+func TestFetchRevision_BaseModels(t *testing.T) {
+	srv, reqs := lineageServer(t, `{"base_model":"org/base"}`, http.StatusOK)
+	resp, err := (&ModelAPIFetcher{BaseURL: srv.URL}).Fetch("org/m")
+	if err != nil {
+		t.Fatalf("Fetch error: %v", err)
+	}
+	if len(*reqs) != 2 || !strings.Contains((*reqs)[1], "expand") {
+		t.Fatalf("requests = %v, want the model then the lineage request", *reqs)
+	}
+	bm := resp.BaseModels
+	if bm == nil || bm.Relation != "finetune" || len(bm.Models) != 1 || bm.Models[0].ID != "org/base" {
+		t.Fatalf("BaseModels = %+v", bm)
+	}
+	if resp.SHA != "abc" {
+		t.Fatalf("main response fields lost: sha = %q", resp.SHA)
+	}
+}
+
+func TestFetchRevision_NoBaseModel_NoLineageRequest(t *testing.T) {
+	srv, reqs := lineageServer(t, `{"license":"mit"}`, http.StatusOK)
+	resp, err := (&ModelAPIFetcher{BaseURL: srv.URL}).Fetch("org/m")
+	if err != nil {
+		t.Fatalf("Fetch error: %v", err)
+	}
+	if len(*reqs) != 1 || resp.BaseModels != nil {
+		t.Fatalf("requests = %v, baseModels = %+v; want one request and no lineage", *reqs, resp.BaseModels)
+	}
+}
+
+func TestFetchRevision_LineageFailureIsIgnored(t *testing.T) {
+	srv, _ := lineageServer(t, `{"base_model":["org/a","org/b"]}`, http.StatusInternalServerError)
+	resp, err := (&ModelAPIFetcher{BaseURL: srv.URL}).Fetch("org/m")
+	if err != nil {
+		t.Fatalf("Fetch error: %v", err)
+	}
+	if resp.BaseModels != nil || resp.SHA != "abc" {
+		t.Fatalf("want the main response without lineage, got %+v", resp)
+	}
+}
+
+func TestFetchRevision_LineageUsesRevisionPath(t *testing.T) {
+	srv, reqs := lineageServer(t, `{"base_model":"org/base"}`, http.StatusOK)
+	if _, err := (&ModelAPIFetcher{BaseURL: srv.URL}).FetchRevision("org/m", "v1.0"); err != nil {
+		t.Fatalf("FetchRevision error: %v", err)
+	}
+	if len(*reqs) != 2 || !strings.HasPrefix((*reqs)[1], "/api/models/org/m/revision/v1.0?expand") {
+		t.Fatalf("requests = %v", *reqs)
+	}
+}
