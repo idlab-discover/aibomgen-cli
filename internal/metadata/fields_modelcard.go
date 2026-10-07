@@ -241,6 +241,12 @@ func modelCardFields() []FieldSpec {
 			InputType:   InputTypeMultiText,
 			Placeholder: "dataset1, dataset2, dataset3",
 		},
+		ioFieldSpec(ModelCardModelParametersInputs, "inputs", "text, image",
+			func(t taskIO) []string { return t.inputs },
+			func(mp *cdx.MLModelParameters) **[]cdx.MLInputOutputParameters { return &mp.Inputs }),
+		ioFieldSpec(ModelCardModelParametersOutputs, "outputs", "text",
+			func(t taskIO) []string { return t.outputs },
+			func(mp *cdx.MLModelParameters) **[]cdx.MLInputOutputParameters { return &mp.Outputs }),
 		{
 			Key:      ModelCardConsiderationsUseCases,
 			Weight:   0.5,
@@ -545,5 +551,67 @@ func modelCardFields() []FieldSpec {
 			InputType:   InputTypeTextArea,
 			Placeholder: "hardwareType:GPU,hoursUsed:100,carbonEmitted:50kg",
 		},
+	}
+}
+
+// ioFieldSpec builds the FieldSpec for modelParameters.inputs or .outputs. The formats
+// come from the model's pipeline tag (see pipelineTagIO); pick selects inputs or
+// outputs and field points at the matching slice in the model parameters.
+func ioFieldSpec(key Key, name, placeholder string, pick func(taskIO) []string, field func(*cdx.MLModelParameters) **[]cdx.MLInputOutputParameters) FieldSpec {
+	return FieldSpec{
+		Key:      key,
+		Weight:   0.25,
+		Required: false,
+		Sources: []func(Source) (any, bool){
+			func(src Source) (any, bool) {
+				t, ok := pipelineTagFormats(modelTaskTag(src))
+				if !ok || len(pick(t)) == 0 {
+					return nil, false
+				}
+				return pick(t), true
+			},
+		},
+		Parse: func(value string) (any, error) {
+			return parseCommaList(value, name)
+		},
+		Apply: func(tgt Target, value any) error {
+			input, ok := value.(applyInput)
+			if !ok {
+				return fmt.Errorf("invalid input for %s", key)
+			}
+			if tgt.ModelCard == nil {
+				return fmt.Errorf("modelCard is nil")
+			}
+			fmts, _ := input.Value.([]string)
+			params := ioParams(fmts)
+			if len(params) == 0 {
+				return fmt.Errorf("%s value is empty", name)
+			}
+			if !input.Force && tgt.ModelCard.ModelParameters != nil {
+				if cur := *field(tgt.ModelCard.ModelParameters); cur != nil && len(*cur) > 0 {
+					return nil
+				}
+			}
+			*field(ensureModelParameters(tgt.ModelCard)) = &params
+			return nil
+		},
+		Present: func(b *cdx.BOM) bool {
+			mp := bomModelParameters(b)
+			if mp == nil {
+				return false
+			}
+			cur := *field(mp)
+			if cur == nil {
+				return false
+			}
+			for _, p := range *cur {
+				if strings.TrimSpace(p.Format) != "" {
+					return true
+				}
+			}
+			return false
+		},
+		InputType:   InputTypeMultiText,
+		Placeholder: placeholder,
 	}
 }

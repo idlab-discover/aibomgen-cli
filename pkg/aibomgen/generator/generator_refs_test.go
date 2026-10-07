@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 
+	cdx "github.com/CycloneDX/cyclonedx-go"
+
 	"github.com/idlab-discover/aibomgen-cli/internal/fetcher"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/scanner"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/validator"
@@ -160,5 +162,52 @@ func TestParseModelRef(t *testing.T) {
 	}
 	if s := (ModelRef{ID: "a/b", Revision: "v1"}).String(); s != "a/b@v1" {
 		t.Fatalf("String() = %q", s)
+	}
+}
+
+func TestBuildFromModelIDs_InputsOutputs(t *testing.T) {
+	tags := map[string]string{
+		"google-bert/bert-base-uncased":          "fill-mask",
+		"sentence-transformers/all-MiniLM-L6-v2": "sentence-similarity",
+		"openai/whisper-large-v3":                "automatic-speech-recognition",
+	}
+	api := &mockModelAPIFetcher{fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
+		return &fetcher.ModelAPIResponse{ID: id, SHA: "abc", PipelineTag: tags[id]}, nil
+	}}
+	withFetchers(t, hfLikeFetchers(api))
+
+	ids := []string{"google-bert/bert-base-uncased", "sentence-transformers/all-MiniLM-L6-v2", "openai/whisper-large-v3"}
+	boms, err := BuildFromModelIDs(ids, GenerateOptions{})
+	if err != nil || len(boms) != len(ids) {
+		t.Fatalf("BuildFromModelIDs = %d boms, err %v", len(boms), err)
+	}
+
+	want := map[string][2][]string{
+		"google-bert/bert-base-uncased":          {{"text"}, {"text"}},
+		"sentence-transformers/all-MiniLM-L6-v2": {{"text"}, {"embedding"}},
+		"openai/whisper-large-v3":                {{"audio"}, {"text"}},
+	}
+	formats := func(ps *[]cdx.MLInputOutputParameters) []string {
+		if ps == nil {
+			return nil
+		}
+		out := make([]string, 0, len(*ps))
+		for _, p := range *ps {
+			out = append(out, p.Format)
+		}
+		return out
+	}
+	for _, b := range boms {
+		id := b.Discovery.ID
+		mp := b.BOM.Metadata.Component.ModelCard.ModelParameters
+		if mp.Task != tags[id] {
+			t.Errorf("%s: task = %q, want %q", id, mp.Task, tags[id])
+		}
+		if got := formats(mp.Inputs); !reflect.DeepEqual(got, want[id][0]) {
+			t.Errorf("%s: inputs = %v, want %v", id, got, want[id][0])
+		}
+		if got := formats(mp.Outputs); !reflect.DeepEqual(got, want[id][1]) {
+			t.Errorf("%s: outputs = %v, want %v", id, got, want[id][1])
+		}
 	}
 }

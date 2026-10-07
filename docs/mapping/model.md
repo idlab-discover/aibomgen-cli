@@ -55,6 +55,8 @@ Whole sentences are kept up to 300 characters. A first sentence longer than that
 | `modelParameters.architectureFamily` | `BOM.metadata.component.modelCard.modelParameters.architectureFamily` | `HF.config.model_type` | Trimmed (e.g. `bert`) | 0.5 |
 | `modelParameters.modelArchitecture` | `BOM.metadata.component.modelCard.modelParameters.modelArchitecture` | `HF.config.architectures[0]` | Trimmed (e.g. `BertForMaskedLM`) | 0.5 |
 | `modelParameters.datasets` | `BOM.metadata.component.modelCard.modelParameters.datasets` | `cardData.datasets` plus `dataset:*` tags → README front matter `datasets` | Linked to the data components after they are built: `{ref: <bom-ref>}` or an inline `{type: dataset, name}`, see [identity-and-links.md](identity-and-links.md#dataset-references) | 0.5 |
+| `modelParameters.inputs` | `BOM.metadata.component.modelCard.modelParameters.inputs` | `HF.pipeline_tag` → README front matter `model-index[0].results[0].task.type` (same as `task`) | Pipeline tag mapped to input formats, one `{format}` per entry (see [Inputs and outputs](#inputs-and-outputs)). Absent for unmapped tags. | 0.25 |
+| `modelParameters.outputs` | `BOM.metadata.component.modelCard.modelParameters.outputs` | Same as `inputs` | Pipeline tag mapped to output formats, one `{format}` per entry. Absent for unmapped tags. | 0.25 |
 | `considerations.useCases` | `BOM.metadata.component.modelCard.considerations.useCases` | README use-case section; README out-of-scope section (heading aliases below) | Section text is cleaned (see below). Out-of-scope text is prefixed with `out-of-scope: ` | 0.5 |
 | `considerations.technicalLimitations` | `BOM.metadata.component.modelCard.considerations.technicalLimitations` | README limitations section (heading aliases below) | One entry with the cleaned section text | 0.5 |
 | `considerations.ethicalConsiderations` | `BOM.metadata.component.modelCard.considerations.ethicalConsiderations` | README ethics section → limitations section (name); README "Recommendations" section (mitigation) | One entry with cleaned text. If only recommendations exist, the name is `bias_risks_limitations`. | 0.25 |
@@ -79,6 +81,55 @@ Matching rules:
 - **Skipped sections:** a section that is empty after cleaning is skipped. A section holding only `[More Information Needed]` is skipped too, and kept verbatim only when no alias has real text.
 - **Cleaning:** fenced code blocks, HTML comments and tags, and Markdown images are removed, and blank lines are collapsed.
 - **Length cap:** the text is capped at 1000 characters. It is cut at the last sentence end, or else at a word boundary followed by `…`.
+
+### Inputs and outputs
+
+The pipeline tag is lowercased and looked up in a static map in [task_io.go](../../internal/metadata/task_io.go). The keys are the pipeline tags that the Hub offers for models, from [huggingface.js `pipelines.ts`](https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/src/pipelines.ts).
+
+| Pipeline tag | `inputs` | `outputs` |
+|---|---|---|
+| text-generation, fill-mask, summarization, translation, question-answering | text | text |
+| feature-extraction, sentence-similarity | text | embedding |
+| text-classification, zero-shot-classification | text | label |
+| token-classification | text | token labels |
+| text-ranking | text | score |
+| table-question-answering | tabular, text | text |
+| image-classification | image | label |
+| zero-shot-image-classification | image, text | label |
+| object-detection | image | bounding boxes |
+| zero-shot-object-detection | image, text | bounding boxes |
+| image-segmentation, mask-generation | image | segmentation mask |
+| keypoint-detection | image | keypoints |
+| image-feature-extraction | image | embedding |
+| visual-document-retrieval | image, text | embedding |
+| image-to-text | image | text |
+| image-text-to-text, visual-question-answering, document-question-answering | image, text | text |
+| image-to-image, depth-estimation | image | image |
+| image-text-to-image | image, text | image |
+| unconditional-image-generation | (none; field absent) | image |
+| text-to-image | text | image |
+| automatic-speech-recognition | audio | text |
+| audio-text-to-text | audio, text | text |
+| audio-classification | audio | label |
+| voice-activity-detection | audio | segments |
+| text-to-speech, text-to-audio | text | audio |
+| audio-to-audio | audio | audio |
+| video-classification | video | label |
+| video-text-to-text | video, text | text |
+| text-to-video | text | video |
+| image-to-video | image | video |
+| image-text-to-video | image, text | video |
+| video-to-video | video | video |
+| text-to-3d | text | 3d |
+| image-to-3d | image | 3d |
+| tabular-classification | tabular | label |
+| tabular-regression | tabular | score |
+| time-series-forecasting | time-series | time-series |
+
+Unmapped tags leave both fields out rather than guessing:
+- `any-to-any`, `reinforcement-learning`, `robotics` and `graph-ml` have no fixed inputs or outputs.
+- `multiple-choice`, `table-to-text`, `tabular-to-text`, `text-retrieval` and `other` are not offered for models.
+- `text2text-generation` is no longer a pipeline tag; it is now a `text-generation` subtask.
 
 ## Properties
 

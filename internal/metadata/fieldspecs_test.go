@@ -37,7 +37,7 @@ func TestRegistryApplyAndPresent(t *testing.T) {
 			ID:          "hf-org/hf-model",
 			ModelID:     "hf-org/hf-model",
 			Author:      "hf-author",
-			PipelineTag: "classification",
+			PipelineTag: "text-classification",
 			LibraryName: "transformers",
 			Tags:        []string{"tag1", "license:apache-2.0", "dataset:ds1", "tag1"},
 			License:     "mit",
@@ -128,7 +128,7 @@ func TestRegistryApplyAndPresent(t *testing.T) {
 		t.Fatalf("model parameters missing")
 	}
 	mp := comp.ModelCard.ModelParameters
-	if mp.Task != "classification" || mp.ArchitectureFamily != "bert" || mp.ModelArchitecture != "BertForSequenceClassification" {
+	if mp.Task != "text-classification" || mp.ArchitectureFamily != "bert" || mp.ModelArchitecture != "BertForSequenceClassification" {
 		t.Fatalf("model parameters not populated: %#v", mp)
 	}
 	if mp.Datasets == nil || len(*mp.Datasets) != 2 {

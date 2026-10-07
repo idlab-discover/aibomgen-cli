@@ -43,6 +43,8 @@ const (
 	ModelCardModelParametersArchitectureFamily                   Key = "BOM.metadata.component.modelCard.modelParameters.architectureFamily"
 	ModelCardModelParametersModelArchitecture                    Key = "BOM.metadata.component.modelCard.modelParameters.modelArchitecture"
 	ModelCardModelParametersDatasets                             Key = "BOM.metadata.component.modelCard.modelParameters.datasets"
+	ModelCardModelParametersInputs                               Key = "BOM.metadata.component.modelCard.modelParameters.inputs"
+	ModelCardModelParametersOutputs                              Key = "BOM.metadata.component.modelCard.modelParameters.outputs"
 	ModelCardConsiderationsUseCases                              Key = "BOM.metadata.component.modelCard.considerations.useCases"
 	ModelCardConsiderationsTechnicalLimitations                  Key = "BOM.metadata.component.modelCard.considerations.technicalLimitations"
 	ModelCardConsiderationsEthicalConsiderations                 Key = "BOM.metadata.component.modelCard.considerations.ethicalConsiderations"
