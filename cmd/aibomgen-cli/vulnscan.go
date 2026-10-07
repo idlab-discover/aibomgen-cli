@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -33,7 +34,7 @@ active) a preview and confirmation prompt are shown before writing.`,
 func runVulnScan(cmd *cobra.Command, _ []string) error {
 	inputPath := viper.GetString("vuln-scan.input")
 	if inputPath == "" {
-		return apperr.User("--input is required")
+		return errors.New("--input is required")
 	}
 
 	inputFormat := viper.GetString("vuln-scan.format")
@@ -48,7 +49,7 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 	switch logLevel {
 	case "quiet", "standard", "debug":
 	default:
-		return apperr.Userf("invalid --log-level %q (expected quiet|standard|debug)", logLevel)
+		return fmt.Errorf("invalid --log-level %q (expected quiet|standard|debug)", logLevel)
 	}
 
 	enrich := viper.GetBool("vuln-scan.enrich")

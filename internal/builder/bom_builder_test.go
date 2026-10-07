@@ -8,46 +8,20 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/scanner"
 )
 
-func TestNewBOMBuilder(t *testing.T) {
-	type args struct {
-		opts Options
-	}
-	tests := []struct {
-		name string
-		args args
-		want *BOMBuilder
-	}{
-		{name: "returns builder with opts", args: args{opts: Options{HuggingFaceBaseURL: "https://example/"}}, want: &BOMBuilder{Opts: Options{HuggingFaceBaseURL: "https://example/"}}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := NewBOMBuilder(tt.args.opts); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewBOMBuilder() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestBOMBuilder_Build(t *testing.T) {
-	type fields struct {
-		Opts Options
-	}
 	type args struct {
 		ctx BuildContext
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		wantErr bool
 	}{
-		{name: "builds bom with metadata component", fields: fields{Opts: DefaultOptions()}, args: args{ctx: BuildContext{ModelID: "mymodel"}}, wantErr: false},
+		{name: "builds bom with metadata component", args: args{ctx: BuildContext{ModelID: "mymodel"}}, wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := BOMBuilder{
-				Opts: tt.fields.Opts,
-			}
+			b := BOMBuilder{}
 			got, err := b.Build(tt.args.ctx)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BOMBuilder.Build() error = %v, wantErr %v", err, tt.wantErr)
@@ -82,25 +56,19 @@ func TestBOMBuilder_Build(t *testing.T) {
 }
 
 func TestBOMBuilder_BuildDataset(t *testing.T) {
-	type fields struct {
-		Opts Options
-	}
 	type args struct {
 		ctx DatasetBuildContext
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		wantErr bool
 	}{
-		{name: "builds dataset component", fields: fields{Opts: DefaultOptions()}, args: args{ctx: DatasetBuildContext{DatasetID: "mydataset"}}, wantErr: false},
+		{name: "builds dataset component", args: args{ctx: DatasetBuildContext{DatasetID: "mydataset"}}, wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := BOMBuilder{
-				Opts: tt.fields.Opts,
-			}
+			b := BOMBuilder{}
 			got, err := b.BuildDataset(tt.args.ctx)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BOMBuilder.BuildDataset() error = %v, wantErr %v", err, tt.wantErr)

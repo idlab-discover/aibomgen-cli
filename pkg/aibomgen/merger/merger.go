@@ -415,14 +415,6 @@ func generateBOMRef(comp *cdx.Component) string {
 	return strings.Join(parts, "/")
 }
 
-// getServiceBOMRef returns the BOM-ref of a service.
-func getServiceBOMRef(svc *cdx.Service) string {
-	if svc.BOMRef == "" {
-		return ""
-	}
-	return svc.BOMRef
-}
-
 // mergeDependenciesMultiple combines dependencies from multiple BOMs.
 func mergeDependenciesMultiple(deps ...*[]cdx.Dependency) *[]cdx.Dependency {
 	if len(deps) == 0 {
@@ -502,7 +494,7 @@ func mergeServicesMultiple(services ...*[]cdx.Service) *[]cdx.Service {
 		}
 		for i := range *svcList {
 			svc := &(*svcList)[i]
-			bomRef := getServiceBOMRef(svc)
+			bomRef := svc.BOMRef
 			if bomRef != "" {
 				if _, exists := serviceMap[bomRef]; exists {
 					continue // Skip duplicate

@@ -47,14 +47,6 @@ jobs:
             **/go.sum
             **/go.work.sum
 
-      - name: Cache dist directory
-        uses: actions/cache@v4
-        with:
-          path: dist
-          key: ${{ runner.os }}-dist-${{ matrix.fixture }}-${{ matrix.format }}-${{ matrix.hf-mode }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-dist-${{ matrix.fixture }}-${{ matrix.format }}-${{ matrix.hf-mode }}-
-
       - name: Download dependencies
         run: go mod download
 

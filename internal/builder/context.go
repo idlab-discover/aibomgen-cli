@@ -22,13 +22,3 @@ type DatasetBuildContext struct {
 	HF        *fetcher.DatasetAPIResponse
 	Readme    *fetcher.DatasetReadmeCard
 }
-
-type Options struct {
-	HuggingFaceBaseURL string
-}
-
-func DefaultOptions() Options {
-	return Options{
-		HuggingFaceBaseURL: "https://huggingface.co/",
-	}
-}

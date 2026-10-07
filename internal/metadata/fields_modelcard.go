@@ -10,9 +10,8 @@ import (
 func modelCardFields() []FieldSpec {
 	return []FieldSpec{
 		{
-			Key:      ModelCardModelParametersTask,
-			Weight:   1.0,
-			Required: false,
+			Key:    ModelCardModelParametersTask,
+			Weight: 1.0,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF == nil {
@@ -62,17 +61,15 @@ func modelCardFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				mp := bomModelParameters(b)
-				ok := mp != nil && strings.TrimSpace(mp.Task) != ""
-				return ok
+				return mp != nil && strings.TrimSpace(mp.Task) != ""
 			},
 			InputType:   InputTypeSelect,
 			Placeholder: "Select the primary task",
 			Suggestions: []string{"text-classification", "text-generation", "token-classification", "question-answering", "summarization", "translation", "image-classification", "object-detection", "image-segmentation", "audio-classification", "automatic-speech-recognition"},
 		},
 		{
-			Key:      ModelCardModelParametersArchitectureFamily,
-			Weight:   0.5,
-			Required: false,
+			Key:    ModelCardModelParametersArchitectureFamily,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF == nil {
@@ -107,17 +104,15 @@ func modelCardFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				mp := bomModelParameters(b)
-				ok := mp != nil && strings.TrimSpace(mp.ArchitectureFamily) != ""
-				return ok
+				return mp != nil && strings.TrimSpace(mp.ArchitectureFamily) != ""
 			},
 			InputType:   InputTypeText,
 			Placeholder: "e.g., transformer, cnn, rnn",
 			Suggestions: []string{"transformer", "cnn", "rnn", "lstm", "gru", "diffusion"},
 		},
 		{
-			Key:      ModelCardModelParametersModelArchitecture,
-			Weight:   0.5,
-			Required: false,
+			Key:    ModelCardModelParametersModelArchitecture,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF == nil {
@@ -155,16 +150,14 @@ func modelCardFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				mp := bomModelParameters(b)
-				ok := mp != nil && strings.TrimSpace(mp.ModelArchitecture) != ""
-				return ok
+				return mp != nil && strings.TrimSpace(mp.ModelArchitecture) != ""
 			},
 			InputType:   InputTypeText,
 			Placeholder: "e.g., BertForSequenceClassification",
 		},
 		{
-			Key:      ModelCardModelParametersDatasets,
-			Weight:   0.5,
-			Required: false,
+			Key:    ModelCardModelParametersDatasets,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF == nil {
@@ -248,9 +241,8 @@ func modelCardFields() []FieldSpec {
 			func(t taskIO) []string { return t.outputs },
 			func(mp *cdx.MLModelParameters) **[]cdx.MLInputOutputParameters { return &mp.Outputs }),
 		{
-			Key:      ModelCardConsiderationsUseCases,
-			Weight:   0.5,
-			Required: false,
+			Key:    ModelCardConsiderationsUseCases,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.Readme == nil {
@@ -294,16 +286,14 @@ func modelCardFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.UseCases != nil && len(*c.ModelCard.Considerations.UseCases) > 0
-				return ok
+				return c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.UseCases != nil && len(*c.ModelCard.Considerations.UseCases) > 0
 			},
 			InputType:   InputTypeMultiText,
 			Placeholder: "use case 1, use case 2",
 		},
 		{
-			Key:      ModelCardConsiderationsTechnicalLimitations,
-			Weight:   0.5,
-			Required: false,
+			Key:    ModelCardConsiderationsTechnicalLimitations,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.Readme == nil {
@@ -340,16 +330,14 @@ func modelCardFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.TechnicalLimitations != nil && len(*c.ModelCard.Considerations.TechnicalLimitations) > 0
-				return ok
+				return c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.TechnicalLimitations != nil && len(*c.ModelCard.Considerations.TechnicalLimitations) > 0
 			},
 			InputType:   InputTypeTextArea,
 			Placeholder: "limitation1,limitation2,limitation3",
 		},
 		{
-			Key:      ModelCardConsiderationsEthicalConsiderations,
-			Weight:   0.25,
-			Required: false,
+			Key:    ModelCardConsiderationsEthicalConsiderations,
+			Weight: 0.25,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.Readme == nil {
@@ -395,16 +383,14 @@ func modelCardFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.EthicalConsiderations != nil && len(*c.ModelCard.Considerations.EthicalConsiderations) > 0
-				return ok
+				return c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.EthicalConsiderations != nil && len(*c.ModelCard.Considerations.EthicalConsiderations) > 0
 			},
 			InputType:   InputTypeTextArea,
 			Placeholder: "bias:mitigation strategy,privacy concerns,fairness issues",
 		},
 		{
-			Key:      ModelCardQuantitativeAnalysisPerformanceMetrics,
-			Weight:   0.5,
-			Required: false,
+			Key:    ModelCardQuantitativeAnalysisPerformanceMetrics,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.Readme == nil {
@@ -481,16 +467,14 @@ func modelCardFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.ModelCard != nil && c.ModelCard.QuantitativeAnalysis != nil && c.ModelCard.QuantitativeAnalysis.PerformanceMetrics != nil && len(*c.ModelCard.QuantitativeAnalysis.PerformanceMetrics) > 0
-				return ok
+				return c != nil && c.ModelCard != nil && c.ModelCard.QuantitativeAnalysis != nil && c.ModelCard.QuantitativeAnalysis.PerformanceMetrics != nil && len(*c.ModelCard.QuantitativeAnalysis.PerformanceMetrics) > 0
 			},
 			InputType:   InputTypeTextArea,
 			Placeholder: "accuracy:0.95,f1:0.92,precision:0.88",
 		},
 		{
-			Key:      ModelCardConsiderationsEnvironmentalConsiderationsProperties,
-			Weight:   0.25,
-			Required: false,
+			Key:    ModelCardConsiderationsEnvironmentalConsiderationsProperties,
+			Weight: 0.25,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.Readme == nil {
@@ -546,8 +530,7 @@ func modelCardFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.EnvironmentalConsiderations != nil && c.ModelCard.Considerations.EnvironmentalConsiderations.Properties != nil && len(*c.ModelCard.Considerations.EnvironmentalConsiderations.Properties) > 0
-				return ok
+				return c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.EnvironmentalConsiderations != nil && c.ModelCard.Considerations.EnvironmentalConsiderations.Properties != nil && len(*c.ModelCard.Considerations.EnvironmentalConsiderations.Properties) > 0
 			},
 			InputType:   InputTypeTextArea,
 			Placeholder: "hardwareType:GPU,hoursUsed:100,carbonEmitted:50kg",
@@ -560,9 +543,8 @@ func modelCardFields() []FieldSpec {
 // outputs and field points at the matching slice in the model parameters.
 func ioFieldSpec(key Key, name, placeholder string, pick func(taskIO) []string, field func(*cdx.MLModelParameters) **[]cdx.MLInputOutputParameters) FieldSpec {
 	return FieldSpec{
-		Key:      key,
-		Weight:   0.25,
-		Required: false,
+		Key:    key,
+		Weight: 0.25,
 		Sources: []func(Source) (any, bool){
 			func(src Source) (any, bool) {
 				t, ok := pipelineTagFormats(modelTaskTag(src))

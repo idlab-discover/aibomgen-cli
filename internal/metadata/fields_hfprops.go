@@ -90,9 +90,8 @@ func hfPropFields() []FieldSpec {
 
 func hfProp(key Key, weight float64, get func(src Source) (any, bool)) FieldSpec {
 	return FieldSpec{
-		Key:      key,
-		Weight:   weight,
-		Required: false,
+		Key:    key,
+		Weight: weight,
 		Sources: []func(Source) (any, bool){
 			func(src Source) (any, bool) {
 				if get == nil {
@@ -120,8 +119,7 @@ func hfProp(key Key, weight float64, get func(src Source) (any, bool)) FieldSpec
 		Present: func(b *cdx.BOM) bool {
 			c := bomComponent(b)
 			propName := strings.TrimPrefix(key.String(), "BOM.metadata.component.properties.")
-			ok := c != nil && hasProperty(c, propName)
-			return ok
+			return c != nil && hasProperty(c, propName)
 		},
 	}
 }

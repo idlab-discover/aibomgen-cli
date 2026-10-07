@@ -1,10 +1,10 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/bomio"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/validator"
@@ -29,7 +29,7 @@ var validateCmd = &cobra.Command{
 		// Get input from viper (respects config file and CLI flag).
 		inputPath := viper.GetString("validate.input")
 		if inputPath == "" {
-			return apperr.User("--input is required")
+			return errors.New("--input is required")
 		}
 
 		// Get log level from viper (respects config file).
@@ -41,7 +41,7 @@ var validateCmd = &cobra.Command{
 		case "quiet", "standard", "debug":
 			// ok.
 		default:
-			return apperr.Userf("invalid --log-level %q (expected quiet|standard|debug)", level)
+			return fmt.Errorf("invalid --log-level %q (expected quiet|standard|debug)", level)
 		}
 
 		// Get format from viper.

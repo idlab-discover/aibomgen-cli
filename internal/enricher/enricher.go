@@ -3,6 +3,7 @@ package enricher
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/internal/fetcher"
 	"github.com/idlab-discover/aibomgen-cli/internal/metadata"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/completeness"
+	"github.com/spf13/viper"
 )
 
 // Config holds enrichment configuration.
@@ -47,7 +49,7 @@ func New(opts Options) *Enricher {
 }
 
 // Enrich enriches a BOM with additional metadata.
-func (e *Enricher) Enrich(bom *cdx.BOM, configViper interface{}) (*cdx.BOM, error) {
+func (e *Enricher) Enrich(bom *cdx.BOM, configViper *viper.Viper) (*cdx.BOM, error) {
 	if bom == nil {
 		return nil, fmt.Errorf("nil BOM")
 	}
@@ -120,7 +122,7 @@ func (e *Enricher) Enrich(bom *cdx.BOM, configViper interface{}) (*cdx.BOM, erro
 }
 
 // enrichModel enriches the main model component.
-func (e *Enricher) enrichModel(bom *cdx.BOM, modelID string, hfAPI *fetcher.ModelAPIResponse, hfReadme *fetcher.ModelReadmeCard, result completeness.Result, configViper interface{}) (map[metadata.Key]string, error) {
+func (e *Enricher) enrichModel(bom *cdx.BOM, modelID string, hfAPI *fetcher.ModelAPIResponse, hfReadme *fetcher.ModelReadmeCard, result completeness.Result, configViper *viper.Viper) (map[metadata.Key]string, error) {
 	// Collect missing fields based on config (using post-refetch state).
 	missingFields := e.collectMissingFields(result)
 	if len(missingFields) == 0 {
@@ -168,20 +170,19 @@ func (e *Enricher) enrichModelFromFile(
 	missingFields []metadata.FieldSpec,
 	src metadata.Source,
 	tgt metadata.Target,
-	configViper interface{},
+	configViper *viper.Viper,
 ) (map[metadata.Key]string, error) {
 	changes := make(map[metadata.Key]string)
+	if configViper == nil {
+		return changes, nil
+	}
 
 	for _, spec := range missingFields {
-		value, err := e.getValueFromFile(spec, configViper)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get value for %s: %w", spec.Key, err)
-		}
-
+		// Viper handles the nested lookup and lowercasing of the full key.
+		value := configViper.Get(string(spec.Key))
 		if value != nil {
-			err = e.applyValue(spec, &src, &tgt, value)
-			if err != nil {
-				return nil, err
+			if err := metadata.ApplyUserValue(spec, fmt.Sprintf("%v", value), tgt); err != nil {
+				return nil, fmt.Errorf("failed to set user value for %s: %w", spec.Key, err)
 			}
 			changes[spec.Key] = formatValue(value)
 		}
@@ -195,20 +196,18 @@ func (e *Enricher) enrichDatasetFromFile(
 	missingFields []metadata.DatasetFieldSpec,
 	src metadata.DatasetSource,
 	tgt metadata.DatasetTarget,
-	configViper interface{},
+	configViper *viper.Viper,
 ) (map[metadata.DatasetKey]string, error) {
 	changes := make(map[metadata.DatasetKey]string)
+	if configViper == nil {
+		return changes, nil
+	}
 
 	for _, spec := range missingFields {
-		value, err := e.getDatasetValueFromFile(spec, configViper)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get value for %s: %w", spec.Key, err)
-		}
-
+		value := configViper.Get(string(spec.Key))
 		if value != nil {
-			err = e.applyDatasetValue(spec, &src, &tgt, value)
-			if err != nil {
-				return nil, fmt.Errorf("failed to apply value for %s: %w", spec.Key, err)
+			if err := metadata.ApplyDatasetUserValue(spec, fmt.Sprintf("%v", value), tgt); err != nil {
+				return nil, fmt.Errorf("failed to set user value for %s: %w", spec.Key, err)
 			}
 			changes[spec.Key] = formatValue(value)
 		}
@@ -218,7 +217,7 @@ func (e *Enricher) enrichDatasetFromFile(
 }
 
 // enrichDataset enriches a single dataset component.
-func (e *Enricher) enrichDataset(bom *cdx.BOM, comp *cdx.Component, configViper interface{}) (map[metadata.DatasetKey]string, error) {
+func (e *Enricher) enrichDataset(bom *cdx.BOM, comp *cdx.Component, configViper *viper.Viper) (map[metadata.DatasetKey]string, error) {
 	datasetID := comp.Name
 
 	// Check dataset completeness.
@@ -282,23 +281,8 @@ func (e *Enricher) collectMissingFields(result completeness.Result) []metadata.F
 		}
 
 		// Check if field is missing.
-		isMissing := false
-		for _, k := range result.MissingRequired {
-			if k == spec.Key {
-				isMissing = true
-				break
-			}
-		}
-		if !isMissing && !e.config.RequiredOnly {
-			for _, k := range result.MissingOptional {
-				if k == spec.Key {
-					isMissing = true
-					break
-				}
-			}
-		}
-
-		if isMissing {
+		if slices.Contains(result.MissingRequired, spec.Key) ||
+			(!e.config.RequiredOnly && slices.Contains(result.MissingOptional, spec.Key)) {
 			fields = append(fields, spec)
 		}
 	}
@@ -352,46 +336,6 @@ func (e *Enricher) applyRefetchedMetadata(bom *cdx.BOM, modelID string, hfAPI *f
 
 }
 
-// getValueFromFile extracts a value from the config file.
-func (e *Enricher) getValueFromFile(spec metadata.FieldSpec, configViper interface{}) (interface{}, error) {
-	// If no config provided, return nil.
-	if configViper == nil {
-		return nil, nil
-	}
-
-	// Type assert to viper.Viper.
-	type viperGetter interface {
-		Get(key string) interface{}
-	}
-
-	v, ok := configViper.(viperGetter)
-	if !ok {
-		return nil, fmt.Errorf("invalid config type")
-	}
-
-	// Use the full key - viper will handle the nested lookup and lowercasing.
-	key := string(spec.Key)
-	val := v.Get(key)
-
-	if val != nil {
-		return val, nil
-	}
-
-	return nil, nil
-}
-
-// applyValue applies a user-provided value to the BOM using the FieldSpec's SetUserValue function.
-func (e *Enricher) applyValue(spec metadata.FieldSpec, src *metadata.Source, tgt *metadata.Target, value interface{}) error {
-	strValue := fmt.Sprintf("%v", value)
-
-	// Use the FieldSpec's SetUserValue if available.
-	err := metadata.ApplyUserValue(spec, strValue, *tgt)
-	if err != nil {
-		return fmt.Errorf("failed to set user value for %s: %w", spec.Key, err)
-	}
-	return nil
-}
-
 // Helper functions.
 
 func extractModelID(bom *cdx.BOM) string {
@@ -420,8 +364,6 @@ func formatValue(v interface{}) string {
 	switch val := v.(type) {
 	case string:
 		return val
-	case int, int64, float64:
-		return fmt.Sprintf("%v", val)
 	case []string:
 		return strings.Join(val, ", ")
 	default:
@@ -442,23 +384,8 @@ func (e *Enricher) collectMissingDatasetFields(result completeness.DatasetResult
 		}
 
 		// Check if field is missing.
-		isMissing := false
-		for _, k := range result.MissingRequired {
-			if k == spec.Key {
-				isMissing = true
-				break
-			}
-		}
-		if !isMissing && !e.config.RequiredOnly {
-			for _, k := range result.MissingOptional {
-				if k == spec.Key {
-					isMissing = true
-					break
-				}
-			}
-		}
-
-		if isMissing {
+		if slices.Contains(result.MissingRequired, spec.Key) ||
+			(!e.config.RequiredOnly && slices.Contains(result.MissingOptional, spec.Key)) {
 			fields = append(fields, spec)
 		}
 	}
@@ -489,40 +416,4 @@ func (e *Enricher) refetchDatasetMetadata(datasetID string) (*fetcher.DatasetAPI
 	}
 
 	return apiResp, readme
-}
-
-// getDatasetValueFromFile extracts a dataset value from the config file.
-func (e *Enricher) getDatasetValueFromFile(spec metadata.DatasetFieldSpec, configViper interface{}) (interface{}, error) {
-	if configViper == nil {
-		return nil, nil
-	}
-
-	type viperGetter interface {
-		Get(key string) interface{}
-	}
-
-	v, ok := configViper.(viperGetter)
-	if !ok {
-		return nil, fmt.Errorf("invalid config type")
-	}
-
-	key := string(spec.Key)
-	val := v.Get(key)
-
-	if val != nil {
-		return val, nil
-	}
-
-	return nil, nil
-}
-
-// applyDatasetValue applies a user-provided value to a dataset component.
-func (e *Enricher) applyDatasetValue(spec metadata.DatasetFieldSpec, src *metadata.DatasetSource, tgt *metadata.DatasetTarget, value interface{}) error {
-	strValue := fmt.Sprintf("%v", value)
-
-	err := metadata.ApplyDatasetUserValue(spec, strValue, *tgt)
-	if err != nil {
-		return fmt.Errorf("failed to set user value for %s: %w", spec.Key, err)
-	}
-	return nil
 }

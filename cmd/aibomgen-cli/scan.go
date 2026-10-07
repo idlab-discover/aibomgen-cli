@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
 	"github.com/idlab-discover/aibomgen-cli/internal/fetcher"
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/bomio"
@@ -55,7 +55,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	case "quiet", "standard", "debug":
 		// ok.
 	default:
-		return apperr.Userf("invalid --log-level %q (expected quiet|standard|debug)", level)
+		return fmt.Errorf("invalid --log-level %q (expected quiet|standard|debug)", level)
 	}
 
 	quiet := level == "quiet"
@@ -69,7 +69,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	case "online", "dummy":
 		// ok.
 	default:
-		return apperr.Userf("invalid --hf-mode %q (expected online|dummy)", mode)
+		return fmt.Errorf("invalid --hf-mode %q (expected online|dummy)", mode)
 	}
 
 	inputPath := viper.GetString("scan.input")
@@ -82,7 +82,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// Disallow providing an input path when running in dummy HF mode — dummy mode.
 	// uses built-in fixture data and does not consult the filesystem.
 	if mode == "dummy" && inputPathProvided {
-		return apperr.User("--input cannot be used with --hf-mode=dummy")
+		return errors.New("--input cannot be used with --hf-mode=dummy")
 	}
 
 	// Get format from viper.
@@ -98,10 +98,10 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if outputPath != "" && outputFormat != "" && outputFormat != "auto" {
 		ext := filepath.Ext(outputPath)
 		if outputFormat == "xml" && ext == ".json" {
-			return apperr.Userf("output path extension %q does not match format %q", ext, outputFormat)
+			return fmt.Errorf("output path extension %q does not match format %q", ext, outputFormat)
 		}
 		if outputFormat == "json" && ext == ".xml" {
-			return apperr.Userf("output path extension %q does not match format %q", ext, outputFormat)
+			return fmt.Errorf("output path extension %q does not match format %q", ext, outputFormat)
 		}
 	}
 

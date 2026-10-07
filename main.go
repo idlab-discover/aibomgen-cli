@@ -15,10 +15,9 @@ import (
 var Version = "dev"
 
 func main() {
-	cmd.SetVersion(Version)
 	if err := fang.Execute(
 		context.Background(),
-		cmd.GetRootCmd(),
+		cmd.RootCmd,
 		fang.WithColorSchemeFunc(ui.FangColorScheme),
 		fang.WithVersion(Version),
 	); err != nil {

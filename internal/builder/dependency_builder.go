@@ -37,10 +37,7 @@ func AddDependencies(bom *cdx.BOM) {
 	// Model dependency (depends on datasets if present).
 	modelDep := cdx.Dependency{Ref: modelRef}
 	if len(datasetRefs) > 0 {
-		// copy to avoid referencing underlying slice later.
-		cp := make([]string, len(datasetRefs))
-		copy(cp, datasetRefs)
-		modelDep.Dependencies = &cp
+		modelDep.Dependencies = &datasetRefs
 	}
 	deps = append(deps, modelDep)
 

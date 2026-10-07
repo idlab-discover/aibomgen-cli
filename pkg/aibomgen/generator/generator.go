@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -26,7 +27,7 @@ type bomBuilder interface {
 }
 
 var newBOMBuilder = func() bomBuilder {
-	return builder.NewBOMBuilder(builder.DefaultOptions())
+	return builder.BOMBuilder{}
 }
 
 // Fetcher factory functions for testing.
@@ -429,7 +430,7 @@ func buildDatasetComponents(fetchers fetcherSet, bom *cdx.BOM, datasets []string
 		if bom.Components == nil {
 			bom.Components = &[]cdx.Component{}
 		}
-		if dsComp.BOMRef == "" || !hasComponentRef(*bom.Components, dsComp.BOMRef) {
+		if dsComp.BOMRef == "" || !slices.ContainsFunc(*bom.Components, func(c cdx.Component) bool { return c.BOMRef == dsComp.BOMRef }) {
 			*bom.Components = append(*bom.Components, *dsComp)
 			count++
 		}
@@ -437,15 +438,6 @@ func buildDatasetComponents(fetchers fetcherSet, bom *cdx.BOM, datasets []string
 		progress(ProgressEvent{Type: EventDatasetComplete, ModelID: modelID, Message: dsID})
 	}
 	return count, resolved
-}
-
-func hasComponentRef(components []cdx.Component, ref string) bool {
-	for _, c := range components {
-		if c.BOMRef == ref {
-			return true
-		}
-	}
-	return false
 }
 
 // BuildFromModelIDs generates an AIBOM for each of the provided Hugging Face model IDs.

@@ -83,16 +83,14 @@ func DatasetRegistry() []DatasetFieldSpec {
 				return nil
 			},
 			Present: func(comp *cdx.Component) bool {
-				ok := comp != nil && strings.TrimSpace(comp.Name) != ""
-				return ok
+				return comp != nil && strings.TrimSpace(comp.Name) != ""
 			},
 			InputType:   InputTypeText,
 			Placeholder: "e.g., organization/dataset-name",
 		},
 		{
-			Key:      DatasetExternalReferences,
-			Weight:   0.5,
-			Required: false,
+			Key:    DatasetExternalReferences,
+			Weight: 0.5,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					datasetID := strings.TrimSpace(src.DatasetID)
@@ -170,9 +168,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "https://example.com/dataset",
 		},
 		{
-			Key:      DatasetTags,
-			Weight:   0.5,
-			Required: false,
+			Key:    DatasetTags,
+			Weight: 0.5,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					if src.HF != nil && len(src.HF.Tags) > 0 {
@@ -221,9 +218,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Suggestions: []string{"nlp", "vision", "audio", "tabular", "multimodal", "text", "image"},
 		},
 		{
-			Key:      DatasetLicenses,
-			Weight:   0.8,
-			Required: false,
+			Key:    DatasetLicenses,
+			Weight: 0.8,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					in, ok := datasetLicenseInput(src)
@@ -266,9 +262,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Suggestions: []string{"Apache-2.0", "MIT", "CC-BY-4.0", "CC-BY-SA-4.0", "CC0-1.0"},
 		},
 		{
-			Key:      DatasetDescription,
-			Weight:   0.7,
-			Required: false,
+			Key:    DatasetDescription,
+			Weight: 0.7,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					if src.Readme != nil {
@@ -317,9 +312,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "Describe the dataset...",
 		},
 		{
-			Key:      DatasetManufacturer,
-			Weight:   0.6,
-			Required: false,
+			Key:    DatasetManufacturer,
+			Weight: 0.6,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					ns, _ := datasetNamespace(src)
@@ -364,9 +358,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "Organization or author name",
 		},
 		{
-			Key:      DatasetSupplier,
-			Weight:   0.4,
-			Required: false,
+			Key:    DatasetSupplier,
+			Weight: 0.4,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					// The Hugging Face namespace distributes the dataset.
@@ -404,9 +397,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "Organization distributing the dataset",
 		},
 		{
-			Key:      DatasetAuthors,
-			Weight:   0.6,
-			Required: false,
+			Key:    DatasetAuthors,
+			Weight: 0.6,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					var allAuthors []string
@@ -477,9 +469,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "author1, author2, author3",
 		},
 		{
-			Key:      DatasetGroup,
-			Weight:   0.4,
-			Required: false,
+			Key:    DatasetGroup,
+			Weight: 0.4,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					// Namespace of the (resolved) dataset ID, or the HF author.
@@ -518,9 +509,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "Organization or group name",
 		},
 		{
-			Key:      DatasetContents,
-			Weight:   0.5,
-			Required: false,
+			Key:    DatasetContents,
+			Weight: 0.5,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					if src.Readme == nil {
@@ -571,9 +561,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "Describe dataset contents...",
 		},
 		{
-			Key:      DatasetSensitiveData,
-			Weight:   0.6,
-			Required: false,
+			Key:    DatasetSensitiveData,
+			Weight: 0.6,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					var sensitiveItems []string
@@ -641,9 +630,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "Describe any sensitive data...",
 		},
 		{
-			Key:      DatasetClassification,
-			Weight:   0.6,
-			Required: false,
+			Key:    DatasetClassification,
+			Weight: 0.6,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					if src.HF != nil && src.HF.CardData != nil {
@@ -687,9 +675,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Suggestions: []string{"text", "image", "audio", "video", "tabular"},
 		},
 		{
-			Key:      DatasetGovernance,
-			Weight:   0.7,
-			Required: false,
+			Key:    DatasetGovernance,
+			Weight: 0.7,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					governance := &cdx.DataGovernance{}
@@ -755,9 +742,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "custodian:OrgName,steward:CuratorName,owner:FunderName",
 		},
 		{
-			Key:      DatasetHashes,
-			Weight:   0.5,
-			Required: false,
+			Key:    DatasetHashes,
+			Weight: 0.5,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					if src.HF == nil {
@@ -800,9 +786,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "SHA-256 hash value",
 		},
 		{
-			Key:      DatasetCreatedAt,
-			Weight:   0.3,
-			Required: false,
+			Key:    DatasetCreatedAt,
+			Weight: 0.3,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					if src.HF == nil {
@@ -837,9 +822,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "YYYY-MM-DD",
 		},
 		{
-			Key:      DatasetUsedStorage,
-			Weight:   0.3,
-			Required: false,
+			Key:    DatasetUsedStorage,
+			Weight: 0.3,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					if src.HF == nil || src.HF.UsedStorage <= 0 {
@@ -870,9 +854,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "Storage size in bytes",
 		},
 		{
-			Key:      DatasetLastModified,
-			Weight:   0.3,
-			Required: false,
+			Key:    DatasetLastModified,
+			Weight: 0.3,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					if src.HF == nil {
@@ -926,9 +909,8 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Placeholder: "YYYY-MM-DD",
 		},
 		{
-			Key:      DatasetContact,
-			Weight:   0.5,
-			Required: false,
+			Key:    DatasetContact,
+			Weight: 0.5,
 			Sources: []func(DatasetSource) (any, bool){
 				func(src DatasetSource) (any, bool) {
 					if src.Readme == nil {

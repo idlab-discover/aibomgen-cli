@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
 	"github.com/idlab-discover/aibomgen-cli/internal/fetcher"
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/bomio"
@@ -57,7 +57,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	case "quiet", "standard", "debug":
 		// ok.
 	default:
-		return apperr.Userf("invalid --log-level %q (expected quiet|standard|debug)", level)
+		return fmt.Errorf("invalid --log-level %q (expected quiet|standard|debug)", level)
 	}
 
 	quiet := level == "quiet"
@@ -71,7 +71,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	case "online", "dummy":
 		// ok.
 	default:
-		return apperr.Userf("invalid --hf-mode %q (expected online|dummy)", mode)
+		return fmt.Errorf("invalid --hf-mode %q (expected online|dummy)", mode)
 	}
 
 	// Check if --interactive was explicitly provided.
@@ -88,7 +88,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		if trimmed := strings.TrimSpace(id); trimmed != "" {
 			// Accept "org/name" or "org/name@revision".
 			if _, err := generator.ParseModelRef(trimmed); err != nil {
-				return apperr.User(err.Error())
+				return err
 			}
 			cleanModelIDs = append(cleanModelIDs, trimmed)
 		}
@@ -97,7 +97,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	// Interactive mode validation.
 	if interactiveMode {
 		if modelIDFlagProvided {
-			return apperr.User("--interactive cannot be used with --model-id")
+			return errors.New("--interactive cannot be used with --model-id")
 		}
 	}
 
@@ -105,16 +105,16 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	// Dummy mode uses a built-in fixture (BuildDummyBOM) — allow empty input only.
 	if mode == "dummy" {
 		if modelIDFlagProvided || len(cleanModelIDs) > 0 {
-			return apperr.User("--model-id cannot be used with --hf-mode=dummy")
+			return errors.New("--model-id cannot be used with --hf-mode=dummy")
 		}
 		if interactiveMode {
-			return apperr.User("--interactive cannot be used with --hf-mode=dummy")
+			return errors.New("--interactive cannot be used with --hf-mode=dummy")
 		}
 	}
 
 	// Validate that we have either model IDs or interactive mode for non-dummy modes.
 	if !interactiveMode && len(cleanModelIDs) == 0 && mode != "dummy" {
-		return apperr.User("either --model-id or --interactive is required. Use 'scan' command to scan directories")
+		return errors.New("either --model-id or --interactive is required. Use 'scan' command to scan directories")
 	}
 
 	// Get format from viper.
@@ -130,10 +130,10 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	if outputPath != "" && outputFormat != "" && outputFormat != "auto" {
 		ext := filepath.Ext(outputPath)
 		if outputFormat == "xml" && ext == ".json" {
-			return apperr.Userf("output path extension %q does not match format %q", ext, outputFormat)
+			return fmt.Errorf("output path extension %q does not match format %q", ext, outputFormat)
 		}
 		if outputFormat == "json" && ext == ".xml" {
-			return apperr.Userf("output path extension %q does not match format %q", ext, outputFormat)
+			return fmt.Errorf("output path extension %q does not match format %q", ext, outputFormat)
 		}
 	}
 
@@ -161,7 +161,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		if len(selectedModels) == 0 {
-			return apperr.User("no models selected")
+			return errors.New("no models selected")
 		}
 		cleanModelIDs = selectedModels
 	}

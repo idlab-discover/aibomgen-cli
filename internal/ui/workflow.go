@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"charm.land/lipgloss/v2"
 )
 
 // spinnerFrames defines the spinner animation frames.
@@ -212,8 +214,8 @@ func (wf *Workflow) renderFinal() {
 
 func (wf *Workflow) renderTask(task *Task) string {
 	var icon string
-	var nameStyle styleWrapper
-	var msgStyle styleWrapper
+	var nameStyle lipgloss.Style
+	var msgStyle lipgloss.Style
 
 	switch task.Status {
 	case TaskPending:
@@ -248,7 +250,7 @@ func (wf *Workflow) renderTask(task *Task) string {
 
 func (wf *Workflow) renderTaskFinal(task *Task) string {
 	var icon string
-	var nameStyle styleWrapper
+	var nameStyle lipgloss.Style
 
 	switch task.Status {
 	case TaskPending:

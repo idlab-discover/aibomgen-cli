@@ -2,13 +2,14 @@ package scanner
 
 import (
 	"bufio"
+	"cmp"
 	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -410,10 +411,7 @@ func Scan(root string) ([]Discovery, error) {
 	}
 
 	// Fan-out over a bounded goroutine pool.
-	numWorkers := runtime.NumCPU()
-	if numWorkers > len(paths) {
-		numWorkers = len(paths)
-	}
+	numWorkers := min(runtime.NumCPU(), len(paths))
 
 	pathCh := make(chan string, len(paths))
 	for _, p := range paths {
@@ -451,8 +449,8 @@ func Scan(root string) ([]Discovery, error) {
 			}
 		}
 	}
-	sort.SliceStable(results, func(i, j int) bool {
-		return occurrenceLess(firstOccurrence(results[i]), firstOccurrence(results[j]))
+	slices.SortStableFunc(results, func(a, b Discovery) int {
+		return compareOccurrences(firstOccurrence(a), firstOccurrence(b))
 	})
 
 	return dedupe(results), nil
@@ -465,18 +463,14 @@ func firstOccurrence(d Discovery) Occurrence {
 	return d.Occurrences[0]
 }
 
-// occurrenceLess orders occurrences by location, cell, line and method.
-func occurrenceLess(a, b Occurrence) bool {
-	if a.Location != b.Location {
-		return a.Location < b.Location
-	}
-	if a.Cell != b.Cell {
-		return a.Cell < b.Cell
-	}
-	if a.Line != b.Line {
-		return a.Line < b.Line
-	}
-	return a.Method < b.Method
+// compareOccurrences orders occurrences by location, cell, line and method.
+func compareOccurrences(a, b Occurrence) int {
+	return cmp.Or(
+		strings.Compare(a.Location, b.Location),
+		cmp.Compare(a.Cell, b.Cell),
+		cmp.Compare(a.Line, b.Line),
+		strings.Compare(a.Method, b.Method),
+	)
 }
 
 // fileClass categorises a file so we know which rule-set to apply.
@@ -958,6 +952,6 @@ func mergeOccurrences(occs []Occurrence) []Occurrence {
 	for _, o := range best {
 		out = append(out, o)
 	}
-	sort.Slice(out, func(i, j int) bool { return occurrenceLess(out[i], out[j]) })
+	slices.SortFunc(out, compareOccurrences)
 	return out
 }

@@ -1,13 +1,13 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/bomio"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/completeness"
@@ -28,13 +28,13 @@ var completenessCmd = &cobra.Command{
 		case "quiet", "standard", "debug":
 			// ok.
 		default:
-			return apperr.Userf("invalid --log-level %q (expected quiet|standard|debug)", level)
+			return fmt.Errorf("invalid --log-level %q (expected quiet|standard|debug)", level)
 		}
 
 		// Get input path and format from viper.
 		inputPath := viper.GetString("completeness.input")
 		if inputPath == "" {
-			return apperr.User("--input is required")
+			return errors.New("--input is required")
 		}
 		inputFormat := viper.GetString("completeness.format")
 		if inputFormat == "" {

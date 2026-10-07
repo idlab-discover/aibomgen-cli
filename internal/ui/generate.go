@@ -9,11 +9,9 @@ import (
 
 // GenerateUI provides a rich UI for the generate command.
 type GenerateUI struct {
-	writer       io.Writer
-	quiet        bool
-	workflow     *Workflow
-	startTime    time.Time
-	currentModel string
+	writer    io.Writer
+	quiet     bool
+	startTime time.Time
 }
 
 // NewGenerateUI creates a new UI handler for the generate command.

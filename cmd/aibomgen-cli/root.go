@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// rootCmd represents the base command.
-var rootCmd = &cobra.Command{
+// RootCmd represents the base command.
+var RootCmd = &cobra.Command{
 	Use:   "aibomgen-cli",
 	Short: "BOM Generator for Software Projects using AI {}",
 	Long:  longDescription,
@@ -32,16 +32,6 @@ var rootCmd = &cobra.Command{
 var cfgFile string
 var renderedBanner string
 
-// SetVersion sets the version for the CLI.
-func SetVersion(v string) {
-	rootCmd.Version = v
-}
-
-// GetRootCmd returns the root command for use with fang.
-func GetRootCmd() *cobra.Command {
-	return rootCmd
-}
-
 func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,.
@@ -49,21 +39,21 @@ func init() {
 
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.aibomgen-cli.yaml or ./config/defaults.yaml)")
+	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.aibomgen-cli.yaml or ./config/defaults.yaml)")
 
 	// Ensure `--help` (and help subcommands) show a green banner consistently.
-	defaultHelp := rootCmd.HelpFunc()
-	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+	defaultHelp := RootCmd.HelpFunc()
+	RootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		initUIAndBanner(cmd)
 		defaultHelp(cmd, args)
 	})
 
 	// Suppress usage output on errors – it is noise for a large CLI; the user.
 	// should run the subcommand with --help to see usage when needed.
-	rootCmd.SilenceUsage = true
+	RootCmd.SilenceUsage = true
 
 	// Add subcommands.
-	rootCmd.AddCommand(generateCmd, scanCmd, enrichCmd, validateCmd, completenessCmd, mergeCmd, vulnScanCmd)
+	RootCmd.AddCommand(generateCmd, scanCmd, enrichCmd, validateCmd, completenessCmd, mergeCmd, vulnScanCmd)
 }
 
 func initConfig() {
@@ -134,7 +124,7 @@ func initUIAndBanner(cmd *cobra.Command) {
 		return
 	}
 	if renderedBanner == "" {
-		renderedBanner = ui.RenderGradientBanner(ui.BannerASCII) + "\n" + longDescription
+		renderedBanner = ui.Secondary.Render(ui.BannerASCII) + "\n" + longDescription
 	}
 	cmd.Root().Long = renderedBanner
 }

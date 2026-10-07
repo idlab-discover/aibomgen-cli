@@ -11,17 +11,14 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ["1.27.x"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Set up Go ${{ matrix.go-version }}
+      - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: "1.27.x"
           check-latest: true
           cache: true
           cache-dependency-path: |
@@ -44,19 +41,13 @@ jobs:
         with:
           version: v2.13.2
 
-      - name: Run tests (no coverage)
-        if: ${{ matrix.go-version != '1.27.x' }}
-        run: go test ./...
-
       - name: Run tests (with coverage)
-        if: ${{ matrix.go-version == '1.27.x' }}
         run: go test ./... -coverprofile=coverage.out -covermode=atomic
 
       - name: Check coverage threshold
-        if: ${{ matrix.go-version == '1.27.x' }}
         shell: bash
         env:
-          COVERAGE_THRESHOLD: 0
+          COVERAGE_THRESHOLD: 50
         run: |
           if [ ! -f coverage.out ]; then
             echo "No coverage report found"; exit 1
@@ -74,7 +65,6 @@ jobs:
           chmod +x aibomgen-cli
           
       - name: Generate SBOM (Syft)
-        if: ${{ matrix.go-version == '1.27.x' }}
         uses: anchore/sbom-action@v0
         with:
           file: ./aibomgen-cli
@@ -83,7 +73,6 @@ jobs:
           upload-artifact: false
 
       - name: Scan SBOM for vulnerabilities (Grype)
-        if: ${{ matrix.go-version == '1.27.x' }}
         uses: anchore/scan-action@v7
         with:
           sbom: sbom-binary.json
@@ -92,7 +81,6 @@ jobs:
           fail-build: false
 
       - name: Scan SBOM for vulnerabilities (Grype) — table output
-        if: ${{ matrix.go-version == '1.27.x' }}
         uses: anchore/scan-action@v7
         with:
           sbom: sbom-binary.json
@@ -101,7 +89,6 @@ jobs:
           fail-build: false
 
       - name: Vulnerability summary (grype)
-        if: ${{ matrix.go-version == '1.27.x' }}
         run: |
           set -eo pipefail
           if [ -f grype.table ] && [ -s grype.table ]; then
@@ -111,7 +98,7 @@ jobs:
           fi
 
       - name: Upload vulnerability reports
-        if: ${{ matrix.go-version == '1.27.x' && (success() || failure()) }}
+        if: ${{ success() || failure() }}
         uses: actions/upload-artifact@v7
         with:
           name: vulnerability-reports
@@ -122,7 +109,6 @@ jobs:
           retention-days: 30
 
       - name: Fail if vulnerabilities found
-        if: ${{ matrix.go-version == '1.27.x' }}
         run: |
           if [ ! -f sbom-binary-vulnerabilities.json ]; then
             echo "vulnerabilities file not found"; exit 1

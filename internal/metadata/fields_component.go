@@ -72,16 +72,14 @@ func componentFields() []FieldSpec {
 				return nil
 			},
 			Present: func(b *cdx.BOM) bool {
-				ok := bomHasComponentName(b)
-				return ok
+				return bomHasComponentName(b)
 			},
 			InputType:   InputTypeText,
 			Placeholder: "e.g., organization/model-name",
 		},
 		{
-			Key:      ComponentExternalReferences,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentExternalReferences,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					modelID := strings.TrimSpace(src.ModelID)
@@ -157,14 +155,12 @@ func componentFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.ExternalReferences != nil && len(*c.ExternalReferences) > 0
-				return ok
+				return c != nil && c.ExternalReferences != nil && len(*c.ExternalReferences) > 0
 			},
 		},
 		{
-			Key:      ComponentTags,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentTags,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF != nil && len(src.HF.Tags) > 0 {
@@ -208,17 +204,15 @@ func componentFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.Tags != nil && len(*c.Tags) > 0
-				return ok
+				return c != nil && c.Tags != nil && len(*c.Tags) > 0
 			},
 			InputType:   InputTypeMultiText,
 			Placeholder: "pytorch, transformers, nlp",
 			Suggestions: []string{"pytorch", "transformers", "nlp", "vision", "audio", "text-generation"},
 		},
 		{
-			Key:      ComponentLicenses,
-			Weight:   1.0,
-			Required: false,
+			Key:    ComponentLicenses,
+			Weight: 1.0,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					in, ok := modelLicenseInput(src)
@@ -255,17 +249,15 @@ func componentFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.Licenses != nil && len(*c.Licenses) > 0
-				return ok
+				return c != nil && c.Licenses != nil && len(*c.Licenses) > 0
 			},
 			InputType:   InputTypeSelect,
 			Placeholder: "Select a license",
 			Suggestions: []string{"Apache-2.0", "MIT", "BSD-3-Clause", "GPL-3.0", "LGPL-3.0", "CC-BY-4.0", "CC-BY-SA-4.0", "CC0-1.0"},
 		},
 		{
-			Key:      ComponentHashes,
-			Weight:   1.0,
-			Required: false,
+			Key:    ComponentHashes,
+			Weight: 1.0,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF == nil {
@@ -300,16 +292,14 @@ func componentFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.Hashes != nil && len(*c.Hashes) > 0
-				return ok
+				return c != nil && c.Hashes != nil && len(*c.Hashes) > 0
 			},
 			InputType:   InputTypeText,
 			Placeholder: "SHA-256 hash value",
 		},
 		{
-			Key:      ComponentManufacturer,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentManufacturer,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF != nil {
@@ -353,16 +343,14 @@ func componentFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.Manufacturer != nil && strings.TrimSpace(c.Manufacturer.Name) != ""
-				return ok
+				return c != nil && c.Manufacturer != nil && strings.TrimSpace(c.Manufacturer.Name) != ""
 			},
 			InputType:   InputTypeText,
 			Placeholder: "Organization or author name",
 		},
 		{
-			Key:      ComponentGroup,
-			Weight:   0.25,
-			Required: false,
+			Key:    ComponentGroup,
+			Weight: 0.25,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					// Namespace of the (resolved) model ID, or the HF author.
@@ -404,16 +392,14 @@ func componentFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && strings.TrimSpace(c.Group) != ""
-				return ok
+				return c != nil && strings.TrimSpace(c.Group) != ""
 			},
 			InputType:   InputTypeText,
 			Placeholder: "Organization or group name",
 		},
 		{
-			Key:      ComponentSupplier,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentSupplier,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					// The Hugging Face namespace distributes the model.
@@ -452,9 +438,8 @@ func componentFields() []FieldSpec {
 			Placeholder: "Organization distributing the model",
 		},
 		{
-			Key:      ComponentAuthors,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentAuthors,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.Readme != nil {
@@ -505,9 +490,8 @@ func componentFields() []FieldSpec {
 			Placeholder: "author1, author2",
 		},
 		{
-			Key:      ComponentVersion,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentVersion,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					// A named revision (branch/tag) is the version the user asked for.
@@ -556,9 +540,8 @@ func componentFields() []FieldSpec {
 			Placeholder: "Model revision (commit SHA or tag)",
 		},
 		{
-			Key:      ComponentDescription,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentDescription,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					// Front matter model_description / summary.

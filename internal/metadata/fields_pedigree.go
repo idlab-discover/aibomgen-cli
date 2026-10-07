@@ -23,8 +23,7 @@ func pedigreeFields() []FieldSpec {
 		{
 			Key: ComponentPedigreeAncestors,
 			// Not scored: foundation models legitimately have no ancestors.
-			Weight:   0,
-			Required: false,
+			Weight: 0,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					ids := baseModelIDs(src)
