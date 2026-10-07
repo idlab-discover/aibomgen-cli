@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// rootCmd represents the base command.
-var rootCmd = &cobra.Command{
+// RootCmd represents the base command.
+var RootCmd = &cobra.Command{
 	Use:   "aibomgen-cli",
 	Short: "BOM Generator for Software Projects using AI {}",
 	Long:  longDescription,
@@ -32,16 +32,6 @@ var rootCmd = &cobra.Command{
 var cfgFile string
 var renderedBanner string
 
-// SetVersion sets the version for the CLI.
-func SetVersion(v string) {
-	rootCmd.Version = v
-}
-
-// GetRootCmd returns the root command for use with fang.
-func GetRootCmd() *cobra.Command {
-	return rootCmd
-}
-
 func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,.
@@ -49,21 +39,21 @@ func init() {
 
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.aibomgen-cli.yaml or ./config/defaults.yaml)")
+	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.aibomgen-cli.yaml or ./config/defaults.yaml)")
 
 	// Ensure `--help` (and help subcommands) show a green banner consistently.
-	defaultHelp := rootCmd.HelpFunc()
-	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+	defaultHelp := RootCmd.HelpFunc()
+	RootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		initUIAndBanner(cmd)
 		defaultHelp(cmd, args)
 	})
 
 	// Suppress usage output on errors – it is noise for a large CLI; the user.
 	// should run the subcommand with --help to see usage when needed.
-	rootCmd.SilenceUsage = true
+	RootCmd.SilenceUsage = true
 
 	// Add subcommands.
-	rootCmd.AddCommand(generateCmd, scanCmd, enrichCmd, validateCmd, completenessCmd, mergeCmd, vulnScanCmd)
+	RootCmd.AddCommand(generateCmd, scanCmd, enrichCmd, validateCmd, completenessCmd, mergeCmd, vulnScanCmd)
 }
 
 func initConfig() {
@@ -77,54 +67,38 @@ func initConfig() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	viper.AutomaticEnv()
 
+	notFound := &viper.ConfigFileNotFoundError{}
+	var err error
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
+		err = viper.ReadInConfig()
 	} else {
 		// Find home directory.
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
+		home, herr := os.UserHomeDir()
+		cobra.CheckErr(herr)
 
 		viper.SetConfigType("yaml")
 		viper.AddConfigPath(home)
 		viper.AddConfigPath("./config")
 
-		// Try .aibomgen-cli first.
+		// Try .aibomgen-cli first, then defaults.yaml.
 		viper.SetConfigName(".aibomgen-cli")
 		err = viper.ReadInConfig()
-
-		// If not found, try defaults.yaml.
-		notFound := &viper.ConfigFileNotFoundError{}
-		if err != nil && errors.As(err, notFound) {
+		if errors.As(err, notFound) {
 			viper.SetConfigName("defaults")
 			err = viper.ReadInConfig()
 		}
-
-		if err != nil && !errors.As(err, notFound) {
-			cobra.CheckErr(err)
-		}
-
-		if err == nil {
-			configMsg := ui.Dim.Render("Using config file: ") + ui.Secondary.Render(viper.ConfigFileUsed())
-			fmt.Fprintln(os.Stderr, configMsg)
-		}
-
-		return
 	}
 
-	err := viper.ReadInConfig()
-
-	notFound := &viper.ConfigFileNotFoundError{}
 	switch {
-	case err != nil && !errors.As(err, notFound):
-		cobra.CheckErr(err)
-	case err != nil && errors.As(err, notFound):
-		// The config file is optional, we shouldn't exit when the config is not found.
-		break
-	default:
+	case err == nil:
 		configMsg := ui.Dim.Render("Using config file: ") + ui.Secondary.Render(viper.ConfigFileUsed())
 		fmt.Fprintln(os.Stderr, configMsg)
+	case !errors.As(err, notFound):
+		cobra.CheckErr(err)
 	}
+	// The config file is optional, we shouldn't exit when the config is not found.
 }
 
 const longDescription = "BOM Generator for Software Projects using AI. Helps PDE manufacturers create accurate Bills of Materials for their AI-based software projects."
@@ -134,7 +108,7 @@ func initUIAndBanner(cmd *cobra.Command) {
 		return
 	}
 	if renderedBanner == "" {
-		renderedBanner = ui.RenderGradientBanner(ui.BannerASCII) + "\n" + longDescription
+		renderedBanner = ui.Secondary.Render(ui.BannerASCII) + "\n" + longDescription
 	}
 	cmd.Root().Long = renderedBanner
 }

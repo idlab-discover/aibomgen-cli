@@ -103,17 +103,11 @@ func (f *ModelAPIFetcher) Fetch(modelID string) (*ModelAPIResponse, error) {
 // An empty revision uses the default branch (GET /api/models/:id); otherwise.
 // GET /api/models/:id/revision/:revision, whose sha is the resolved commit.
 func (f *ModelAPIFetcher) FetchRevision(modelID, revision string) (*ModelAPIResponse, error) {
-	client := f.Client
-	if client == nil {
-		client = http.DefaultClient
-	}
+	client := httpClient(f.Client)
 
 	trimmedModelID := strings.TrimPrefix(strings.TrimSpace(modelID), "/")
 
-	baseURL := strings.TrimRight(strings.TrimSpace(f.BaseURL), "/")
-	if baseURL == "" {
-		baseURL = "https://huggingface.co"
-	}
+	baseURL := HFBaseURL(f.BaseURL)
 
 	url := fmt.Sprintf("%s/api/models/%s", baseURL, trimmedModelID)
 	if rev := strings.TrimSpace(revision); rev != "" {

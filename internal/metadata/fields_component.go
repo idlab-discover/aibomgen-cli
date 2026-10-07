@@ -7,8 +7,9 @@ import (
 	cdx "github.com/CycloneDX/cyclonedx-go"
 )
 
-type componentExternalRefsSource struct {
-	ModelID  string
+// externalRefsSource is a Hugging Face page (Path below the base URL) plus README links.
+type externalRefsSource struct {
+	Path     string
 	PaperURL string
 	DemoURL  string
 }
@@ -55,33 +56,16 @@ func componentFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "name")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ComponentName)
-				}
-				name, _ := input.Value.(string)
-				name = strings.TrimSpace(name)
-				if name == "" {
-					return fmt.Errorf("name value is empty")
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				tgt.Component.Name = name
-				return nil
-			},
+			Apply: onComponent(applyName),
 			Present: func(b *cdx.BOM) bool {
-				ok := bomHasComponentName(b)
-				return ok
+				return bomHasComponentName(b)
 			},
 			InputType:   InputTypeText,
 			Placeholder: "e.g., organization/model-name",
 		},
 		{
-			Key:      ComponentExternalReferences,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentExternalReferences,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					modelID := strings.TrimSpace(src.ModelID)
@@ -91,7 +75,7 @@ func componentFields() []FieldSpec {
 					if modelID == "" {
 						return nil, false
 					}
-					input := componentExternalRefsSource{ModelID: modelID}
+					input := externalRefsSource{Path: strings.TrimPrefix(modelID, "/")}
 					if src.Readme != nil {
 						input.PaperURL = linkURL(src.Readme.PaperURL)
 						input.DemoURL = linkURL(src.Readme.DemoURL)
@@ -102,69 +86,15 @@ func componentFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "externalReferences")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ComponentExternalReferences)
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-
-				var refs []cdx.ExternalReference
-
-				switch v := input.Value.(type) {
-				case string:
-					url := strings.TrimSpace(v)
-					if url == "" {
-						return fmt.Errorf("externalReferences value is empty")
-					}
-					refs = []cdx.ExternalReference{{
-						Type: cdx.ExternalReferenceType("website"),
-						URL:  url,
-					}}
-				case componentExternalRefsSource:
-					base := strings.TrimSpace(tgt.HuggingFaceBaseURL)
-					if base == "" {
-						base = "https://huggingface.co/"
-					}
-					if !strings.HasSuffix(base, "/") {
-						base += "/"
-					}
-					url := base + strings.TrimPrefix(v.ModelID, "/")
-					refs = []cdx.ExternalReference{{
-						Type: cdx.ExternalReferenceType("website"),
-						URL:  url,
-					}}
-					if v.PaperURL != "" {
-						refs = append(refs, cdx.ExternalReference{
-							Type: cdx.ExternalReferenceType("documentation"),
-							URL:  v.PaperURL,
-						})
-					}
-					if v.DemoURL != "" {
-						refs = append(refs, cdx.ExternalReference{
-							Type: cdx.ExternalReferenceType("other"),
-							URL:  v.DemoURL,
-						})
-					}
-				default:
-					return fmt.Errorf("invalid externalReferences value")
-				}
-
-				tgt.Component.ExternalReferences = &refs
-				return nil
-			},
+			Apply: onComponent(applyExternalRefs),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.ExternalReferences != nil && len(*c.ExternalReferences) > 0
-				return ok
+				return c != nil && c.ExternalReferences != nil && len(*c.ExternalReferences) > 0
 			},
 		},
 		{
-			Key:      ComponentTags,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentTags,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF != nil && len(src.HF.Tags) > 0 {
@@ -188,37 +118,28 @@ func componentFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseTagsPreserveEmpty(value, "tags")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ComponentTags)
-				}
+			Apply: onComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				tags, _ := input.Value.([]string)
 				if len(tags) == 0 {
 					return fmt.Errorf("tags value is empty")
 				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				if !input.Force && tgt.Component.Tags != nil && len(*tgt.Component.Tags) > 0 {
+				if !input.Force && c.Tags != nil && len(*c.Tags) > 0 {
 					return nil
 				}
-				tgt.Component.Tags = &tags
+				c.Tags = &tags
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.Tags != nil && len(*c.Tags) > 0
-				return ok
+				return c != nil && c.Tags != nil && len(*c.Tags) > 0
 			},
 			InputType:   InputTypeMultiText,
 			Placeholder: "pytorch, transformers, nlp",
 			Suggestions: []string{"pytorch", "transformers", "nlp", "vision", "audio", "text-generation"},
 		},
 		{
-			Key:      ComponentLicenses,
-			Weight:   1.0,
-			Required: false,
+			Key:    ComponentLicenses,
+			Weight: 1.0,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					in, ok := modelLicenseInput(src)
@@ -231,41 +152,18 @@ func componentFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "license")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ComponentLicenses)
-				}
-				in, ok := licenseInputFromValue(input.Value)
-				if !ok {
-					return fmt.Errorf("license value is empty")
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				if !input.Force && tgt.Component.Licenses != nil && len(*tgt.Component.Licenses) > 0 {
-					return nil
-				}
-				ls := buildLicenses(in, tgt.HuggingFaceBaseURL)
-				if ls == nil {
-					return fmt.Errorf("license value is a placeholder")
-				}
-				tgt.Component.Licenses = ls
-				return nil
-			},
+			Apply: onComponent(applyLicenses),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.Licenses != nil && len(*c.Licenses) > 0
-				return ok
+				return c != nil && c.Licenses != nil && len(*c.Licenses) > 0
 			},
 			InputType:   InputTypeSelect,
 			Placeholder: "Select a license",
 			Suggestions: []string{"Apache-2.0", "MIT", "BSD-3-Clause", "GPL-3.0", "LGPL-3.0", "CC-BY-4.0", "CC-BY-SA-4.0", "CC0-1.0"},
 		},
 		{
-			Key:      ComponentHashes,
-			Weight:   1.0,
-			Required: false,
+			Key:    ComponentHashes,
+			Weight: 1.0,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF == nil {
@@ -281,35 +179,17 @@ func componentFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "hash")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ComponentHashes)
-				}
-				sha, _ := input.Value.(string)
-				sha = strings.TrimSpace(sha)
-				if sha == "" {
-					return fmt.Errorf("hash value is empty")
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				hs := []cdx.Hash{{Algorithm: cdx.HashAlgoSHA1, Value: sha}}
-				tgt.Component.Hashes = &hs
-				return nil
-			},
+			Apply: onComponent(applyHash),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.Hashes != nil && len(*c.Hashes) > 0
-				return ok
+				return c != nil && c.Hashes != nil && len(*c.Hashes) > 0
 			},
 			InputType:   InputTypeText,
 			Placeholder: "SHA-256 hash value",
 		},
 		{
-			Key:      ComponentManufacturer,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentManufacturer,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF != nil {
@@ -333,36 +213,17 @@ func componentFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "manufacturer")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ComponentManufacturer)
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				ent, err := organizationalEntity(input.Value, tgt.HuggingFaceBaseURL)
-				if err != nil {
-					return err
-				}
-				if !input.Force && tgt.Component.Manufacturer != nil && strings.TrimSpace(tgt.Component.Manufacturer.Name) != "" {
-					return nil
-				}
-				tgt.Component.Manufacturer = ent
-				return nil
-			},
+			Apply: onComponent(applyManufacturer),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.Manufacturer != nil && strings.TrimSpace(c.Manufacturer.Name) != ""
-				return ok
+				return c != nil && c.Manufacturer != nil && strings.TrimSpace(c.Manufacturer.Name) != ""
 			},
 			InputType:   InputTypeText,
 			Placeholder: "Organization or author name",
 		},
 		{
-			Key:      ComponentGroup,
-			Weight:   0.25,
-			Required: false,
+			Key:    ComponentGroup,
+			Weight: 0.25,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					// Namespace of the (resolved) model ID, or the HF author.
@@ -383,37 +244,17 @@ func componentFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "group")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ComponentGroup)
-				}
-				s, _ := input.Value.(string)
-				s = strings.TrimSpace(s)
-				if s == "" {
-					return fmt.Errorf("group value is empty")
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				if !input.Force && strings.TrimSpace(tgt.Component.Group) != "" {
-					return nil
-				}
-				tgt.Component.Group = s
-				return nil
-			},
+			Apply: onComponent(applyGroup),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && strings.TrimSpace(c.Group) != ""
-				return ok
+				return c != nil && strings.TrimSpace(c.Group) != ""
 			},
 			InputType:   InputTypeText,
 			Placeholder: "Organization or group name",
 		},
 		{
-			Key:      ComponentSupplier,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentSupplier,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					// The Hugging Face namespace distributes the model.
@@ -426,24 +267,7 @@ func componentFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "supplier")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ComponentSupplier)
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				ent, err := organizationalEntity(input.Value, tgt.HuggingFaceBaseURL)
-				if err != nil {
-					return err
-				}
-				if !input.Force && tgt.Component.Supplier != nil && strings.TrimSpace(tgt.Component.Supplier.Name) != "" {
-					return nil
-				}
-				tgt.Component.Supplier = ent
-				return nil
-			},
+			Apply: onComponent(applySupplier),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				return c != nil && c.Supplier != nil && strings.TrimSpace(c.Supplier.Name) != ""
@@ -452,9 +276,8 @@ func componentFields() []FieldSpec {
 			Placeholder: "Organization distributing the model",
 		},
 		{
-			Key:      ComponentAuthors,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentAuthors,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.Readme != nil {
@@ -475,14 +298,7 @@ func componentFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseCommaList(value, "authors")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ComponentAuthors)
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
+			Apply: onComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				names, _ := input.Value.([]string)
 				var authors []cdx.OrganizationalContact
 				for _, n := range normalizeStrings(names) {
@@ -491,12 +307,12 @@ func componentFields() []FieldSpec {
 				if len(authors) == 0 {
 					return fmt.Errorf("authors value is empty")
 				}
-				if !input.Force && tgt.Component.Authors != nil && len(*tgt.Component.Authors) > 0 {
+				if !input.Force && c.Authors != nil && len(*c.Authors) > 0 {
 					return nil
 				}
-				tgt.Component.Authors = &authors
+				c.Authors = &authors
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				return c != nil && c.Authors != nil && len(*c.Authors) > 0
@@ -505,9 +321,8 @@ func componentFields() []FieldSpec {
 			Placeholder: "author1, author2",
 		},
 		{
-			Key:      ComponentVersion,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentVersion,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					// A named revision (branch/tag) is the version the user asked for.
@@ -529,25 +344,18 @@ func componentFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "version")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ComponentVersion)
-				}
+			Apply: onComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				v, _ := input.Value.(string)
 				v = strings.TrimSpace(v)
 				if v == "" {
 					return fmt.Errorf("version value is empty")
 				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				if !input.Force && strings.TrimSpace(tgt.Component.Version) != "" {
+				if !input.Force && strings.TrimSpace(c.Version) != "" {
 					return nil
 				}
-				tgt.Component.Version = v
+				c.Version = v
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				return c != nil && strings.TrimSpace(c.Version) != ""
@@ -556,9 +364,8 @@ func componentFields() []FieldSpec {
 			Placeholder: "Model revision (commit SHA or tag)",
 		},
 		{
-			Key:      ComponentDescription,
-			Weight:   0.5,
-			Required: false,
+			Key:    ComponentDescription,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					// Front matter model_description / summary.
@@ -604,25 +411,18 @@ func componentFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "description")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ComponentDescription)
-				}
+			Apply: onComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				v, _ := input.Value.(string)
 				v = strings.TrimSpace(v)
 				if v == "" {
 					return fmt.Errorf("description value is empty")
 				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				if !input.Force && strings.TrimSpace(tgt.Component.Description) != "" {
+				if !input.Force && strings.TrimSpace(c.Description) != "" {
 					return nil
 				}
-				tgt.Component.Description = v
+				c.Description = v
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				return c != nil && strings.TrimSpace(c.Description) != ""
@@ -650,4 +450,112 @@ func modelNamespace(src Source) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// Apply funcs shared by the model and dataset registries.
+
+func applyName(c *cdx.Component, input applyInput, _ string) error {
+	name, _ := input.Value.(string)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return fmt.Errorf("name value is empty")
+	}
+	c.Name = name
+	return nil
+}
+
+func applyExternalRefs(c *cdx.Component, input applyInput, baseURL string) error {
+	var refs []cdx.ExternalReference
+	switch v := input.Value.(type) {
+	case string:
+		url := strings.TrimSpace(v)
+		if url == "" {
+			return fmt.Errorf("externalReferences value is empty")
+		}
+		refs = []cdx.ExternalReference{{
+			Type: cdx.ExternalReferenceType("website"),
+			URL:  url,
+		}}
+	case externalRefsSource:
+		refs = []cdx.ExternalReference{{
+			Type: cdx.ExternalReferenceType("website"),
+			URL:  hfBaseURL(baseURL) + v.Path,
+		}}
+		if v.PaperURL != "" {
+			refs = append(refs, cdx.ExternalReference{
+				Type: cdx.ExternalReferenceType("documentation"),
+				URL:  v.PaperURL,
+			})
+		}
+		if v.DemoURL != "" {
+			refs = append(refs, cdx.ExternalReference{
+				Type: cdx.ExternalReferenceType("other"),
+				URL:  v.DemoURL,
+			})
+		}
+	default:
+		return fmt.Errorf("invalid externalReferences value")
+	}
+	c.ExternalReferences = &refs
+	return nil
+}
+
+func applyLicenses(c *cdx.Component, input applyInput, baseURL string) error {
+	in, ok := licenseInputFromValue(input.Value)
+	if !ok {
+		return fmt.Errorf("license value is empty")
+	}
+	if !input.Force && c.Licenses != nil && len(*c.Licenses) > 0 {
+		return nil
+	}
+	ls := buildLicenses(in, baseURL)
+	if ls == nil {
+		return fmt.Errorf("license value is a placeholder")
+	}
+	c.Licenses = ls
+	return nil
+}
+
+func applyHash(c *cdx.Component, input applyInput, _ string) error {
+	sha, _ := input.Value.(string)
+	sha = strings.TrimSpace(sha)
+	if sha == "" {
+		return fmt.Errorf("hash value is empty")
+	}
+	hs := []cdx.Hash{{Algorithm: cdx.HashAlgoSHA1, Value: sha}}
+	c.Hashes = &hs
+	return nil
+}
+
+func applyGroup(c *cdx.Component, input applyInput, _ string) error {
+	s, _ := input.Value.(string)
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return fmt.Errorf("group value is empty")
+	}
+	if !input.Force && strings.TrimSpace(c.Group) != "" {
+		return nil
+	}
+	c.Group = s
+	return nil
+}
+
+func applyManufacturer(c *cdx.Component, input applyInput, baseURL string) error {
+	return applyOrg(&c.Manufacturer, input, baseURL)
+}
+
+func applySupplier(c *cdx.Component, input applyInput, baseURL string) error {
+	return applyOrg(&c.Supplier, input, baseURL)
+}
+
+func applyOrg(dst **cdx.OrganizationalEntity, input applyInput, baseURL string) error {
+	ent, err := organizationalEntity(input.Value, baseURL)
+	if err != nil {
+		return err
+	}
+	if !input.Force && *dst != nil && strings.TrimSpace((*dst).Name) != "" {
+		return nil
+	}
+	*dst = ent
+	return nil
 }

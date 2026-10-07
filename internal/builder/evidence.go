@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/CycloneDX/cyclonedx-go"
+	"github.com/idlab-discover/aibomgen-cli/internal/fetcher"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/scanner"
 )
 
@@ -81,14 +82,7 @@ func scanEvidence(occs []scanner.Occurrence, purl string) *cyclonedx.Evidence {
 }
 
 func modelIDEvidence(id, revision, hfBaseURL, purl string) *cyclonedx.Evidence {
-	base := strings.TrimSpace(hfBaseURL)
-	if base == "" {
-		base = "https://huggingface.co/"
-	}
-	if !strings.HasSuffix(base, "/") {
-		base += "/"
-	}
-	url := base + "api/models/" + strings.TrimPrefix(id, "/")
+	url := fetcher.HFBaseURL(hfBaseURL) + "/api/models/" + strings.TrimPrefix(id, "/")
 	if rev := strings.TrimSpace(revision); rev != "" {
 		url += "/revision/" + neturl.PathEscape(rev)
 	}

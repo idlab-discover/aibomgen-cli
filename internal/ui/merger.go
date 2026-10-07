@@ -9,146 +9,8 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/merger"
 )
 
-// MergerUI provides a rich UI for the merge command.
-type MergerUI struct {
-	writer    io.Writer
-	quiet     bool
-	workflow  *Workflow
-	startTime time.Time
-}
-
-// NewMergerUI creates a new UI handler for the merge command.
-func NewMergerUI(w io.Writer, quiet bool) *MergerUI {
-	return &MergerUI{
-		writer:    w,
-		quiet:     quiet,
-		startTime: time.Now(),
-	}
-}
-
-// StartWorkflow initializes and displays the workflow for merging.
-func (m *MergerUI) StartWorkflow(aibomCount int) {
-	if m.quiet {
-		return
-	}
-
-	m.startTime = time.Now()
-
-	if aibomCount == 1 {
-		m.workflow = NewWorkflow(m.writer, "Merging AIBOM with SBOM")
-	} else {
-		m.workflow = NewWorkflow(m.writer, fmt.Sprintf("Merging %d AIBOMs with SBOM", aibomCount))
-	}
-
-	m.workflow.AddTask("Reading SBOM")
-	m.workflow.AddTask("Reading AIBOM(s)")
-	m.workflow.AddTask("Merging BOMs")
-	m.workflow.AddTask("Writing output")
-
-	m.workflow.Start()
-}
-
-// StartReadingSBOM marks the SBOM reading step as running.
-func (m *MergerUI) StartReadingSBOM(path string) {
-	if m.quiet || m.workflow == nil {
-		return
-	}
-	m.workflow.StartTask(0, Dim.Render(path))
-}
-
-// CompleteReadingSBOM marks SBOM reading as complete.
-func (m *MergerUI) CompleteReadingSBOM(componentCount int) {
-	if m.quiet || m.workflow == nil {
-		return
-	}
-	m.workflow.CompleteTask(0, fmt.Sprintf("%d components loaded", componentCount))
-}
-
-// StartReadingAIBOMs marks the AIBOM reading step as running.
-func (m *MergerUI) StartReadingAIBOMs(count int) {
-	if m.quiet || m.workflow == nil {
-		return
-	}
-	if count == 1 {
-		m.workflow.StartTask(1, "")
-	} else {
-		m.workflow.StartTask(1, Dim.Render(fmt.Sprintf("%d files", count)))
-	}
-}
-
-// UpdateReadingAIBOM updates progress for reading a specific AIBOM.
-func (m *MergerUI) UpdateReadingAIBOM(index, total int, path string) {
-	if m.quiet || m.workflow == nil {
-		return
-	}
-	if total > 1 {
-		m.workflow.StartTask(1, Dim.Render(fmt.Sprintf("[%d/%d] %s", index+1, total, path)))
-	} else {
-		m.workflow.StartTask(1, Dim.Render(path))
-	}
-}
-
-// CompleteReadingAIBOMs marks AIBOM reading as complete.
-func (m *MergerUI) CompleteReadingAIBOMs(count int) {
-	if m.quiet || m.workflow == nil {
-		return
-	}
-	if count == 1 {
-		m.workflow.CompleteTask(1, "AIBOM loaded")
-	} else {
-		m.workflow.CompleteTask(1, fmt.Sprintf("%d AIBOMs loaded", count))
-	}
-}
-
-// StartMerging marks the merge step as running.
-func (m *MergerUI) StartMerging() {
-	if m.quiet || m.workflow == nil {
-		return
-	}
-	m.workflow.StartTask(2, "Combining components and metadata")
-}
-
-// CompleteMerging marks merging as complete.
-func (m *MergerUI) CompleteMerging(sbomCount, aibomCount int) {
-	if m.quiet || m.workflow == nil {
-		return
-	}
-	total := sbomCount + aibomCount
-	m.workflow.CompleteTask(2, fmt.Sprintf("%d total components", total))
-}
-
-// StartWriting marks the writing step as running.
-func (m *MergerUI) StartWriting(path string) {
-	if m.quiet || m.workflow == nil {
-		return
-	}
-	m.workflow.StartTask(3, Dim.Render(path))
-}
-
-// CompleteWriting marks writing as complete.
-func (m *MergerUI) CompleteWriting() {
-	if m.quiet || m.workflow == nil {
-		return
-	}
-	m.workflow.CompleteTask(3, "File written successfully")
-}
-
-// Stop stops the workflow.
-func (m *MergerUI) Stop() {
-	if m.workflow != nil {
-		m.workflow.Stop()
-	}
-}
-
-// PrintSummary displays the merge summary with styled output.
-func (m *MergerUI) PrintSummary(result *merger.MergeResult, outputPath string, aibomCount int, deduplicate bool) {
-	if m.quiet {
-		return
-	}
-
-	// Stop workflow before printing summary.
-	m.Stop()
-
+// PrintMergeSummary displays the merge summary with styled output.
+func PrintMergeSummary(w io.Writer, result *merger.MergeResult, outputPath string, aibomCount int, deduplicate bool, duration time.Duration) {
 	var output strings.Builder
 
 	// Header.
@@ -227,7 +89,6 @@ func (m *MergerUI) PrintSummary(result *merger.MergeResult, outputPath string, a
 		Bold.Render(fmt.Sprintf("%d", aibomCount))))
 
 	// Timing.
-	duration := time.Since(m.startTime)
 	output.WriteString(fmt.Sprintf("  %s          %s\n",
 		Muted.Render("Duration:"),
 		Dim.Render(formatDuration(duration))))
@@ -240,25 +101,18 @@ func (m *MergerUI) PrintSummary(result *merger.MergeResult, outputPath string, a
 
 	// Wrap in success box.
 	boxed := SuccessBox.Render(output.String())
-	fmt.Fprintln(m.writer, "\n"+boxed)
+	fmt.Fprintln(w, "\n"+boxed)
 }
 
-// PrintError displays an error message.
-func (m *MergerUI) PrintError(err error) {
-	if m.quiet {
-		return
-	}
-
-	// Stop workflow if running.
-	m.Stop()
-
+// PrintMergeError displays a merge error message.
+func PrintMergeError(w io.Writer, err error) {
 	var output strings.Builder
 	output.WriteString(Error.Bold(true).Render("✗ Merge Failed"))
 	output.WriteString("\n\n")
 	output.WriteString(err.Error())
 
 	boxed := ErrorBox.Render(output.String())
-	fmt.Fprintln(m.writer, "\n"+boxed)
+	fmt.Fprintln(w, "\n"+boxed)
 }
 
 // formatDuration formats a duration in a human-readable way.

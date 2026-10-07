@@ -10,9 +10,8 @@ import (
 func modelCardFields() []FieldSpec {
 	return []FieldSpec{
 		{
-			Key:      ModelCardModelParametersTask,
-			Weight:   1.0,
-			Required: false,
+			Key:    ModelCardModelParametersTask,
+			Weight: 1.0,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF == nil {
@@ -38,11 +37,7 @@ func modelCardFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "task")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ModelCardModelParametersTask)
-				}
+			Apply: func(tgt Target, input applyInput) error {
 				if tgt.ModelCard == nil {
 					return fmt.Errorf("modelCard is nil")
 				}
@@ -62,17 +57,15 @@ func modelCardFields() []FieldSpec {
 			},
 			Present: func(b *cdx.BOM) bool {
 				mp := bomModelParameters(b)
-				ok := mp != nil && strings.TrimSpace(mp.Task) != ""
-				return ok
+				return mp != nil && strings.TrimSpace(mp.Task) != ""
 			},
 			InputType:   InputTypeSelect,
 			Placeholder: "Select the primary task",
 			Suggestions: []string{"text-classification", "text-generation", "token-classification", "question-answering", "summarization", "translation", "image-classification", "object-detection", "image-segmentation", "audio-classification", "automatic-speech-recognition"},
 		},
 		{
-			Key:      ModelCardModelParametersArchitectureFamily,
-			Weight:   0.5,
-			Required: false,
+			Key:    ModelCardModelParametersArchitectureFamily,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF == nil {
@@ -88,36 +81,27 @@ func modelCardFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "architectureFamily")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ModelCardModelParametersArchitectureFamily)
-				}
-				if tgt.ModelCard == nil {
-					return fmt.Errorf("modelCard is nil")
-				}
+			Apply: onModelCard(func(mc *cdx.MLModelCard, input applyInput) error {
 				s, _ := input.Value.(string)
 				s = strings.TrimSpace(s)
 				if s == "" {
 					return fmt.Errorf("architectureFamily value is empty")
 				}
-				mp := ensureModelParameters(tgt.ModelCard)
+				mp := ensureModelParameters(mc)
 				mp.ArchitectureFamily = s
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				mp := bomModelParameters(b)
-				ok := mp != nil && strings.TrimSpace(mp.ArchitectureFamily) != ""
-				return ok
+				return mp != nil && strings.TrimSpace(mp.ArchitectureFamily) != ""
 			},
 			InputType:   InputTypeText,
 			Placeholder: "e.g., transformer, cnn, rnn",
 			Suggestions: []string{"transformer", "cnn", "rnn", "lstm", "gru", "diffusion"},
 		},
 		{
-			Key:      ModelCardModelParametersModelArchitecture,
-			Weight:   0.5,
-			Required: false,
+			Key:    ModelCardModelParametersModelArchitecture,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF == nil {
@@ -136,35 +120,26 @@ func modelCardFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "modelArchitecture")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ModelCardModelParametersModelArchitecture)
-				}
-				if tgt.ModelCard == nil {
-					return fmt.Errorf("modelCard is nil")
-				}
+			Apply: onModelCard(func(mc *cdx.MLModelCard, input applyInput) error {
 				s, _ := input.Value.(string)
 				s = strings.TrimSpace(s)
 				if s == "" {
 					return fmt.Errorf("modelArchitecture value is empty")
 				}
-				mp := ensureModelParameters(tgt.ModelCard)
+				mp := ensureModelParameters(mc)
 				mp.ModelArchitecture = s
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				mp := bomModelParameters(b)
-				ok := mp != nil && strings.TrimSpace(mp.ModelArchitecture) != ""
-				return ok
+				return mp != nil && strings.TrimSpace(mp.ModelArchitecture) != ""
 			},
 			InputType:   InputTypeText,
 			Placeholder: "e.g., BertForSequenceClassification",
 		},
 		{
-			Key:      ModelCardModelParametersDatasets,
-			Weight:   0.5,
-			Required: false,
+			Key:    ModelCardModelParametersDatasets,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.HF == nil {
@@ -203,25 +178,18 @@ func modelCardFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseDatasetRefs(value)
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ModelCardModelParametersDatasets)
-				}
-				if tgt.ModelCard == nil {
-					return fmt.Errorf("modelCard is nil")
-				}
+			Apply: onModelCard(func(mc *cdx.MLModelCard, input applyInput) error {
 				choices, _ := input.Value.([]cdx.MLDatasetChoice)
 				if len(choices) == 0 {
 					return fmt.Errorf("datasets value is empty")
 				}
-				if !input.Force && tgt.ModelCard.ModelParameters != nil && tgt.ModelCard.ModelParameters.Datasets != nil && len(*tgt.ModelCard.ModelParameters.Datasets) > 0 {
+				if !input.Force && mc.ModelParameters != nil && mc.ModelParameters.Datasets != nil && len(*mc.ModelParameters.Datasets) > 0 {
 					return nil
 				}
-				mp := ensureModelParameters(tgt.ModelCard)
+				mp := ensureModelParameters(mc)
 				mp.Datasets = &choices
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				mp := bomModelParameters(b)
 				if mp == nil || mp.Datasets == nil || len(*mp.Datasets) == 0 {
@@ -248,9 +216,8 @@ func modelCardFields() []FieldSpec {
 			func(t taskIO) []string { return t.outputs },
 			func(mp *cdx.MLModelParameters) **[]cdx.MLInputOutputParameters { return &mp.Outputs }),
 		{
-			Key:      ModelCardConsiderationsUseCases,
-			Weight:   0.5,
-			Required: false,
+			Key:    ModelCardConsiderationsUseCases,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.Readme == nil {
@@ -273,37 +240,28 @@ func modelCardFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseCommaList(value, "useCases")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ModelCardConsiderationsUseCases)
-				}
-				if tgt.ModelCard == nil {
-					return fmt.Errorf("modelCard is nil")
-				}
+			Apply: onModelCard(func(mc *cdx.MLModelCard, input applyInput) error {
 				useCases, _ := input.Value.([]string)
 				if len(useCases) == 0 {
 					return fmt.Errorf("useCases value is empty")
 				}
-				if !input.Force && tgt.ModelCard.Considerations != nil && tgt.ModelCard.Considerations.UseCases != nil && len(*tgt.ModelCard.Considerations.UseCases) > 0 {
+				if !input.Force && mc.Considerations != nil && mc.Considerations.UseCases != nil && len(*mc.Considerations.UseCases) > 0 {
 					return nil
 				}
-				cons := ensureConsiderations(tgt.ModelCard)
+				cons := ensureConsiderations(mc)
 				cons.UseCases = &useCases
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.UseCases != nil && len(*c.ModelCard.Considerations.UseCases) > 0
-				return ok
+				return c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.UseCases != nil && len(*c.ModelCard.Considerations.UseCases) > 0
 			},
 			InputType:   InputTypeMultiText,
 			Placeholder: "use case 1, use case 2",
 		},
 		{
-			Key:      ModelCardConsiderationsTechnicalLimitations,
-			Weight:   0.5,
-			Required: false,
+			Key:    ModelCardConsiderationsTechnicalLimitations,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.Readme == nil {
@@ -319,37 +277,28 @@ func modelCardFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseCommaList(value, "technicalLimitations")
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ModelCardConsiderationsTechnicalLimitations)
-				}
-				if tgt.ModelCard == nil {
-					return fmt.Errorf("modelCard is nil")
-				}
+			Apply: onModelCard(func(mc *cdx.MLModelCard, input applyInput) error {
 				vals, _ := input.Value.([]string)
 				if len(vals) == 0 {
 					return fmt.Errorf("technicalLimitations value is empty")
 				}
-				if !input.Force && tgt.ModelCard.Considerations != nil && tgt.ModelCard.Considerations.TechnicalLimitations != nil && len(*tgt.ModelCard.Considerations.TechnicalLimitations) > 0 {
+				if !input.Force && mc.Considerations != nil && mc.Considerations.TechnicalLimitations != nil && len(*mc.Considerations.TechnicalLimitations) > 0 {
 					return nil
 				}
-				cons := ensureConsiderations(tgt.ModelCard)
+				cons := ensureConsiderations(mc)
 				cons.TechnicalLimitations = &vals
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.TechnicalLimitations != nil && len(*c.ModelCard.Considerations.TechnicalLimitations) > 0
-				return ok
+				return c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.TechnicalLimitations != nil && len(*c.ModelCard.Considerations.TechnicalLimitations) > 0
 			},
 			InputType:   InputTypeTextArea,
 			Placeholder: "limitation1,limitation2,limitation3",
 		},
 		{
-			Key:      ModelCardConsiderationsEthicalConsiderations,
-			Weight:   0.25,
-			Required: false,
+			Key:    ModelCardConsiderationsEthicalConsiderations,
+			Weight: 0.25,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.Readme == nil {
@@ -374,37 +323,28 @@ func modelCardFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseEthicalConsiderations(value)
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ModelCardConsiderationsEthicalConsiderations)
-				}
-				if tgt.ModelCard == nil {
-					return fmt.Errorf("modelCard is nil")
-				}
+			Apply: onModelCard(func(mc *cdx.MLModelCard, input applyInput) error {
 				ethics, _ := input.Value.([]cdx.MLModelCardEthicalConsideration)
 				if len(ethics) == 0 {
 					return fmt.Errorf("ethicalConsiderations value is empty")
 				}
-				if !input.Force && tgt.ModelCard.Considerations != nil && tgt.ModelCard.Considerations.EthicalConsiderations != nil && len(*tgt.ModelCard.Considerations.EthicalConsiderations) > 0 {
+				if !input.Force && mc.Considerations != nil && mc.Considerations.EthicalConsiderations != nil && len(*mc.Considerations.EthicalConsiderations) > 0 {
 					return nil
 				}
-				cons := ensureConsiderations(tgt.ModelCard)
+				cons := ensureConsiderations(mc)
 				cons.EthicalConsiderations = &ethics
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.EthicalConsiderations != nil && len(*c.ModelCard.Considerations.EthicalConsiderations) > 0
-				return ok
+				return c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.EthicalConsiderations != nil && len(*c.ModelCard.Considerations.EthicalConsiderations) > 0
 			},
 			InputType:   InputTypeTextArea,
 			Placeholder: "bias:mitigation strategy,privacy concerns,fairness issues",
 		},
 		{
-			Key:      ModelCardQuantitativeAnalysisPerformanceMetrics,
-			Weight:   0.5,
-			Required: false,
+			Key:    ModelCardQuantitativeAnalysisPerformanceMetrics,
+			Weight: 0.5,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.Readme == nil {
@@ -460,37 +400,28 @@ func modelCardFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parsePerformanceMetrics(value)
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ModelCardQuantitativeAnalysisPerformanceMetrics)
-				}
-				if tgt.ModelCard == nil {
-					return fmt.Errorf("modelCard is nil")
-				}
+			Apply: onModelCard(func(mc *cdx.MLModelCard, input applyInput) error {
 				metrics, _ := input.Value.([]cdx.MLPerformanceMetric)
 				if len(metrics) == 0 {
 					return fmt.Errorf("performanceMetrics value is empty")
 				}
-				if !input.Force && tgt.ModelCard.QuantitativeAnalysis != nil && tgt.ModelCard.QuantitativeAnalysis.PerformanceMetrics != nil && len(*tgt.ModelCard.QuantitativeAnalysis.PerformanceMetrics) > 0 {
+				if !input.Force && mc.QuantitativeAnalysis != nil && mc.QuantitativeAnalysis.PerformanceMetrics != nil && len(*mc.QuantitativeAnalysis.PerformanceMetrics) > 0 {
 					return nil
 				}
-				qa := ensureQuantitativeAnalysis(tgt.ModelCard)
+				qa := ensureQuantitativeAnalysis(mc)
 				qa.PerformanceMetrics = &metrics
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.ModelCard != nil && c.ModelCard.QuantitativeAnalysis != nil && c.ModelCard.QuantitativeAnalysis.PerformanceMetrics != nil && len(*c.ModelCard.QuantitativeAnalysis.PerformanceMetrics) > 0
-				return ok
+				return c != nil && c.ModelCard != nil && c.ModelCard.QuantitativeAnalysis != nil && c.ModelCard.QuantitativeAnalysis.PerformanceMetrics != nil && len(*c.ModelCard.QuantitativeAnalysis.PerformanceMetrics) > 0
 			},
 			InputType:   InputTypeTextArea,
 			Placeholder: "accuracy:0.95,f1:0.92,precision:0.88",
 		},
 		{
-			Key:      ModelCardConsiderationsEnvironmentalConsiderationsProperties,
-			Weight:   0.25,
-			Required: false,
+			Key:    ModelCardConsiderationsEnvironmentalConsiderationsProperties,
+			Weight: 0.25,
 			Sources: []func(Source) (any, bool){
 				func(src Source) (any, bool) {
 					if src.Readme == nil {
@@ -519,35 +450,27 @@ func modelCardFields() []FieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseProperties(value)
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ModelCardConsiderationsEnvironmentalConsiderationsProperties)
-				}
-				if tgt.ModelCard == nil {
-					return fmt.Errorf("modelCard is nil")
-				}
+			Apply: onModelCard(func(mc *cdx.MLModelCard, input applyInput) error {
 				props, _ := input.Value.([]cdx.Property)
 				if len(props) == 0 {
 					return fmt.Errorf("environmentalConsiderations value is empty")
 				}
-				if !input.Force && tgt.ModelCard.Considerations != nil && tgt.ModelCard.Considerations.EnvironmentalConsiderations != nil {
-					env := tgt.ModelCard.Considerations.EnvironmentalConsiderations
+				if !input.Force && mc.Considerations != nil && mc.Considerations.EnvironmentalConsiderations != nil {
+					env := mc.Considerations.EnvironmentalConsiderations
 					if env.Properties != nil && len(*env.Properties) > 0 {
 						return nil
 					}
 				}
-				cons := ensureConsiderations(tgt.ModelCard)
+				cons := ensureConsiderations(mc)
 				if cons.EnvironmentalConsiderations == nil {
 					cons.EnvironmentalConsiderations = &cdx.MLModelCardEnvironmentalConsiderations{}
 				}
 				cons.EnvironmentalConsiderations.Properties = &props
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
-				ok := c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.EnvironmentalConsiderations != nil && c.ModelCard.Considerations.EnvironmentalConsiderations.Properties != nil && len(*c.ModelCard.Considerations.EnvironmentalConsiderations.Properties) > 0
-				return ok
+				return c != nil && c.ModelCard != nil && c.ModelCard.Considerations != nil && c.ModelCard.Considerations.EnvironmentalConsiderations != nil && c.ModelCard.Considerations.EnvironmentalConsiderations.Properties != nil && len(*c.ModelCard.Considerations.EnvironmentalConsiderations.Properties) > 0
 			},
 			InputType:   InputTypeTextArea,
 			Placeholder: "hardwareType:GPU,hoursUsed:100,carbonEmitted:50kg",
@@ -560,9 +483,8 @@ func modelCardFields() []FieldSpec {
 // outputs and field points at the matching slice in the model parameters.
 func ioFieldSpec(key Key, name, placeholder string, pick func(taskIO) []string, field func(*cdx.MLModelParameters) **[]cdx.MLInputOutputParameters) FieldSpec {
 	return FieldSpec{
-		Key:      key,
-		Weight:   0.25,
-		Required: false,
+		Key:    key,
+		Weight: 0.25,
 		Sources: []func(Source) (any, bool){
 			func(src Source) (any, bool) {
 				t, ok := pipelineTagFormats(modelTaskTag(src))
@@ -575,27 +497,20 @@ func ioFieldSpec(key Key, name, placeholder string, pick func(taskIO) []string, 
 		Parse: func(value string) (any, error) {
 			return parseCommaList(value, name)
 		},
-		Apply: func(tgt Target, value any) error {
-			input, ok := value.(applyInput)
-			if !ok {
-				return fmt.Errorf("invalid input for %s", key)
-			}
-			if tgt.ModelCard == nil {
-				return fmt.Errorf("modelCard is nil")
-			}
+		Apply: onModelCard(func(mc *cdx.MLModelCard, input applyInput) error {
 			fmts, _ := input.Value.([]string)
 			params := ioParams(fmts)
 			if len(params) == 0 {
 				return fmt.Errorf("%s value is empty", name)
 			}
-			if !input.Force && tgt.ModelCard.ModelParameters != nil {
-				if cur := *field(tgt.ModelCard.ModelParameters); cur != nil && len(*cur) > 0 {
+			if !input.Force && mc.ModelParameters != nil {
+				if cur := *field(mc.ModelParameters); cur != nil && len(*cur) > 0 {
 					return nil
 				}
 			}
-			*field(ensureModelParameters(tgt.ModelCard)) = &params
+			*field(ensureModelParameters(mc)) = &params
 			return nil
-		},
+		}),
 		Present: func(b *cdx.BOM) bool {
 			mp := bomModelParameters(b)
 			if mp == nil {

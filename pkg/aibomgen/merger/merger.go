@@ -31,107 +31,6 @@ type MergeResult struct {
 	MetadataComponent string   // Name of SBOM metadata component (app)
 }
 
-// Merge combines two CycloneDX BOMs into a single BOM.
-// The primary BOM serves as the base, and components from the secondary BOM are added to it.
-// This function handles:.
-// - Merging components while avoiding duplicates (based on BOM-ref).
-// - Merging dependencies.
-// - Combining metadata.
-// - Preserving compositions.
-func Merge(primary, secondary *cdx.BOM, opts MergeOptions) (*MergeResult, error) {
-	if primary == nil {
-		return nil, fmt.Errorf("primary BOM is nil")
-	}
-	if secondary == nil {
-		return nil, fmt.Errorf("secondary BOM is nil")
-	}
-
-	result := &MergeResult{
-		MergedBOM: &cdx.BOM{},
-	}
-
-	// Use the primary BOM's spec version.
-	result.MergedBOM.SpecVersion = primary.SpecVersion
-	if result.MergedBOM.SpecVersion == cdx.SpecVersion(0) {
-		result.MergedBOM.SpecVersion = cdx.SpecVersion1_6
-	}
-
-	// Merge metadata.
-	result.MergedBOM.Metadata = mergeMetadata(primary.Metadata, secondary.Metadata, opts)
-
-	// Collect all components from both BOMs.
-	componentsMap := make(map[string]*cdx.Component)
-	var mergedComponents []cdx.Component
-
-	// Add primary BOM components.
-	if primary.Components != nil {
-		for i := range *primary.Components {
-			comp := &(*primary.Components)[i]
-			bomRef := getBOMRef(comp)
-			if bomRef != "" {
-				componentsMap[bomRef] = comp
-			}
-			mergedComponents = append(mergedComponents, *comp)
-			result.SBOMComponentCount++
-		}
-	}
-
-	// Add secondary BOM components (checking for duplicates).
-	if secondary.Components != nil {
-		for i := range *secondary.Components {
-			comp := &(*secondary.Components)[i]
-			bomRef := getBOMRef(comp)
-
-			if opts.DeduplicateComponents && bomRef != "" {
-				if _, exists := componentsMap[bomRef]; exists {
-					result.DuplicatesRemoved++
-					continue
-				}
-				componentsMap[bomRef] = comp
-			}
-
-			mergedComponents = append(mergedComponents, *comp)
-			result.AIBOMComponentCount++
-		}
-	}
-
-	// Update the final count after deduplication.
-	result.AIBOMComponentCount -= result.DuplicatesRemoved
-
-	if len(mergedComponents) > 0 {
-		result.MergedBOM.Components = &mergedComponents
-	}
-
-	// Merge dependencies.
-	result.MergedBOM.Dependencies = mergeDependencies(primary.Dependencies, secondary.Dependencies)
-
-	// Merge compositions.
-	result.MergedBOM.Compositions = mergeCompositions(primary.Compositions, secondary.Compositions)
-
-	// Copy other fields from primary BOM.
-	result.MergedBOM.SerialNumber = primary.SerialNumber
-	result.MergedBOM.Version = primary.Version
-
-	// Merge services if present.
-	if primary.Services != nil || secondary.Services != nil {
-		mergedServices := mergeServices(primary.Services, secondary.Services)
-		if len(*mergedServices) > 0 {
-			result.MergedBOM.Services = mergedServices
-		}
-	}
-
-	// Merge external references if needed.
-	result.MergedBOM.ExternalReferences = mergeExternalReferences(
-		primary.ExternalReferences,
-		secondary.ExternalReferences,
-	)
-
-	// Merge vulnerabilities from both BOMs.
-	result.MergedBOM.Vulnerabilities = mergeVulnerabilitiesMultiple(primary.Vulnerabilities, secondary.Vulnerabilities)
-
-	return result, nil
-}
-
 // MergeAIBOMsWithSBOM combines one or more AIBOMs with an SBOM into a single BOM.
 // The SBOM serves as the base, preserving its application metadata component.
 // AI/ML components from the AIBOMs are added to the components list.
@@ -336,18 +235,7 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 	}
 
 	// Merge dependencies from SBOM and all AIBOMs.
-	var allDependencies []*[]cdx.Dependency
-	if sbom.Dependencies != nil {
-		allDependencies = append(allDependencies, sbom.Dependencies)
-	}
-	for _, aibom := range aiboms {
-		if aibom.Dependencies != nil {
-			allDependencies = append(allDependencies, aibom.Dependencies)
-		}
-	}
-	if len(allDependencies) > 0 {
-		result.MergedBOM.Dependencies = mergeDependenciesMultiple(allDependencies...)
-	}
+	result.MergedBOM.Dependencies = mergeDependenciesMultiple(collect(sbom, aiboms, func(b *cdx.BOM) *[]cdx.Dependency { return b.Dependencies })...)
 
 	// Link model components as dependencies of the SBOM application component.
 	// This ensures the dependency graph reflects that the application uses those models.
@@ -361,174 +249,17 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 		}
 	}
 
-	// Merge compositions from SBOM and AIBOMs.
-	var allCompositions []*[]cdx.Composition
-	if sbom.Compositions != nil {
-		allCompositions = append(allCompositions, sbom.Compositions)
-	}
-	for _, aibom := range aiboms {
-		if aibom.Compositions != nil {
-			allCompositions = append(allCompositions, aibom.Compositions)
-		}
-	}
-	if len(allCompositions) > 0 {
-		result.MergedBOM.Compositions = mergeCompositionsMultiple(allCompositions...)
-	}
+	// Merge compositions, services, external references and vulnerabilities.
+	result.MergedBOM.Compositions = concat(collect(sbom, aiboms, func(b *cdx.BOM) *[]cdx.Composition { return b.Compositions })...)
+	result.MergedBOM.Services = mergeServicesMultiple(collect(sbom, aiboms, func(b *cdx.BOM) *[]cdx.Service { return b.Services })...)
+	result.MergedBOM.ExternalReferences = concat(collect(sbom, aiboms, func(b *cdx.BOM) *[]cdx.ExternalReference { return b.ExternalReferences })...)
+	result.MergedBOM.Vulnerabilities = mergeVulnerabilitiesMultiple(collect(sbom, aiboms, func(b *cdx.BOM) *[]cdx.Vulnerability { return b.Vulnerabilities })...)
 
 	// Copy other fields from SBOM.
 	result.MergedBOM.SerialNumber = sbom.SerialNumber
 	result.MergedBOM.Version = sbom.Version
 
-	// Merge services if present.
-	var allServices []*[]cdx.Service
-	if sbom.Services != nil {
-		allServices = append(allServices, sbom.Services)
-	}
-	for _, aibom := range aiboms {
-		if aibom.Services != nil {
-			allServices = append(allServices, aibom.Services)
-		}
-	}
-	if len(allServices) > 0 {
-		mergedServices := mergeServicesMultiple(allServices...)
-		if len(*mergedServices) > 0 {
-			result.MergedBOM.Services = mergedServices
-		}
-	}
-
-	// Merge external references.
-	var allExternalRefs []*[]cdx.ExternalReference
-	if sbom.ExternalReferences != nil {
-		allExternalRefs = append(allExternalRefs, sbom.ExternalReferences)
-	}
-	for _, aibom := range aiboms {
-		if aibom.ExternalReferences != nil {
-			allExternalRefs = append(allExternalRefs, aibom.ExternalReferences)
-		}
-	}
-	if len(allExternalRefs) > 0 {
-		result.MergedBOM.ExternalReferences = mergeExternalReferencesMultiple(allExternalRefs...)
-	}
-
-	// Merge vulnerabilities from SBOM and all AIBOMs.
-	var allVulnerabilities []*[]cdx.Vulnerability
-	if sbom.Vulnerabilities != nil {
-		allVulnerabilities = append(allVulnerabilities, sbom.Vulnerabilities)
-	}
-	for _, aibom := range aiboms {
-		if aibom.Vulnerabilities != nil {
-			allVulnerabilities = append(allVulnerabilities, aibom.Vulnerabilities)
-		}
-	}
-	if len(allVulnerabilities) > 0 {
-		result.MergedBOM.Vulnerabilities = mergeVulnerabilitiesMultiple(allVulnerabilities...)
-	}
-
 	return result, nil
-}
-
-// mergeMetadata combines metadata from both BOMs.
-func mergeMetadata(primary, secondary *cdx.Metadata, opts MergeOptions) *cdx.Metadata {
-	if primary == nil && secondary == nil {
-		return nil
-	}
-
-	merged := &cdx.Metadata{}
-
-	// Prefer primary metadata as base.
-	if primary != nil {
-		merged.Timestamp = primary.Timestamp
-		merged.Authors = primary.Authors
-		merged.Component = primary.Component
-		merged.Manufacture = primary.Manufacture
-		merged.Supplier = primary.Supplier
-		merged.Licenses = primary.Licenses
-		merged.Properties = primary.Properties
-
-		// Deep copy tools from primary.
-		if primary.Tools != nil && primary.Tools.Tools != nil && len(*primary.Tools.Tools) > 0 {
-			toolsCopy := make([]cdx.Tool, len(*primary.Tools.Tools)) //nolint:staticcheck // cdx.Tool is deprecated; used here intentionally to handle legacy BOM inputs
-			copy(toolsCopy, *primary.Tools.Tools)
-			merged.Tools = &cdx.ToolsChoice{
-				Tools: &toolsCopy,
-			}
-		}
-	}
-
-	// Merge tools from secondary.
-	if secondary != nil {
-		// If primary didn't have tools, use secondary's.
-		if merged.Tools == nil && secondary.Tools != nil && secondary.Tools.Tools != nil && len(*secondary.Tools.Tools) > 0 {
-			toolsCopy := make([]cdx.Tool, len(*secondary.Tools.Tools)) //nolint:staticcheck // cdx.Tool is deprecated; used here intentionally to handle legacy BOM inputs
-			copy(toolsCopy, *secondary.Tools.Tools)
-			merged.Tools = &cdx.ToolsChoice{
-				Tools: &toolsCopy,
-			}
-		} else if merged.Tools != nil && secondary.Tools != nil && secondary.Tools.Tools != nil && len(*secondary.Tools.Tools) > 0 {
-			// Combine tools from both.
-			combinedTools := append(*merged.Tools.Tools, *secondary.Tools.Tools...)
-			merged.Tools = &cdx.ToolsChoice{
-				Tools: &combinedTools,
-			}
-		}
-
-		// If primary didn't have a timestamp but secondary does, use secondary's.
-		if merged.Timestamp == "" && secondary.Timestamp != "" {
-			merged.Timestamp = secondary.Timestamp
-		}
-	}
-
-	return merged
-}
-
-// mergeDependencies combines dependencies from both BOMs.
-func mergeDependencies(primary, secondary *[]cdx.Dependency) *[]cdx.Dependency {
-	if primary == nil && secondary == nil {
-		return nil
-	}
-
-	depMap := make(map[string]*cdx.Dependency)
-
-	// Add primary dependencies.
-	if primary != nil {
-		for i := range *primary {
-			dep := &(*primary)[i]
-			depMap[dep.Ref] = dep
-		}
-	}
-
-	// Merge secondary dependencies.
-	if secondary != nil {
-		for i := range *secondary {
-			dep := &(*secondary)[i]
-			if existing, exists := depMap[dep.Ref]; exists {
-				// Merge dependency lists for the same ref.
-				if dep.Dependencies != nil {
-					if existing.Dependencies == nil {
-						existing.Dependencies = dep.Dependencies
-					} else {
-						// Combine dependencies, removing duplicates.
-						combined := mergeDependencyRefs(*existing.Dependencies, *dep.Dependencies)
-						existing.Dependencies = &combined
-					}
-				}
-			} else {
-				depMap[dep.Ref] = dep
-			}
-		}
-	}
-
-	// Convert map back to slice.
-	var merged []cdx.Dependency
-	for _, dep := range depMap {
-		merged = append(merged, *dep)
-	}
-
-	if len(merged) == 0 {
-		return nil
-	}
-
-	return &merged
 }
 
 // mergeDependencyRefs combines two dependency ref lists, removing duplicates.
@@ -551,95 +282,6 @@ func mergeDependencyRefs(refs1, refs2 []string) []string {
 	}
 
 	return merged
-}
-
-// mergeCompositions combines compositions from both BOMs.
-func mergeCompositions(primary, secondary *[]cdx.Composition) *[]cdx.Composition {
-	if primary == nil && secondary == nil {
-		return nil
-	}
-
-	var merged []cdx.Composition
-
-	if primary != nil {
-		merged = append(merged, *primary...)
-	}
-
-	if secondary != nil {
-		merged = append(merged, *secondary...)
-	}
-
-	if len(merged) == 0 {
-		return nil
-	}
-
-	return &merged
-}
-
-// mergeServices combines services from both BOMs.
-func mergeServices(primary, secondary *[]cdx.Service) *[]cdx.Service {
-	if primary == nil && secondary == nil {
-		return nil
-	}
-
-	serviceMap := make(map[string]*cdx.Service)
-	var merged []cdx.Service
-
-	// Add primary services.
-	if primary != nil {
-		for i := range *primary {
-			svc := &(*primary)[i]
-			bomRef := getServiceBOMRef(svc)
-			if bomRef != "" {
-				serviceMap[bomRef] = svc
-			}
-			merged = append(merged, *svc)
-		}
-	}
-
-	// Add secondary services (checking for duplicates).
-	if secondary != nil {
-		for i := range *secondary {
-			svc := &(*secondary)[i]
-			bomRef := getServiceBOMRef(svc)
-			if bomRef != "" {
-				if _, exists := serviceMap[bomRef]; exists {
-					continue // Skip duplicate
-				}
-				serviceMap[bomRef] = svc
-			}
-			merged = append(merged, *svc)
-		}
-	}
-
-	if len(merged) == 0 {
-		return nil
-	}
-
-	return &merged
-}
-
-// mergeExternalReferences combines external references from both BOMs.
-func mergeExternalReferences(primary, secondary *[]cdx.ExternalReference) *[]cdx.ExternalReference {
-	if primary == nil && secondary == nil {
-		return nil
-	}
-
-	var merged []cdx.ExternalReference
-
-	if primary != nil {
-		merged = append(merged, *primary...)
-	}
-
-	if secondary != nil {
-		merged = append(merged, *secondary...)
-	}
-
-	if len(merged) == 0 {
-		return nil
-	}
-
-	return &merged
 }
 
 // getBOMRef returns the BOM-ref of a component.
@@ -709,14 +351,6 @@ func generateBOMRef(comp *cdx.Component) string {
 	return strings.Join(parts, "/")
 }
 
-// getServiceBOMRef returns the BOM-ref of a service.
-func getServiceBOMRef(svc *cdx.Service) string {
-	if svc.BOMRef == "" {
-		return ""
-	}
-	return svc.BOMRef
-}
-
 // mergeDependenciesMultiple combines dependencies from multiple BOMs.
 func mergeDependenciesMultiple(deps ...*[]cdx.Dependency) *[]cdx.Dependency {
 	if len(deps) == 0 {
@@ -760,24 +394,28 @@ func mergeDependenciesMultiple(deps ...*[]cdx.Dependency) *[]cdx.Dependency {
 	return &merged
 }
 
-// mergeCompositionsMultiple combines compositions from multiple BOMs.
-func mergeCompositionsMultiple(comps ...*[]cdx.Composition) *[]cdx.Composition {
-	if len(comps) == 0 {
-		return nil
-	}
-
-	var merged []cdx.Composition
-
-	for _, compList := range comps {
-		if compList != nil {
-			merged = append(merged, *compList...)
+// collect returns the non-nil lists get yields for the SBOM and each AIBOM, in order.
+func collect[T any](sbom *cdx.BOM, aiboms []*cdx.BOM, get func(*cdx.BOM) *[]T) []*[]T {
+	var lists []*[]T
+	for _, b := range append([]*cdx.BOM{sbom}, aiboms...) {
+		if l := get(b); l != nil {
+			lists = append(lists, l)
 		}
 	}
+	return lists
+}
 
+// concat appends the non-nil lists in order, returning nil when the result is empty.
+func concat[T any](lists ...*[]T) *[]T {
+	var merged []T
+	for _, l := range lists {
+		if l != nil {
+			merged = append(merged, *l...)
+		}
+	}
 	if len(merged) == 0 {
 		return nil
 	}
-
 	return &merged
 }
 
@@ -796,7 +434,7 @@ func mergeServicesMultiple(services ...*[]cdx.Service) *[]cdx.Service {
 		}
 		for i := range *svcList {
 			svc := &(*svcList)[i]
-			bomRef := getServiceBOMRef(svc)
+			bomRef := svc.BOMRef
 			if bomRef != "" {
 				if _, exists := serviceMap[bomRef]; exists {
 					continue // Skip duplicate
@@ -840,27 +478,6 @@ func mergeVulnerabilitiesMultiple(vulnLists ...*[]cdx.Vulnerability) *[]cdx.Vuln
 				seen[key] = true
 			}
 			merged = append(merged, v)
-		}
-	}
-
-	if len(merged) == 0 {
-		return nil
-	}
-
-	return &merged
-}
-
-// mergeExternalReferencesMultiple combines external references from multiple BOMs.
-func mergeExternalReferencesMultiple(refs ...*[]cdx.ExternalReference) *[]cdx.ExternalReference {
-	if len(refs) == 0 {
-		return nil
-	}
-
-	var merged []cdx.ExternalReference
-
-	for _, refList := range refs {
-		if refList != nil {
-			merged = append(merged, *refList...)
 		}
 	}
 

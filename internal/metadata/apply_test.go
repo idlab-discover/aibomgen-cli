@@ -13,11 +13,11 @@ func TestApplyFromSources_FallsBackWhenApplyFails(t *testing.T) {
 			func(Source) (any, bool) { return "placeholder", true },
 			func(Source) (any, bool) { return "real", true },
 		},
-		Apply: func(_ Target, v any) error {
-			if v.(applyInput).Value == "placeholder" {
+		Apply: func(_ Target, in applyInput) error {
+			if in.Value == "placeholder" {
 				return errors.New("placeholder")
 			}
-			applied = v.(applyInput).Value
+			applied = in.Value
 			return nil
 		},
 	}

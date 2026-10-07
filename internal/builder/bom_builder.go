@@ -8,13 +8,7 @@ import (
 	cdx "github.com/CycloneDX/cyclonedx-go"
 )
 
-type BOMBuilder struct {
-	Opts Options
-}
-
-func NewBOMBuilder(opts Options) *BOMBuilder {
-	return &BOMBuilder{Opts: opts}
-}
+type BOMBuilder struct{}
 
 func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 
@@ -23,15 +17,9 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 	bom := cdx.NewBOM()
 	bom.Metadata = &cdx.Metadata{Component: comp}
 
-	if err := AddMetaSerialNumber(bom); err != nil {
-		return nil, err
-	}
-	if err := AddMetaTimestamp(bom); err != nil {
-		return nil, err
-	}
-	if err := AddMetaTools(bom, "", GetAIBoMGenVersion()); err != nil {
-		return nil, err
-	}
+	AddMetaSerialNumber(bom)
+	AddMetaTimestamp(bom)
+	AddMetaTools(bom, "", GetAIBoMGenVersion())
 	AddMetaLifecycles(bom)
 
 	// Apply registry exactly once (no duplication).
@@ -44,10 +32,9 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 		SecurityTree: ctx.SecurityTree,
 	}
 	tgt := metadata.Target{
-		BOM:                bom,
-		Component:          comp,
-		ModelCard:          comp.ModelCard,
-		HuggingFaceBaseURL: b.Opts.HuggingFaceBaseURL,
+		BOM:       bom,
+		Component: comp,
+		ModelCard: comp.ModelCard,
 	}
 
 	for _, spec := range metadata.Registry() {
@@ -67,7 +54,7 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 		}
 	}
 
-	AddComponentEvidence(comp, ctx, b.Opts.HuggingFaceBaseURL)
+	AddComponentEvidence(comp, ctx, "")
 
 	// Inject security scan findings as Component.Properties and BOM.Vulnerabilities.
 	InjectSecurityData(bom, comp, ctx.SecurityTree, strings.TrimSpace(ctx.ModelID), strings.TrimSpace(ctx.Revision))
@@ -87,10 +74,7 @@ func (b BOMBuilder) BuildDataset(ctx DatasetBuildContext) (*cdx.Component, error
 		HF:        ctx.HF,
 		Readme:    ctx.Readme,
 	}
-	tgt := metadata.DatasetTarget{
-		Component:          comp,
-		HuggingFaceBaseURL: b.Opts.HuggingFaceBaseURL,
-	}
+	tgt := metadata.DatasetTarget{Component: comp}
 
 	for _, spec := range metadata.DatasetRegistry() {
 		metadata.ApplyDatasetFromSources(spec, src, tgt)

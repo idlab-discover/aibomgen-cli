@@ -1,26 +1,17 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"strings"
+	"time"
 
 	cdx "github.com/CycloneDX/cyclonedx-go"
-	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/bomio"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/merger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-)
-
-var (
-	mergeAIBOMs      []string
-	mergeSBOM        string
-	mergeOutput      string
-	mergeFormat      string
-	mergeDeduplicate bool
-	mergeLogLevel    string
 )
 
 var mergeCmd = &cobra.Command{
@@ -48,29 +39,23 @@ Example:
 		// Get inputs from viper (respects config file and CLI flag).
 		aibomPaths := viper.GetStringSlice("merge.aiboms")
 		if len(aibomPaths) == 0 {
-			return apperr.User("at least one --aibom is required")
+			return errors.New("at least one --aibom is required")
 		}
 
 		sbomPath := viper.GetString("merge.sbom")
 		if sbomPath == "" {
-			return apperr.User("--sbom is required")
+			return errors.New("--sbom is required")
 		}
 
 		outputPath := viper.GetString("merge.output")
 		if outputPath == "" {
-			return apperr.User("--output is required")
+			return errors.New("--output is required")
 		}
 
 		// Get log level from viper.
-		level := strings.ToLower(strings.TrimSpace(viper.GetString("merge.log-level")))
-		if level == "" {
-			level = "standard"
-		}
-		switch level {
-		case "quiet", "standard", "debug":
-			// ok.
-		default:
-			return apperr.Userf("invalid --log-level %q (expected quiet|standard|debug)", level)
+		quiet, err := quietFrom(viper.GetString("merge.log-level"))
+		if err != nil {
+			return err
 		}
 
 		// Get format from viper or detect from output path.
@@ -79,38 +64,66 @@ Example:
 			format = "auto"
 		}
 
-		// Initialize UI.
-		quiet := level == "quiet"
-		mergerUI := ui.NewMergerUI(os.Stdout, quiet)
-		mergerUI.StartWorkflow(len(aibomPaths))
+		// Initialize UI (workflow is nil when quiet).
+		start := time.Now()
+		var wf *ui.Workflow
+		if !quiet {
+			wf = ui.NewWorkflow(os.Stdout)
+			wf.AddTask("Reading SBOM")
+			wf.AddTask("Reading AIBOM(s)")
+			wf.AddTask("Merging BOMs")
+			wf.AddTask("Writing output")
+			wf.Start()
+		}
+		fail := func(err error) {
+			if wf != nil {
+				wf.Stop()
+				ui.PrintMergeError(os.Stdout, err)
+			}
+		}
 
 		// Read SBOM (this will be the base).
-		mergerUI.StartReadingSBOM(sbomPath)
+		if wf != nil {
+			wf.StartTask(0, ui.Dim.Render(sbomPath))
+		}
 		sbom, err := bomio.ReadBOM(sbomPath, "auto")
 		if err != nil {
-			mergerUI.PrintError(fmt.Errorf("failed to read SBOM: %w", err))
+			fail(fmt.Errorf("failed to read SBOM: %w", err))
 			return err
 		}
 
-		sbomComponentCount := 0
-		if sbom.Components != nil {
-			sbomComponentCount = len(*sbom.Components)
+		if wf != nil {
+			sbomComponentCount := 0
+			if sbom.Components != nil {
+				sbomComponentCount = len(*sbom.Components)
+			}
+			wf.CompleteTask(0, fmt.Sprintf("%d components loaded", sbomComponentCount))
 		}
-		mergerUI.CompleteReadingSBOM(sbomComponentCount)
 
 		// Read all AIBOMs.
-		mergerUI.StartReadingAIBOMs(len(aibomPaths))
 		var aiboms []*cdx.BOM
 		for i, aibomPath := range aibomPaths {
-			mergerUI.UpdateReadingAIBOM(i, len(aibomPaths), aibomPath)
+			if wf != nil {
+				msg := aibomPath
+				if len(aibomPaths) > 1 {
+					msg = fmt.Sprintf("[%d/%d] %s", i+1, len(aibomPaths), aibomPath)
+				}
+				wf.StartTask(1, ui.Dim.Render(msg))
+			}
 			aibom, err := bomio.ReadBOM(aibomPath, "auto")
 			if err != nil {
-				mergerUI.PrintError(fmt.Errorf("failed to read AIBOM %s: %w", aibomPath, err))
+				fail(fmt.Errorf("failed to read AIBOM %s: %w", aibomPath, err))
 				return err
 			}
 			aiboms = append(aiboms, aibom)
 		}
-		mergerUI.CompleteReadingAIBOMs(len(aiboms))
+		if wf != nil {
+			if len(aiboms) == 1 {
+				wf.CompleteTask(1, "AIBOM loaded")
+			} else {
+				wf.CompleteTask(1, fmt.Sprintf("%d AIBOMs loaded", len(aiboms)))
+			}
+		}
 
 		// Prepare merge options.
 		opts := merger.MergeOptions{
@@ -118,42 +131,45 @@ Example:
 		}
 
 		// Perform merge.
-		mergerUI.StartMerging()
+		if wf != nil {
+			wf.StartTask(2, "Combining components and metadata")
+		}
 		result, err := merger.MergeAIBOMsWithSBOM(sbom, aiboms, opts)
 		if err != nil {
-			mergerUI.PrintError(fmt.Errorf("failed to merge BOMs: %w", err))
+			fail(fmt.Errorf("failed to merge BOMs: %w", err))
 			return err
 		}
-		mergerUI.CompleteMerging(result.SBOMComponentCount, result.AIBOMComponentCount)
 
 		// Write merged BOM.
-		mergerUI.StartWriting(outputPath)
+		if wf != nil {
+			wf.CompleteTask(2, fmt.Sprintf("%d total components", result.SBOMComponentCount+result.AIBOMComponentCount))
+			wf.StartTask(3, ui.Dim.Render(outputPath))
+		}
 		if err := bomio.WriteBOM(result.MergedBOM, outputPath, format, ""); err != nil {
-			mergerUI.PrintError(fmt.Errorf("failed to write merged BOM: %w", err))
+			fail(fmt.Errorf("failed to write merged BOM: %w", err))
 			return err
 		}
-		mergerUI.CompleteWriting()
 
 		// Print summary.
-		mergerUI.PrintSummary(result, outputPath, len(aiboms), opts.DeduplicateComponents)
+		if wf != nil {
+			wf.CompleteTask(3, "File written successfully")
+			wf.Stop()
+			ui.PrintMergeSummary(os.Stdout, result, outputPath, len(aiboms), opts.DeduplicateComponents, time.Since(start))
+		}
 
 		return nil
 	},
 }
 
 func init() {
-	mergeCmd.Flags().StringSliceVar(&mergeAIBOMs, "aibom", []string{}, "Path to AIBOM file (can be specified multiple times, required)")
-	mergeCmd.Flags().StringVar(&mergeSBOM, "sbom", "", "Path to SBOM file (required)")
-	mergeCmd.Flags().StringVarP(&mergeOutput, "output", "o", "", "Output path for merged BOM (required)")
-	mergeCmd.Flags().StringVarP(&mergeFormat, "format", "f", "", "Output format: json|xml|auto (default: auto)")
-	mergeCmd.Flags().BoolVar(&mergeDeduplicate, "deduplicate", true, "Remove duplicate components based on BOM-ref")
-	mergeCmd.Flags().StringVar(&mergeLogLevel, "log-level", "", "Log level: quiet|standard|debug")
+	mergeCmd.Flags().StringSlice("aibom", []string{}, "Path to AIBOM file (can be specified multiple times, required)")
+	mergeCmd.Flags().String("sbom", "", "Path to SBOM file (required)")
+	mergeCmd.Flags().StringP("output", "o", "", "Output path for merged BOM (required)")
+	mergeCmd.Flags().StringP("format", "f", "", "Output format: json|xml|auto (default: auto)")
+	mergeCmd.Flags().Bool("deduplicate", true, "Remove duplicate components based on BOM-ref")
+	mergeCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")
 
 	// Bind all flags to viper for config file support.
-	viper.BindPFlag("merge.aiboms", mergeCmd.Flags().Lookup("aibom"))
-	viper.BindPFlag("merge.sbom", mergeCmd.Flags().Lookup("sbom"))
-	viper.BindPFlag("merge.output", mergeCmd.Flags().Lookup("output"))
-	viper.BindPFlag("merge.format", mergeCmd.Flags().Lookup("format"))
-	viper.BindPFlag("merge.deduplicate", mergeCmd.Flags().Lookup("deduplicate"))
-	viper.BindPFlag("merge.log-level", mergeCmd.Flags().Lookup("log-level"))
+	bindFlags(mergeCmd, "merge")
+	_ = viper.BindPFlag("merge.aiboms", mergeCmd.Flags().Lookup("aibom"))
 }

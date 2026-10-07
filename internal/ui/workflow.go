@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"charm.land/lipgloss/v2"
 )
 
 // spinnerFrames defines the spinner animation frames.
@@ -32,27 +34,21 @@ type Task struct {
 
 // Workflow manages a list of tasks with visual progress.
 type Workflow struct {
-	writer      io.Writer
-	tasks       []*Task
-	mu          sync.Mutex
-	spinnerIdx  int
-	stopChan    chan struct{}
-	running     bool
-	title       string
-	showSpinner bool
-	lastRender  string
-	startTime   time.Time
-	currentTask int
+	writer     io.Writer
+	tasks      []*Task
+	mu         sync.Mutex
+	spinnerIdx int
+	stopChan   chan struct{}
+	running    bool
+	lastRender string
 }
 
 // NewWorkflow creates a new workflow tracker.
-func NewWorkflow(w io.Writer, title string) *Workflow {
+func NewWorkflow(w io.Writer) *Workflow {
 	return &Workflow{
-		writer:      w,
-		title:       title,
-		tasks:       make([]*Task, 0),
-		stopChan:    make(chan struct{}),
-		showSpinner: true,
+		writer:   w,
+		tasks:    make([]*Task, 0),
+		stopChan: make(chan struct{}),
 	}
 }
 
@@ -77,7 +73,6 @@ func (wf *Workflow) StartTask(idx int, message string) {
 	if idx >= 0 && idx < len(wf.tasks) {
 		wf.tasks[idx].Status = TaskRunning
 		wf.tasks[idx].Message = message
-		wf.currentTask = idx
 	}
 }
 
@@ -132,7 +127,6 @@ func (wf *Workflow) Start() {
 		return
 	}
 	wf.running = true
-	wf.startTime = time.Now()
 	wf.mu.Unlock()
 
 	// Start spinner animation.
@@ -148,7 +142,7 @@ func (wf *Workflow) Start() {
 				wf.mu.Lock()
 				wf.spinnerIdx = (wf.spinnerIdx + 1) % len(spinnerFrames)
 				wf.mu.Unlock()
-				wf.render()
+				wf.render(false)
 			}
 		}
 	}()
@@ -165,11 +159,12 @@ func (wf *Workflow) Stop() {
 	wf.mu.Unlock()
 
 	close(wf.stopChan)
-	wf.renderFinal()
+	wf.render(true)
 }
 
-// render displays the current state (during animation).
-func (wf *Workflow) render() {
+// render displays the current state; final renders the end state without
+// spinner, showing task details/errors instead of live messages.
+func (wf *Workflow) render(final bool) {
 	wf.mu.Lock()
 	defer wf.mu.Unlock()
 
@@ -185,7 +180,7 @@ func (wf *Workflow) render() {
 
 	// Render tasks.
 	for _, task := range wf.tasks {
-		b.WriteString(wf.renderTask(task))
+		b.WriteString(wf.renderTask(task, final))
 		b.WriteString("\n")
 	}
 
@@ -194,183 +189,53 @@ func (wf *Workflow) render() {
 	fmt.Fprint(wf.writer, output)
 }
 
-// renderFinal renders the final state without animation.
-func (wf *Workflow) renderFinal() {
-	wf.mu.Lock()
-	defer wf.mu.Unlock()
-
-	var b strings.Builder
-
-	// Clear previous output.
-	if wf.lastRender != "" {
-		lineCount := strings.Count(wf.lastRender, "\n") + 1
-		for i := 0; i < lineCount; i++ {
-			b.WriteString("\033[A\033[K")
-		}
-	}
-
-	// Render final state of all tasks.
-	for _, task := range wf.tasks {
-		b.WriteString(wf.renderTaskFinal(task))
-		b.WriteString("\n")
-	}
-
-	fmt.Fprint(wf.writer, b.String())
-}
-
-func (wf *Workflow) renderTask(task *Task) string {
+func (wf *Workflow) renderTask(task *Task, final bool) string {
 	var icon string
-	var nameStyle styleWrapper
-	var msgStyle styleWrapper
+	var nameStyle lipgloss.Style
+	var msgStyle lipgloss.Style
 
-	switch task.Status {
-	case TaskPending:
-		icon = Muted.Render("○")
-		nameStyle = StepPending
-		msgStyle = Dim
-	case TaskRunning:
+	switch {
+	case task.Status == TaskRunning && !final:
 		icon = Secondary.Render(spinnerFrames[wf.spinnerIdx])
 		nameStyle = StepRunning
 		msgStyle = Secondary
-	case TaskDone:
+	case task.Status == TaskDone:
 		icon = GetCheckMark()
 		nameStyle = StepComplete
 		msgStyle = Dim
-	case TaskFailed:
+	case task.Status == TaskFailed:
 		icon = GetCrossMark()
 		nameStyle = StepFailed
 		msgStyle = Error
-	case TaskSkipped:
+	case task.Status == TaskSkipped:
 		icon = Warning.Render("⊘")
 		nameStyle = StepSkipped
 		msgStyle = Warning
-	}
-
-	line := fmt.Sprintf("%s %s", icon, nameStyle.Render(task.Name))
-	if task.Message != "" {
-		line += " " + msgStyle.Render(task.Message)
-	}
-
-	return line
-}
-
-func (wf *Workflow) renderTaskFinal(task *Task) string {
-	var icon string
-	var nameStyle styleWrapper
-
-	switch task.Status {
-	case TaskPending:
+	default: // pending, or still running at final render
 		icon = Muted.Render("○")
 		nameStyle = StepPending
-	case TaskRunning:
-		// Shouldn't happen in final render, treat as pending.
-		icon = Muted.Render("○")
-		nameStyle = StepPending
-	case TaskDone:
-		icon = GetCheckMark()
-		nameStyle = StepComplete
-	case TaskFailed:
-		icon = GetCrossMark()
-		nameStyle = StepFailed
-	case TaskSkipped:
-		icon = Warning.Render("⊘")
-		nameStyle = StepSkipped
+		msgStyle = Dim
 	}
 
 	line := fmt.Sprintf("%s %s", icon, nameStyle.Render(task.Name))
 
-	// Show details for completed tasks.
-	if task.Status == TaskDone && task.Details != "" {
-		line += " " + Dim.Render("→ "+task.Details)
-	} else if task.Status == TaskFailed && task.Message != "" {
-		line += " " + Error.Render("→ "+task.Message)
-	} else if task.Status == TaskSkipped && task.Message != "" {
-		line += " " + Warning.Render("→ "+task.Message)
-	}
-
-	return line
-}
-
-// SimpleSpinner provides a simple inline spinner for short operations.
-type SimpleSpinner struct {
-	writer     io.Writer
-	message    string
-	stopChan   chan struct{}
-	doneChan   chan struct{}
-	running    bool
-	mu         sync.Mutex
-	spinnerIdx int
-}
-
-// NewSimpleSpinner creates a new simple spinner.
-func NewSimpleSpinner(w io.Writer, message string) *SimpleSpinner {
-	return &SimpleSpinner{
-		writer:   w,
-		message:  message,
-		stopChan: make(chan struct{}),
-		doneChan: make(chan struct{}),
-	}
-}
-
-// Start begins the spinner animation.
-func (s *SimpleSpinner) Start() {
-	s.mu.Lock()
-	if s.running {
-		s.mu.Unlock()
-		return
-	}
-	s.running = true
-	s.mu.Unlock()
-
-	go func() {
-		ticker := time.NewTicker(80 * time.Millisecond)
-		defer ticker.Stop()
-		defer close(s.doneChan)
-
-		for {
-			select {
-			case <-s.stopChan:
-				return
-			case <-ticker.C:
-				s.mu.Lock()
-				s.spinnerIdx = (s.spinnerIdx + 1) % len(spinnerFrames)
-				frame := spinnerFrames[s.spinnerIdx]
-				s.mu.Unlock()
-
-				// Clear line and print spinner.
-				fmt.Fprintf(s.writer, "\r\033[K%s %s",
-					Secondary.Render(frame),
-					s.message)
-			}
+	msg := task.Message
+	if final {
+		// Show details for completed tasks, the message for failed/skipped ones.
+		switch task.Status {
+		case TaskDone:
+			msg = task.Details
+		case TaskFailed, TaskSkipped:
+		default:
+			msg = ""
 		}
-	}()
-}
-
-// Stop ends the spinner with a result.
-func (s *SimpleSpinner) Stop(success bool, finalMessage string) {
-	s.mu.Lock()
-	if !s.running {
-		s.mu.Unlock()
-		return
+		if msg != "" {
+			msg = "→ " + msg
+		}
 	}
-	s.running = false
-	s.mu.Unlock()
-
-	close(s.stopChan)
-	<-s.doneChan // Wait for goroutine to finish
-
-	// Clear the spinner line and print final result.
-	fmt.Fprint(s.writer, "\r\033[K")
-	if success {
-		fmt.Fprintf(s.writer, "%s %s\n", GetCheckMark(), finalMessage)
-	} else {
-		fmt.Fprintf(s.writer, "%s %s\n", GetCrossMark(), Error.Render(finalMessage))
+	if msg != "" {
+		line += " " + msgStyle.Render(msg)
 	}
-}
 
-// UpdateMessage updates the spinner message.
-func (s *SimpleSpinner) UpdateMessage(message string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.message = message
+	return line
 }

@@ -77,23 +77,12 @@ func parseEthicalConsiderations(value string) ([]cdx.MLModelCardEthicalConsidera
 		if item == "" {
 			continue
 		}
-		if strings.Contains(item, ":") {
-			parts := strings.SplitN(item, ":", 2)
-			name := strings.TrimSpace(parts[0])
-			mitigation := ""
-			if len(parts) > 1 {
-				mitigation = strings.TrimSpace(parts[1])
-			}
-			if name != "" {
-				ethics = append(ethics, cdx.MLModelCardEthicalConsideration{
-					Name:               name,
-					MitigationStrategy: mitigation,
-				})
-			}
-		} else {
+		name, mitigation, _ := strings.Cut(item, ":")
+		name = strings.TrimSpace(name)
+		if name != "" {
 			ethics = append(ethics, cdx.MLModelCardEthicalConsideration{
-				Name:               item,
-				MitigationStrategy: "",
+				Name:               name,
+				MitigationStrategy: strings.TrimSpace(mitigation),
 			})
 		}
 	}
@@ -111,18 +100,10 @@ func parsePerformanceMetrics(value string) ([]cdx.MLPerformanceMetric, error) {
 	metrics := []cdx.MLPerformanceMetric{}
 	pairs := strings.Split(s, ",")
 	for _, pair := range pairs {
-		parts := strings.SplitN(strings.TrimSpace(pair), ":", 2)
-		if len(parts) == 2 {
-			mt := strings.TrimSpace(parts[0])
-			mv := strings.TrimSpace(parts[1])
-			if mt != "" {
-				metrics = append(metrics, cdx.MLPerformanceMetric{Type: mt, Value: mv})
-			}
-		} else if len(parts) == 1 {
-			mt := strings.TrimSpace(parts[0])
-			if mt != "" {
-				metrics = append(metrics, cdx.MLPerformanceMetric{Type: mt, Value: ""})
-			}
+		mt, mv, _ := strings.Cut(pair, ":")
+		mt = strings.TrimSpace(mt)
+		if mt != "" {
+			metrics = append(metrics, cdx.MLPerformanceMetric{Type: mt, Value: strings.TrimSpace(mv)})
 		}
 	}
 	if len(metrics) == 0 {
@@ -139,13 +120,10 @@ func parseProperties(value string) ([]cdx.Property, error) {
 	props := []cdx.Property{}
 	pairs := strings.Split(s, ",")
 	for _, pair := range pairs {
-		parts := strings.SplitN(strings.TrimSpace(pair), ":", 2)
-		if len(parts) == 2 {
-			name := strings.TrimSpace(parts[0])
-			val := strings.TrimSpace(parts[1])
-			if name != "" && val != "" {
-				props = append(props, cdx.Property{Name: name, Value: val})
-			}
+		name, val, ok := strings.Cut(pair, ":")
+		name, val = strings.TrimSpace(name), strings.TrimSpace(val)
+		if ok && name != "" && val != "" {
+			props = append(props, cdx.Property{Name: name, Value: val})
 		}
 	}
 	if len(props) == 0 {
@@ -172,38 +150,33 @@ func parseDataGovernance(value string) (*cdx.DataGovernance, error) {
 			continue
 		}
 
-		var role, orgName string
-		if strings.Contains(pair, ":") {
-			parts := strings.SplitN(pair, ":", 2)
-			role = strings.ToLower(strings.TrimSpace(parts[0]))
-			orgName = strings.TrimSpace(parts[1])
+		role, orgName, ok := strings.Cut(pair, ":")
+		if ok {
+			role = strings.ToLower(strings.TrimSpace(role))
+			orgName = strings.TrimSpace(orgName)
 		} else {
 			// No role specified, default to custodian.
-			role = "custodian"
-			orgName = strings.TrimSpace(pair)
+			role, orgName = "custodian", pair
 		}
 
 		if orgName == "" {
 			continue
 		}
 
+		party := &[]cdx.ComponentDataGovernanceResponsibleParty{{
+			Organization: &cdx.OrganizationalEntity{Name: orgName},
+		}}
 		switch role {
 		case "custodian", "custodians":
-			governance.Custodians = &[]cdx.ComponentDataGovernanceResponsibleParty{{
-				Organization: &cdx.OrganizationalEntity{Name: orgName},
-			}}
-			hasGovernance = true
+			governance.Custodians = party
 		case "steward", "stewards", "curated", "curatedby":
-			governance.Stewards = &[]cdx.ComponentDataGovernanceResponsibleParty{{
-				Organization: &cdx.OrganizationalEntity{Name: orgName},
-			}}
-			hasGovernance = true
+			governance.Stewards = party
 		case "owner", "owners", "funded", "fundedby":
-			governance.Owners = &[]cdx.ComponentDataGovernanceResponsibleParty{{
-				Organization: &cdx.OrganizationalEntity{Name: orgName},
-			}}
-			hasGovernance = true
+			governance.Owners = party
+		default:
+			continue
 		}
+		hasGovernance = true
 	}
 
 	if !hasGovernance {

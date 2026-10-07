@@ -1,0 +1,294 @@
+=== view group 0 ===
+[38;5;238m┃[m [1;38;2;90;86;224mModel Enrichment[m                                                                                  
+[38;5;238m┃[m                                                                                                   
+[38;5;238m┃[m Please provide values for the missing fields.                                                     
+[38;5;238m┃[m Press Enter to skip optional fields.[0m                                                              
+[38;5;238m┃[m                                                                                                   
+[38;5;238m┃[m [48;2;247;128;226m  [m[38;2;255;253;245;48;2;247;128;226mContinue[m[48;2;247;128;226m  [m                                                                                     
+=== view group 1 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.name[38;2;107;114;128m (weight: 1.0)[m[38;2;239;68;68m [REQUIRED][m[m                                              
+[38;5;238m┃[m [38;2;156;163;175mSuggestions: [macme/demo-model • [38;2;107;114;128mFormat: [me.g., organization/model-name                              
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132me[m[38;5;248m.g., organization/model-name[m[38;5;248m                                                                   [m
+=== view group 2 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.externalReferences[38;2;107;114;128m (weight: 0.5)[m[m                                           
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 3 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.tags[38;2;107;114;128m (weight: 0.5)[m[m                                                         
+[38;5;238m┃[m [38;2;156;163;175mSuggestions: [mpytorch, transformers, nlp, vision, audio, text-generation • [38;2;107;114;128mEnter comma-separated[m   
+[38;5;238m┃[m [38;2;107;114;128mvalues[m • [38;2;107;114;128mFormat: [mpytorch, transformers, nlp                                                      
+=== view group 4 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.licenses[38;2;107;114;128m (weight: 1.0)[m[m                                                     
+[38;5;238m┃[m Select a license                                                                                  
+[38;5;238m┃[m [38;2;247;128;226m> [m[38;2;2;186;132mApache-2.0[m                                                                                      
+[38;5;238m┃[m   [38;5;252mMIT[m                                                                                             
+[38;5;238m┃[m   [38;5;252mBSD-3-Clause[m                                                                                    
+[38;5;238m┃[m   [38;5;252mGPL-3.0[m                                                                                         
+[38;5;238m┃[m   [38;5;252mLGPL-3.0[m                                                                                        
+[38;5;238m┃[m   [38;5;252mCC-BY-4.0[m                                                                                       
+[38;5;238m┃[m   [38;5;252mCC-BY-SA-4.0[m                                                                                    
+[38;5;238m┃[m   [38;5;252mCC0-1.0[m                                                                                        
+=== view group 5 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.hashes[38;2;107;114;128m (weight: 1.0)[m[m                                                       
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mS[m[38;5;248mHA-256 hash value[m[38;5;248m                                                                              [m
+=== view group 6 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.manufacturer[38;2;107;114;128m (weight: 0.5)[m[m                                                 
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mO[m[38;5;248mrganization or author name[m[38;5;248m                                                                     [m
+=== view group 7 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.group[38;2;107;114;128m (weight: 0.2)[m[m                                                        
+[38;5;238m┃[m [38;2;156;163;175mSuggestions: [macme • [38;2;107;114;128mFormat: [mOrganization or group name                                            
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mO[m[38;5;248mrganization or group name[m[38;5;248m                                                                      [m
+=== view group 8 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.supplier[38;2;107;114;128m (weight: 0.5)[m[m                                                     
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mO[m[38;5;248mrganization distributing the model[m[38;5;248m                                                             [m
+=== view group 9 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.authors[38;2;107;114;128m (weight: 0.5)[m[m                                                      
+[38;5;238m┃[m [38;2;156;163;175mSuggestions: [macme • [38;2;107;114;128mEnter comma-separated values[m • [38;2;107;114;128mFormat: [mauthor1, author2                       
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132ma[m[38;5;248muthor1, author2[m[38;5;248m                                                                                [m
+=== view group 10 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.version[38;2;107;114;128m (weight: 0.5)[m[m                                                      
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mM[m[38;5;248model revision (commit SHA or tag)[m[38;5;248m                                                              [m
+=== view group 11 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.description[38;2;107;114;128m (weight: 0.5)[m[m                                                  
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m[m[7mO[m[38;5;248mne or two sentences describing the model[m                                                         
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                
+=== view group 12 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.pedigree.ancestors[38;2;107;114;128m (weight: 0.0)[m[m                                           
+[38;5;238m┃[m [38;2;107;114;128mEnter comma-separated values[m • [38;2;107;114;128mFormat: [morg/base-model, org/other-base-model                       
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mo[m[38;5;248mrg/base-model, org/other-base-model[m[38;5;248m                                                            [m
+=== view group 13 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:lastModified[38;2;107;114;128m (weight: 0.2)[m[m                          
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 14 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:createdAt[38;2;107;114;128m (weight: 0.2)[m[m                             
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 15 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:language[38;2;107;114;128m (weight: 0.2)[m[m                              
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 16 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:usedStorage[38;2;107;114;128m (weight: 0.2)[m[m                           
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 17 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:private[38;2;107;114;128m (weight: 0.2)[m[m                               
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 18 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:libraryName[38;2;107;114;128m (weight: 0.2)[m[m                           
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 19 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:downloads[38;2;107;114;128m (weight: 0.2)[m[m                             
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 20 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:likes[38;2;107;114;128m (weight: 0.2)[m[m                                 
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 21 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:baseModel[38;2;107;114;128m (weight: 0.2)[m[m                             
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 22 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:modelCardContact[38;2;107;114;128m (weight: 0.2)[m[m                      
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 23 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.modelCard.modelParameters.task[38;2;107;114;128m (weight: 1.0)[m[m                               
+[38;5;238m┃[m Select the primary task                                                                           
+[38;5;238m┃[m [38;2;247;128;226m> [m[38;2;2;186;132mtext-classification[m                                                                             
+[38;5;238m┃[m   [38;5;252mtext-generation[m                                                                                 
+[38;5;238m┃[m   [38;5;252mtoken-classification[m                                                                            
+[38;5;238m┃[m   [38;5;252mquestion-answering[m                                                                              
+[38;5;238m┃[m   [38;5;252msummarization[m                                                                                   
+[38;5;238m┃[m   [38;5;252mtranslation[m                                                                                     
+[38;5;238m┃[m   [38;5;252mimage-classification[m                                                                            
+[38;5;238m┃[m   [38;5;252mobject-detection[m                                                                                
+[38;5;238m┃[m   [38;5;252mimage-segmentation[m                                                                              
+[38;5;238m┃[m   [38;5;252maudio-classification[m                                                                            
+[38;5;238m┃[m   [38;5;252mautomatic-speech-recognition[m                                                                   
+=== view group 24 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.modelCard.modelParameters.architectureFamily[38;2;107;114;128m (weight: 0.5)[m[m                 
+[38;5;238m┃[m [38;2;156;163;175mSuggestions: [mtransformer, cnn, rnn, lstm, gru, diffusion • [38;2;107;114;128mFormat: [me.g., transformer, cnn, rnn    
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132me[m[38;5;248m.g., transformer, cnn, rnn[m[38;5;248m                                                                     [m
+=== view group 25 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.modelCard.modelParameters.modelArchitecture[38;2;107;114;128m (weight: 0.5)[m[m                  
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132me[m[38;5;248m.g., BertForSequenceClassification[m[38;5;248m                                                             [m
+=== view group 26 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.modelCard.modelParameters.datasets[38;2;107;114;128m (weight: 0.5)[m[m                           
+[38;5;238m┃[m [38;2;107;114;128mEnter comma-separated values[m • [38;2;107;114;128mFormat: [mdataset1, dataset2, dataset3                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132md[m[38;5;248mataset1, dataset2, dataset3[m[38;5;248m                                                                    [m
+=== view group 27 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.modelCard.modelParameters.inputs[38;2;107;114;128m (weight: 0.2)[m[m                             
+[38;5;238m┃[m [38;2;107;114;128mEnter comma-separated values[m • [38;2;107;114;128mFormat: [mtext, image                                                
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mt[m[38;5;248mext, image[m[38;5;248m                                                                                     [m
+=== view group 28 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.modelCard.modelParameters.outputs[38;2;107;114;128m (weight: 0.2)[m[m                            
+[38;5;238m┃[m [38;2;107;114;128mEnter comma-separated values[m • [38;2;107;114;128mFormat: [mtext                                                       
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mt[m[38;5;248mext[m[38;5;248m                                                                                            [m
+=== view group 29 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.modelCard.considerations.useCases[38;2;107;114;128m (weight: 0.5)[m[m                            
+[38;5;238m┃[m [38;2;107;114;128mEnter comma-separated values[m • [38;2;107;114;128mFormat: [muse case 1, use case 2                                     
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mu[m[38;5;248mse case 1, use case 2[m[38;5;248m                                                                          [m
+=== view group 30 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.modelCard.considerations.technicalLimitations[38;2;107;114;128m (weight: 0.5)[m[m                
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m[m[7ml[m[38;5;248mimitation1,limitation2,limitation3[m                                                               
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                
+=== view group 31 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.modelCard.considerations.ethicalConsiderations[38;2;107;114;128m (weight: 0.2)[m[m               
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m[m[7mb[m[38;5;248mias:mitigation strategy,privacy concerns,fairness issues[m                                         
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                
+=== view group 32 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.modelCard.quantitativeAnalysis.performanceMetrics[38;2;107;114;128m (weight: 0.5)[m[m            
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m[m[7ma[m[38;5;248mccuracy:0.95,f1:0.92,precision:0.88[m                                                              
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                
+=== view group 33 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.modelCard.considerations.environmentalConsiderations.properties[38;2;107;114;128m (weight: 0.[m[m
+[38;5;238m┃[m [1;38;2;90;86;224m[38;2;107;114;128m2)[m[m                                                                                                
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m[m[7mh[m[38;5;248mardwareType:GPU,hoursUsed:100,carbonEmitted:50kg[m                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                
+=== view group 34 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:security:overallStatus[38;2;107;114;128m (weight: 0.3)[m[m                
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 35 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:security:scannedFileCount[38;2;107;114;128m (weight: 0.2)[m[m             
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 36 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:security:unsafeFileCount[38;2;107;114;128m (weight: 0.2)[m[m              
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== view group 37 ===
+[38;5;238m┃[m [1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:security:cautionFileCount[38;2;107;114;128m (weight: 0.2)[m[m             
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132m [m                                                                                              
+=== accessible transcript ===
+[1;38;2;90;86;224mModel Enrichment[m
+Please provide values for the missing fields.
+Press Enter to skip optional fields.
+
+[1;38;2;90;86;224mBOM.metadata.component.name[38;2;107;114;128m (weight: 1.0)[m[38;2;239;68;68m [REQUIRED][m[m this field is required
+[1;38;2;90;86;224mBOM.metadata.component.name[38;2;107;114;128m (weight: 1.0)[m[38;2;239;68;68m [REQUIRED][m[m 
+[1;38;2;90;86;224mBOM.metadata.component.externalReferences[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.tags[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.licenses[38;2;107;114;128m (weight: 1.0)[m[m 
+1. Apache-2.0
+2. MIT
+3. BSD-3-Clause
+4. GPL-3.0
+5. LGPL-3.0
+6. CC-BY-4.0
+7. CC-BY-SA-4.0
+8. CC0-1.0
+Enter a number between 1 and 8: 
+[1;38;2;90;86;224mBOM.metadata.component.hashes[38;2;107;114;128m (weight: 1.0)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.manufacturer[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.group[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.supplier[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.authors[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.version[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.description[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.pedigree.ancestors[38;2;107;114;128m (weight: 0.0)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:lastModified[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:createdAt[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:language[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:usedStorage[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:private[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:libraryName[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:downloads[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:likes[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:baseModel[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:modelCardContact[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.modelCard.modelParameters.task[38;2;107;114;128m (weight: 1.0)[m[m 
+1. text-classification
+2. text-generation
+3. token-classification
+4. question-answering
+5. summarization
+6. translation
+7. image-classification
+8. object-detection
+9. image-segmentation
+10. audio-classification
+11. automatic-speech-recognition
+Enter a number between 1 and 11: 
+[1;38;2;90;86;224mBOM.metadata.component.modelCard.modelParameters.architectureFamily[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.modelCard.modelParameters.modelArchitecture[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.modelCard.modelParameters.datasets[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.modelCard.modelParameters.inputs[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.modelCard.modelParameters.outputs[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.modelCard.considerations.useCases[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.modelCard.considerations.technicalLimitations[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.modelCard.considerations.ethicalConsiderations[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.modelCard.quantitativeAnalysis.performanceMetrics[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.modelCard.considerations.environmentalConsiderations.properties[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:security:overallStatus[38;2;107;114;128m (weight: 0.3)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:security:scannedFileCount[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:security:unsafeFileCount[38;2;107;114;128m (weight: 0.2)[m[m 
+[1;38;2;90;86;224mBOM.metadata.component.properties.huggingface:security:cautionFileCount[38;2;107;114;128m (weight: 0.2)[m[m 
+=== err ===
+<nil>
+=== changes ===
+BOM.metadata.component.description = "A scripted description."
+BOM.metadata.component.licenses = "MIT"
+BOM.metadata.component.modelCard.modelParameters.task = "text-classification"
+BOM.metadata.component.name = "acme/override"
+BOM.metadata.component.tags = "alpha, beta"
+=== result ===
+{
+  "bomFormat": "",
+  "specVersion": "SpecVersion(0)",
+  "version": 0,
+  "metadata": {
+    "component": {
+      "type": "",
+      "name": "acme/override",
+      "description": "A scripted description.",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://spdx.org/licenses/MIT.html"
+          }
+        }
+      ],
+      "modelCard": {
+        "modelParameters": {
+          "task": "text-classification"
+        }
+      },
+      "tags": [
+        "alpha",
+        "beta"
+      ]
+    }
+  }
+}

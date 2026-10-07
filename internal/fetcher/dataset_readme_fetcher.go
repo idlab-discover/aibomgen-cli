@@ -1,9 +1,7 @@
 package fetcher
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 )
@@ -53,25 +51,18 @@ type DatasetDataFile struct {
 // DatasetReadmeFetcher fetches the README.md (dataset card) for a dataset repo.
 type DatasetReadmeFetcher struct {
 	Client  *http.Client
-	Token   string
 	BaseURL string // optional; defaults to "https://huggingface.co"
 }
 
 func (f *DatasetReadmeFetcher) Fetch(datasetID string) (*DatasetReadmeCard, error) {
-	client := f.Client
-	if client == nil {
-		client = http.DefaultClient
-	}
+	client := httpClient(f.Client)
 
 	trimmedDatasetID := strings.TrimPrefix(strings.TrimSpace(datasetID), "/")
 	if trimmedDatasetID == "" {
 		return nil, fmt.Errorf("empty dataset id")
 	}
 
-	baseURL := strings.TrimRight(strings.TrimSpace(f.BaseURL), "/")
-	if baseURL == "" {
-		baseURL = "https://huggingface.co"
-	}
+	baseURL := HFBaseURL(f.BaseURL)
 
 	// Try main then master.
 	candidates := []string{
@@ -79,42 +70,11 @@ func (f *DatasetReadmeFetcher) Fetch(datasetID string) (*DatasetReadmeCard, erro
 		fmt.Sprintf("%s/datasets/%s/resolve/master/README.md", baseURL, trimmedDatasetID),
 	}
 
-	var lastErr error
-	for _, url := range candidates {
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Accept", "text/markdown, text/plain, */*")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		bodyBytes, readErr := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		if readErr != nil {
-			lastErr = readErr
-			continue
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			lastErr = &HFError{StatusCode: resp.StatusCode}
-			continue
-		}
-
-		raw := string(bodyBytes)
-		card := parseDatasetReadmeCard(raw)
-
-		return card, nil
+	raw, err := fetchFirstOK(client, candidates)
+	if err != nil {
+		return nil, err
 	}
-
-	if lastErr == nil {
-		lastErr = fmt.Errorf("unable to fetch README")
-	}
-
-	return nil, lastErr
+	return parseDatasetReadmeCard(raw), nil
 }
 
 func parseDatasetReadmeCard(raw string) *DatasetReadmeCard {

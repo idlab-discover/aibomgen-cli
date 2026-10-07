@@ -5,7 +5,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/idlab-discover/aibomgen-cli/internal/metadata"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/completeness"
 
 	lipgloss "charm.land/lipgloss/v2"
@@ -199,35 +198,4 @@ func (c *CompletenessUI) renderScorePercentage(score float64) string {
 		return Warning.Render(formatted)
 	}
 	return Error.Render(formatted)
-}
-
-// formatFieldKeys formats field keys as a comma-separated string for model keys.
-func (c *CompletenessUI) formatFieldKeys(keys []metadata.Key) string {
-	if len(keys) == 0 {
-		return ""
-	}
-	names := make([]string, len(keys))
-	for i, k := range keys {
-		names[i] = k.String()
-	}
-	return strings.Join(names, ", ")
-}
-
-// PrintSimpleReport prints a minimal text report (fallback for quiet mode or issues).
-func (c *CompletenessUI) PrintSimpleReport(result completeness.Result) {
-	fmt.Fprintf(c.writer, "%s Model score: %.1f%% (%d/%d)\n", Title.Render("Score"), result.Score*100, result.Passed, result.Total)
-
-	if len(result.MissingRequired) > 0 {
-		fmt.Fprintf(c.writer, "%s Missing required: %s\n", GetCrossMark(), c.formatFieldKeys(result.MissingRequired))
-	}
-	if len(result.MissingOptional) > 0 {
-		fmt.Fprintf(c.writer, "%s Missing optional: %s\n", GetWarnMark(), c.formatFieldKeys(result.MissingOptional))
-	}
-
-	if len(result.DatasetResults) > 0 {
-		fmt.Fprintln(c.writer, "\n"+SectionHeader.Render("Datasets:"))
-		for dsName, dsResult := range result.DatasetResults {
-			fmt.Fprintf(c.writer, "  %s: %.1f%% (%d/%d)\n", dsName, dsResult.Score*100, dsResult.Passed, dsResult.Total)
-		}
-	}
 }

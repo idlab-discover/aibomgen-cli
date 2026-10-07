@@ -4,34 +4,23 @@ import (
 	"strings"
 	"time"
 
+	"uuid"
+
 	"github.com/CycloneDX/cyclonedx-go"
-	"github.com/google/uuid"
 )
 
 // AddMetaSerialNumber sets a serial number if not already set.
-func AddMetaSerialNumber(bom *cyclonedx.BOM) error {
+func AddMetaSerialNumber(bom *cyclonedx.BOM) {
 	if bom.SerialNumber == "" {
-		bom.SerialNumber = "urn:uuid:" + generateUUID()
+		bom.SerialNumber = "urn:uuid:" + uuid.New().String()
 	}
-	return nil
 }
 
-// Generate UUID using google/uuid.
-func generateUUID() string {
-	return uuid.New().String()
-}
-
-// AddMetaTimestamp sets the timestamp if not already set.
-func AddMetaTimestamp(bom *cyclonedx.BOM) error {
+// AddMetaTimestamp sets the timestamp, formatted as RFC3339 (e.g. 2026-01-22T10:41:24+01:00), if not already set.
+func AddMetaTimestamp(bom *cyclonedx.BOM) {
 	if bom.Metadata.Timestamp == "" {
-		bom.Metadata.Timestamp = CurrentTimestampRFC3339()
+		bom.Metadata.Timestamp = time.Now().Format(time.RFC3339)
 	}
-	return nil
-}
-
-// CurrentTimestamp returns now formatted as RFC3339 (e.g. 2026-01-22T10:41:24+01:00).
-func CurrentTimestampRFC3339() string {
-	return time.Now().Format(time.RFC3339)
 }
 
 const (
@@ -61,7 +50,7 @@ func AddMetaLifecycles(bom *cyclonedx.BOM) {
 
 // AddMetaTools adds a Component entry for the tool into bom.metadata.tools.Components.
 // If toolName or toolVersion are empty the defaults above are used.
-func AddMetaTools(bom *cyclonedx.BOM, toolName string, toolVersion string) error {
+func AddMetaTools(bom *cyclonedx.BOM, toolName string, toolVersion string) {
 	if bom.Metadata == nil {
 		bom.Metadata = &cyclonedx.Metadata{}
 	}
@@ -94,8 +83,6 @@ func AddMetaTools(bom *cyclonedx.BOM, toolName string, toolVersion string) error
 		components := append(*bom.Metadata.Tools.Components, comp)
 		bom.Metadata.Tools.Components = &components
 	}
-
-	return nil
 }
 
 // GeneratePurl generates a package URL (purl) for a given kind, id, and version.
@@ -126,41 +113,11 @@ func GeneratePurl(kind string, id string, version string) string {
 	return base + "@" + strings.ToLower(version)
 }
 
-// NormalizeSegment safe-encodes /, @, spaces, etc. in purl segments.
+var segmentReplacer = strings.NewReplacer("@", "%40", " ", "%20")
+
+// NormalizeSegment safe-encodes @ and spaces in purl segments.
 func NormalizeSegment(segment string) string {
-	normalized := ""
-	for _, ch := range segment {
-		switch ch {
-		case '@':
-			normalized += "%40"
-		case ' ':
-			normalized += "%20"
-		default:
-			normalized += string(ch)
-		}
-	}
-	return normalized
-}
-
-// PurlFromComponentMeta generates a purl using HF fields in meta (owner/name, lastModified, sha).
-// Generated according to the purl-spec: https://github.com/package-url/purl-spec/blob/main/types-doc/huggingface-definition.md.
-func PurlFromComponentMeta(kind string, id string, lastModified string, sha string) string {
-	// id may be "namespace/name"; encode each segment separately so the slash remains.
-	id = strings.TrimSpace(id)
-	var normID string
-	if id == "" {
-		normID = "unknown"
-	} else {
-		parts := strings.Split(id, "/")
-		for i, p := range parts {
-			parts[i] = NormalizeSegment(strings.TrimSpace(p))
-		}
-		normID = strings.Join(parts, "/")
-	}
-
-	// version: prefer sha (lowercased) if present; otherwise omit.
-	version := strings.ToLower(strings.TrimSpace(sha))
-	return GeneratePurl(kind, normID, version)
+	return segmentReplacer.Replace(segment)
 }
 
 // AddComponentPurl computes a deterministic pkg:huggingface purl from component metadata.
@@ -226,5 +183,5 @@ func AddComponentBOMRef(c *cyclonedx.Component) {
 		c.BOMRef = c.PackageURL
 		return
 	}
-	c.BOMRef = "urn:uuid:" + generateUUID()
+	c.BOMRef = "urn:uuid:" + uuid.New().String()
 }

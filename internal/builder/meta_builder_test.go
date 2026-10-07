@@ -13,27 +13,21 @@ func TestAddMetaSerialNumber(t *testing.T) {
 		bom *cyclonedx.BOM
 	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
+		name string
+		args args
 	}{
 		{
-			name:    "sets serial when empty",
-			args:    args{bom: &cyclonedx.BOM{}},
-			wantErr: false,
+			name: "sets serial when empty",
+			args: args{bom: &cyclonedx.BOM{}},
 		},
 		{
-			name:    "preserves existing serial",
-			args:    args{bom: &cyclonedx.BOM{SerialNumber: "urn:uuid:existing"}},
-			wantErr: false,
+			name: "preserves existing serial",
+			args: args{bom: &cyclonedx.BOM{SerialNumber: "urn:uuid:existing"}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := AddMetaSerialNumber(tt.args.bom); (err != nil) != tt.wantErr {
-				t.Errorf("AddMetaSerialNumber() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			AddMetaSerialNumber(tt.args.bom)
 			// Additional checks.
 			if tt.args.bom.SerialNumber == "" {
 				t.Errorf("SerialNumber should be set")
@@ -42,23 +36,12 @@ func TestAddMetaSerialNumber(t *testing.T) {
 	}
 }
 
-func Test_generateUUID(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		{name: "uuid non-empty and unique"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u1 := generateUUID()
-			u2 := generateUUID()
-			if u1 == "" || u2 == "" {
-				t.Errorf("generateUUID returned empty string")
-			}
-			if u1 == u2 {
-				t.Errorf("generateUUID should return unique values but got duplicates: %s", u1)
-			}
-		})
+func TestAddMetaSerialNumber_Unique(t *testing.T) {
+	b1, b2 := &cyclonedx.BOM{}, &cyclonedx.BOM{}
+	AddMetaSerialNumber(b1)
+	AddMetaSerialNumber(b2)
+	if b1.SerialNumber == b2.SerialNumber {
+		t.Errorf("AddMetaSerialNumber should set unique serials but got duplicates: %s", b1.SerialNumber)
 	}
 }
 
@@ -67,46 +50,23 @@ func TestAddMetaTimestamp(t *testing.T) {
 		bom *cyclonedx.BOM
 	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
+		name string
+		args args
 	}{
-		{name: "sets timestamp when empty", args: args{bom: &cyclonedx.BOM{Metadata: &cyclonedx.Metadata{}}}, wantErr: false},
-		{name: "preserves existing timestamp", args: args{bom: &cyclonedx.BOM{Metadata: &cyclonedx.Metadata{Timestamp: "2020-01-01T00:00:00Z"}}}, wantErr: false},
+		{name: "sets timestamp when empty", args: args{bom: &cyclonedx.BOM{Metadata: &cyclonedx.Metadata{}}}},
+		{name: "preserves existing timestamp", args: args{bom: &cyclonedx.BOM{Metadata: &cyclonedx.Metadata{Timestamp: "2020-01-01T00:00:00Z"}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := AddMetaTimestamp(tt.args.bom); (err != nil) != tt.wantErr {
-				t.Errorf("AddMetaTimestamp() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			AddMetaTimestamp(tt.args.bom)
 			if tt.name == "sets timestamp when empty" {
-				if tt.args.bom.Metadata.Timestamp == "" {
-					t.Errorf("Timestamp should be set")
+				if _, err := time.Parse(time.RFC3339, tt.args.bom.Metadata.Timestamp); err != nil {
+					t.Errorf("Timestamp should be set as RFC3339: %v", err)
 				}
 			}
 			if tt.name == "preserves existing timestamp" {
 				if tt.args.bom.Metadata.Timestamp != "2020-01-01T00:00:00Z" {
 					t.Errorf("Timestamp should be preserved, got %s", tt.args.bom.Metadata.Timestamp)
-				}
-			}
-		})
-	}
-}
-
-func TestCurrentTimestampRFC3339(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		{name: "valid rfc3339 format"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := CurrentTimestampRFC3339(); got == "" {
-				t.Errorf("CurrentTimestampRFC3339() returned empty string")
-			} else {
-				if _, err := time.Parse(time.RFC3339, got); err != nil {
-					t.Errorf("CurrentTimestampRFC3339 produced invalid format: %v", err)
 				}
 			}
 		})
@@ -120,24 +80,20 @@ func TestAddMetaTools(t *testing.T) {
 		toolVersion string
 	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
+		name string
+		args args
 	}{
-		{name: "adds tool with provided name and version", args: args{bom: &cyclonedx.BOM{}, toolName: "mytool", toolVersion: "v1"}, wantErr: false},
-		{name: "adds tool with defaults when empty", args: args{bom: &cyclonedx.BOM{}, toolName: "", toolVersion: ""}, wantErr: false},
+		{name: "adds tool with provided name and version", args: args{bom: &cyclonedx.BOM{}, toolName: "mytool", toolVersion: "v1"}},
+		{name: "adds tool with defaults when empty", args: args{bom: &cyclonedx.BOM{}, toolName: "", toolVersion: ""}},
 		{name: "appends to existing tools", args: args{bom: func() *cyclonedx.BOM {
 			b := &cyclonedx.BOM{}
 			b.Metadata = &cyclonedx.Metadata{Tools: &cyclonedx.ToolsChoice{Components: &[]cyclonedx.Component{{Name: "existing"}}}}
 			return b
-		}(), toolName: "x", toolVersion: "v1"}, wantErr: false},
+		}(), toolName: "x", toolVersion: "v1"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := AddMetaTools(tt.args.bom, tt.args.toolName, tt.args.toolVersion); (err != nil) != tt.wantErr {
-				t.Errorf("AddMetaTools() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			AddMetaTools(tt.args.bom, tt.args.toolName, tt.args.toolVersion)
 			if tt.args.bom.Metadata == nil || tt.args.bom.Metadata.Tools == nil || tt.args.bom.Metadata.Tools.Components == nil {
 				t.Fatalf("expected tools component to be set")
 			}
@@ -207,31 +163,6 @@ func TestNormalizeSegment(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := NormalizeSegment(tt.args.segment); got != tt.want {
 				t.Errorf("NormalizeSegment() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestPurlFromComponentMeta(t *testing.T) {
-	type args struct {
-		kind         string
-		id           string
-		lastModified string
-		sha          string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{name: "uses sha as version and normalizes id", args: args{kind: "model", id: " user / repo ", sha: "ABC"}, want: "pkg:huggingface/user/repo@abc"},
-		{name: "empty sha omits version", args: args{kind: "dataset", id: "owner/ds", sha: ""}, want: "pkg:huggingface/datasets/owner/ds"},
-		{name: "weird kind and empty id", args: args{kind: "weird", id: "", sha: "f00"}, want: "pkg:huggingface/unknown/unknown@f00"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := PurlFromComponentMeta(tt.args.kind, tt.args.id, tt.args.lastModified, tt.args.sha); got != tt.want {
-				t.Errorf("PurlFromComponentMeta() = %v, want %v", got, tt.want)
 			}
 		})
 	}

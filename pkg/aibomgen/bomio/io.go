@@ -20,27 +20,9 @@ func ReadBOM(path string, format string) (*cdx.BOM, error) {
 	}
 	defer f.Close()
 
-	actual := strings.ToLower(strings.TrimSpace(format))
-	switch actual {
-	case "", "auto":
-		switch strings.ToLower(filepath.Ext(path)) {
-		case ".xml":
-			actual = "xml"
-		case ".json":
-			actual = "json"
-		default:
-			// keep existing behavior: default to JSON when not .xml.
-			actual = "json"
-		}
-	case "json", "xml":
-		// ok.
-	default:
-		return nil, fmt.Errorf("unsupported BOM format: %q", format)
-	}
-
-	fileFmt := cdx.BOMFileFormatJSON
-	if actual == "xml" {
-		fileFmt = cdx.BOMFileFormatXML
+	_, fileFmt, err := resolveFormat(format, path)
+	if err != nil {
+		return nil, err
 	}
 
 	bom := new(cdx.BOM)
@@ -59,35 +41,12 @@ func ReadBOM(path string, format string) (*cdx.BOM, error) {
 func WriteBOM(bom *cdx.BOM, outputPath string, format string, spec string) error {
 	ext := filepath.Ext(outputPath)
 
-	actual := strings.ToLower(strings.TrimSpace(format))
-	switch actual {
-	case "", "auto":
-		if strings.EqualFold(ext, ".xml") {
-			actual = "xml"
-		} else {
-			actual = "json"
-		}
-	case "json", "xml":
-		// ok.
-	default:
-		return fmt.Errorf("unsupported BOM format: %q", format)
+	actual, fileFmt, err := resolveFormat(format, outputPath)
+	if err != nil {
+		return err
 	}
-
-	// Validate extension matches format.
-	switch actual {
-	case "xml":
-		if ext != ".xml" {
-			return fmt.Errorf("output path extension %q does not match format %q", ext, actual)
-		}
-	case "json":
-		if ext != ".json" {
-			return fmt.Errorf("output path extension %q does not match format %q", ext, actual)
-		}
-	}
-
-	fileFmt := cdx.BOMFileFormatJSON
-	if actual == "xml" {
-		fileFmt = cdx.BOMFileFormatXML
+	if ext != "."+actual {
+		return fmt.Errorf("output path extension %q does not match format %q", ext, actual)
 	}
 
 	f, err := os.Create(outputPath)
@@ -117,6 +76,23 @@ func WriteBOM(bom *cdx.BOM, outputPath string, format string, spec string) error
 	}
 
 	return encoder.EncodeVersion(bom, sv)
+}
+
+// resolveFormat returns "json" or "xml" and its encoding for format; "" or "auto"
+// picks XML for a .xml path and JSON otherwise.
+func resolveFormat(format, path string) (string, cdx.BOMFileFormat, error) {
+	switch actual := strings.ToLower(strings.TrimSpace(format)); actual {
+	case "", "auto":
+		if strings.EqualFold(filepath.Ext(path), ".xml") {
+			return "xml", cdx.BOMFileFormatXML, nil
+		}
+		return "json", cdx.BOMFileFormatJSON, nil
+	case "json":
+		return actual, cdx.BOMFileFormatJSON, nil
+	case "xml":
+		return actual, cdx.BOMFileFormatXML, nil
+	}
+	return "", cdx.BOMFileFormatJSON, fmt.Errorf("unsupported BOM format: %q", format)
 }
 
 // stripPre16Fields removes fields introduced in spec 1.6 that cyclonedx-go leaves in place.

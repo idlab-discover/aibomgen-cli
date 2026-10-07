@@ -5,17 +5,13 @@ import (
 	"io"
 	"strings"
 	"time"
-
-	"charm.land/lipgloss/v2"
 )
 
 // GenerateUI provides a rich UI for the generate command.
 type GenerateUI struct {
-	writer       io.Writer
-	quiet        bool
-	workflow     *Workflow
-	startTime    time.Time
-	currentModel string
+	writer    io.Writer
+	quiet     bool
+	startTime time.Time
 }
 
 // NewGenerateUI creates a new UI handler for the generate command.
@@ -27,154 +23,7 @@ func NewGenerateUI(w io.Writer, quiet bool) *GenerateUI {
 	}
 }
 
-// StartWorkflow initializes and displays the workflow for generation.
-func (g *GenerateUI) StartWorkflow(modelIDs []string, scanMode bool) {
-	if g.quiet {
-		return
-	}
-
-	g.startTime = time.Now()
-
-	if scanMode {
-		g.workflow = NewWorkflow(g.writer, "Generating AIBOM")
-		g.workflow.AddTask("Scanning directory for AI imports")
-		g.workflow.AddTask("Fetching metadata from Hugging Face")
-		g.workflow.AddTask("Building AIBOM components")
-		g.workflow.AddTask("Writing output files")
-	} else {
-		g.workflow = NewWorkflow(g.writer, "Generating AIBOM")
-		for _, id := range modelIDs {
-			g.workflow.AddTask(fmt.Sprintf("Processing %s", id))
-		}
-		g.workflow.AddTask("Writing output files")
-	}
-
-	g.workflow.Start()
-}
-
-// StartScanning marks the scanning step as running.
-func (g *GenerateUI) StartScanning(path string) {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	g.workflow.StartTask(0, Dim.Render(path))
-}
-
-// CompleteScanningWithResults marks scanning as complete with results.
-func (g *GenerateUI) CompleteScanningWithResults(count int) {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	g.workflow.CompleteTask(0, fmt.Sprintf("found %d model(s)", count))
-}
-
-// StartFetching marks the fetching step as running.
-func (g *GenerateUI) StartFetching(modelID string) {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	g.currentModel = modelID
-	g.workflow.StartTask(1, Dim.Render(modelID))
-}
-
-// UpdateFetchingStatus updates the message during fetching.
-func (g *GenerateUI) UpdateFetchingStatus(message string) {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	g.workflow.UpdateMessage(1, Dim.Render(message))
-}
-
-// CompleteFetching marks fetching as complete.
-func (g *GenerateUI) CompleteFetching() {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	g.workflow.CompleteTask(1, "metadata retrieved")
-}
-
-// StartBuilding marks the building step as running.
-func (g *GenerateUI) StartBuilding() {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	g.workflow.StartTask(2, "")
-}
-
-// CompleteBuilding marks building as complete.
-func (g *GenerateUI) CompleteBuilding(componentCount int) {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	g.workflow.CompleteTask(2, fmt.Sprintf("%d component(s)", componentCount))
-}
-
-// StartWriting marks the writing step as running.
-func (g *GenerateUI) StartWriting() {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	taskIdx := 3
-	if g.workflow != nil && len(g.workflow.tasks) > 0 {
-		taskIdx = len(g.workflow.tasks) - 1
-	}
-	g.workflow.StartTask(taskIdx, "")
-}
-
-// CompleteWriting marks writing as complete.
-func (g *GenerateUI) CompleteWriting(outputDir string, count int) {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	taskIdx := 3
-	if g.workflow != nil && len(g.workflow.tasks) > 0 {
-		taskIdx = len(g.workflow.tasks) - 1
-	}
-	g.workflow.CompleteTask(taskIdx, fmt.Sprintf("%d file(s) → %s", count, outputDir))
-}
-
 // For model-id mode: process individual models.
-
-// StartModelProcessing marks a model as being processed (for model-id mode).
-func (g *GenerateUI) StartModelProcessing(idx int, modelID string) {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	g.currentModel = modelID
-	g.workflow.StartTask(idx, "fetching metadata...")
-}
-
-// UpdateModelProcessing updates the status of a model being processed.
-func (g *GenerateUI) UpdateModelProcessing(idx int, status string) {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	g.workflow.UpdateMessage(idx, Dim.Render(status))
-}
-
-// CompleteModelProcessing marks a model as processed.
-func (g *GenerateUI) CompleteModelProcessing(idx int, details string) {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	g.workflow.CompleteTask(idx, details)
-}
-
-// FailModelProcessing marks a model as failed.
-func (g *GenerateUI) FailModelProcessing(idx int, err string) {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	g.workflow.FailTask(idx, err)
-}
-
-// FinishWorkflow completes the workflow display.
-func (g *GenerateUI) FinishWorkflow() {
-	if g.quiet || g.workflow == nil {
-		return
-	}
-	g.workflow.Stop()
-}
 
 // PrintSummary prints a final summary.
 func (g *GenerateUI) PrintSummary(filesWritten int, outputDir, format string) {
@@ -232,35 +81,4 @@ func (g *GenerateUI) LogStep(icon, message string) {
 	}
 
 	fmt.Fprintf(g.writer, "%s %s\n", iconStyled, message)
-}
-
-// LogModelStep logs a step for a specific model.
-func (g *GenerateUI) LogModelStep(modelID, action, detail string) {
-	if g.quiet {
-		return
-	}
-
-	modelStyled := Highlight.Render(modelID)
-	actionStyled := action
-	if detail != "" {
-		actionStyled += " " + Dim.Render(detail)
-	}
-
-	fmt.Fprintf(g.writer, "%s %s %s\n", Secondary.Render("→"), modelStyled, actionStyled)
-}
-
-// PrintBanner prints the application banner.
-func PrintBanner(w io.Writer) {
-	banner := `
-  /$$$$$$  /$$$$$$ /$$$$$$$            /$$      /$$  /$$$$$$                                        /$$ /$$
- /$$__  $$|_  $$_/| $$__  $$          | $$$    /$$$ /$$__  $$                                      | $$|__/
-| $$  \ $$  | $$  | $$  \ $$  /$$$$$$ | $$$$  /$$$$| $$  \__/  /$$$$$$  /$$$$$$$           /$$$$$$$| $$ /$$
-| $$$$$$$$  | $$  | $$$$$$$  /$$__  $$| $$ $$/$$ $$| $$ /$$$$ /$$__  $$| $$__  $$ /$$$$$$ /$$_____/| $$| $$
-| $$__  $$  | $$  | $$__  $$| $$  \ $$| $$  $$$| $$| $$|_  $$| $$$$$$$$| $$  \ $$|______/| $$      | $$| $$
-| $$  | $$  | $$  | $$  \ $$| $$  | $$| $$\  $ | $$| $$  \ $$| $$_____/| $$  | $$        | $$      | $$| $$
-| $$  | $$ /$$$$$$| $$$$$$$/|  $$$$$$/| $$ \/  | $$|  $$$$$$/|  $$$$$$$| $$  | $$        |  $$$$$$$| $$| $$
-|__/  |__/|______/|_______/  \______/ |__/     |__/ \______/  \_______/|__/  |__/         \_______/|__/|__/
-`
-	styled := lipgloss.NewStyle().Foreground(ColorSuccess).Render(banner)
-	fmt.Fprintln(w, styled)
 }

@@ -2,7 +2,6 @@ package vulnscan
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -148,19 +147,15 @@ func datasetIDFromComponent(c *cdx.Component) string {
 
 // idFromPURL extracts "namespace/name" from a pkg:huggingface/... model PURL.
 func idFromPURL(purl string) string {
-	const prefix = "pkg:huggingface/"
-	if !strings.HasPrefix(purl, prefix) {
+	rest, ok := strings.CutPrefix(purl, "pkg:huggingface/")
+	if !ok {
 		return ""
 	}
-	rest := purl[len(prefix):]
-	if i := strings.Index(rest, "@"); i >= 0 {
-		rest = rest[:i]
-	}
-	parts := strings.SplitN(rest, "/", 2)
-	if len(parts) != 2 {
+	rest, _, _ = strings.Cut(rest, "@")
+	if !strings.Contains(rest, "/") {
 		return ""
 	}
-	return parts[0] + "/" + parts[1]
+	return rest
 }
 
 // datasetIDFromPURL extracts the dataset owner/name from a pkg:huggingface/datasets/... PURL.
@@ -169,14 +164,11 @@ func idFromPURL(purl string) string {
 //
 //	"pkg:huggingface/datasets/allenai/c4@sha"  → "allenai/c4".
 func datasetIDFromPURL(purl string) string {
-	const prefix = "pkg:huggingface/datasets/"
-	if !strings.HasPrefix(purl, prefix) {
+	rest, ok := strings.CutPrefix(purl, "pkg:huggingface/datasets/")
+	if !ok {
 		return ""
 	}
-	rest := purl[len(prefix):]
-	if i := strings.Index(rest, "@"); i >= 0 {
-		rest = rest[:i]
-	}
+	rest, _, _ = strings.Cut(rest, "@")
 	return rest
 }
 
@@ -184,8 +176,7 @@ func datasetIDFromPURL(purl string) string {
 // Existing vulnerabilities with the same BOM-ref are replaced; new ones are appended.
 func ApplyToDOM(bom *cdx.BOM, results []ComponentScanResult) {
 	// Build a set of incoming bom-refs so we can detect replacements.
-	type vulnKey = string
-	incoming := make(map[vulnKey]cdx.Vulnerability)
+	incoming := make(map[string]cdx.Vulnerability)
 	for _, r := range results {
 		for _, v := range r.Vulnerabilities {
 			incoming[v.BOMRef] = v
@@ -214,9 +205,4 @@ func ApplyToDOM(bom *cdx.BOM, results []ComponentScanResult) {
 	}
 
 	*bom.Vulnerabilities = kept
-}
-
-// NewHTTPClient is exported so cmd layer can reuse the same transport.
-func NewHTTPClient(timeout time.Duration, token string) *http.Client {
-	return fetcher.NewHFClient(timeout, token)
 }

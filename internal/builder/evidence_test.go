@@ -76,7 +76,7 @@ func TestAddComponentEvidence_ModelID(t *testing.T) {
 }
 
 func TestBuild_EvidenceReplacesAibomgenProperties(t *testing.T) {
-	bom, err := NewBOMBuilder(DefaultOptions()).Build(BuildContext{
+	bom, err := BOMBuilder{}.Build(BuildContext{
 		ModelID: "org/m",
 		HF:      &fetcher.ModelAPIResponse{ID: "org/m", SHA: "abc"},
 		Scan: scanner.Discovery{
@@ -101,7 +101,7 @@ func TestBuild_EvidenceReplacesAibomgenProperties(t *testing.T) {
 }
 
 func TestBuild_LifecyclePostBuild(t *testing.T) {
-	bom, err := NewBOMBuilder(DefaultOptions()).Build(BuildContext{ModelID: "org/m"})
+	bom, err := BOMBuilder{}.Build(BuildContext{ModelID: "org/m"})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}

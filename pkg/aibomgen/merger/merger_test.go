@@ -124,32 +124,6 @@ func TestMergeAIBOMsWithSBOM_PreservesVulnerabilities(t *testing.T) {
 	}
 }
 
-func TestMerge_PreservesVulnerabilities(t *testing.T) {
-	primary := &cdx.BOM{
-		Vulnerabilities: &[]cdx.Vulnerability{
-			{ID: "CVE-2024-0001", Description: "primary vuln"},
-		},
-	}
-	secondary := &cdx.BOM{
-		Vulnerabilities: &[]cdx.Vulnerability{
-			{ID: "CVE-2024-0002", Description: "secondary vuln"},
-		},
-	}
-
-	result, err := Merge(primary, secondary, MergeOptions{})
-	if err != nil {
-		t.Fatalf("merge failed: %v", err)
-	}
-
-	if result.MergedBOM.Vulnerabilities == nil {
-		t.Fatal("expected merged BOM to contain vulnerabilities, got nil")
-	}
-
-	if got := len(*result.MergedBOM.Vulnerabilities); got != 2 {
-		t.Fatalf("expected 2 vulnerabilities, got %d", got)
-	}
-}
-
 func TestMergeAIBOMsWithSBOM_LinksModelsAsDependenciesOfAppComponent(t *testing.T) {
 	appRef := "pkg:app/my-service@1.0.0"
 	modelRef := "machine-learning-model/bert-base/1.0"
