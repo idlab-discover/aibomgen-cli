@@ -6,129 +6,95 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    permissions:
-      contents: read
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.27.x"
-          check-latest: true
-          cache: true
-          cache-dependency-path: |
-            **/go.sum
-            **/go.work.sum
+          go-version-file: go.mod
 
-      - name: Show Go env
-        run: |
-          go version
-          go env GOMODCACHE GOCACHE GOOS GOARCH
-
-      - name: Install dependencies
-        run: go mod tidy
+      - name: Check go.mod is tidy
+        run: go mod tidy -diff
 
       - name: Run go vet
         run: go vet ./...
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.13.2
 
-      - name: Run tests (with coverage)
-        run: go test ./... -coverprofile=coverage.out -covermode=atomic
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out ./...
 
       - name: Check coverage threshold
-        shell: bash
         env:
           COVERAGE_THRESHOLD: 50
         run: |
-          if [ ! -f coverage.out ]; then
-            echo "No coverage report found"; exit 1
+          percent=$(go tool cover -func=coverage.out | awk '/^total:/ {sub("%", "", $3); print $3}')
+          echo "Coverage: ${percent}%" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${percent%.*}" -lt "$COVERAGE_THRESHOLD" ]; then
+            echo "Coverage ${percent}% is below required ${COVERAGE_THRESHOLD}%"; exit 1
           fi
-          percent=$(go tool cover -func=coverage.out | awk '/total:/ {print $3}' | sed 's/%//')
-          echo "Coverage: $percent%"
-          int=${percent%.*}
-          if [ "$int" -lt "$COVERAGE_THRESHOLD" ]; then
-            echo "Coverage $percent% is below required ${COVERAGE_THRESHOLD}%"; exit 1
-          fi
+
+      - name: Run govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 
       - name: Build
+        run: go build -o aibomgen-cli .
+
+      # Offline end-to-end smoke test (dummy HF mode, no network).
+      - name: Smoke test (scan → validate → completeness)
         run: |
-          go build -o aibomgen-cli ./
-          chmod +x aibomgen-cli
-          
-      - name: Generate SBOM (Syft)
-        uses: anchore/sbom-action@v0
+          ./aibomgen-cli scan --hf-mode dummy -o dist/ --log-level quiet
+          for f in dist/*; do
+            ./aibomgen-cli validate -i "$f" --strict --min-score 0.1 --log-level quiet
+            ./aibomgen-cli completeness -i "$f" --plain-summary | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+
+  zizmor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          file: ./aibomgen-cli
-          format: cyclonedx-json
-          output-file: sbom-binary.json
-          upload-artifact: false
+          persist-credentials: false
 
-      - name: Scan SBOM for vulnerabilities (Grype)
-        uses: anchore/scan-action@v7
-        with:
-          sbom: sbom-binary.json
-          output-format: cyclonedx-json
-          output-file: sbom-binary-vulnerabilities.json
-          fail-build: false
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
 
-      - name: Scan SBOM for vulnerabilities (Grype) — table output
-        uses: anchore/scan-action@v7
-        with:
-          sbom: sbom-binary.json
-          output-format: table
-          output-file: grype.table
-          fail-build: false
-
-      - name: Vulnerability summary (grype)
-        run: |
-          set -eo pipefail
-          if [ -f grype.table ] && [ -s grype.table ]; then
-            head -n 50 grype.table >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "No results from grype" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Upload vulnerability reports
-        if: ${{ success() || failure() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: vulnerability-reports
-          path: |
-            sbom-binary-vulnerabilities.json
-            grype.table
-            sbom-binary.json
-          retention-days: 30
-
-      - name: Fail if vulnerabilities found
-        run: |
-          if [ ! -f sbom-binary-vulnerabilities.json ]; then
-            echo "vulnerabilities file not found"; exit 1
-          fi
-          count=$(jq '.vulnerabilities | length' sbom-binary-vulnerabilities.json || echo 0)
-          if [ "$count" -gt 0 ]; then
-            echo "Found $count vulnerabilities in SBOM"; exit 1
-          fi
-
-  # Stable required status check: matrix jobs report as "build (<go-version>)",
-  # which changes on every Go bump. Branch rules require this "build" gate instead.
+  # Stable required status check name. Branch rules require this "build" gate.
   build-status:
     name: build
     if: ${{ always() }}
-    needs: build
+    needs: [test, zizmor]
     runs-on: ubuntu-latest
     permissions: {}
     steps:
-      - name: Check build matrix result
+      - name: Check results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          if [ "${{ needs.build.result }}" != "success" ]; then
-            echo "build matrix result: ${{ needs.build.result }}"; exit 1
-          fi
+          for r in $RESULTS; do
+            if [ "$r" != "success" ]; then
+              echo "a required job finished with: $r"; exit 1
+            fi
+          done
