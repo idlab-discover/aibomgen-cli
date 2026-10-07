@@ -151,9 +151,7 @@ func (e *Enricher) enrichModel(bom *cdx.BOM, modelID string, hfAPI *fetcher.Mode
 	case "file":
 		changes, err = e.enrichModelFromFile(missingFields, src, tgt, configViper)
 	case "interactive":
-		// Use new interactive enricher.
-		ie := NewInteractiveEnricher(e)
-		changes, err = ie.EnrichInteractive(bom, missingFields, src, tgt)
+		changes, err = enrichInteractive(bom, missingFields, src, tgt)
 	default:
 		return nil, fmt.Errorf("unknown strategy: %s", e.config.Strategy)
 	}
@@ -256,9 +254,7 @@ func (e *Enricher) enrichDataset(bom *cdx.BOM, comp *cdx.Component, configViper 
 	case "file":
 		changes, err = e.enrichDatasetFromFile(missingFields, src, tgt, configViper)
 	case "interactive":
-		// Use new interactive enricher.
-		ie := NewInteractiveEnricher(e)
-		changes, err = ie.EnrichDatasetInteractive(comp, missingFields, src, tgt)
+		changes, err = enrichDatasetInteractive(comp, missingFields, src, tgt)
 	default:
 		return nil, fmt.Errorf("unknown strategy: %s", e.config.Strategy)
 	}

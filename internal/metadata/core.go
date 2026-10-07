@@ -146,7 +146,7 @@ type FieldSpec struct {
 
 	Sources []func(Source) (any, bool)
 	Parse   func(string) (any, error)
-	Apply   func(Target, any) error
+	Apply   func(Target, applyInput) error
 	Present func(*cdx.BOM) bool
 
 	// UI metadata for interactive enrichment.
@@ -163,7 +163,7 @@ type DatasetFieldSpec struct {
 
 	Sources []func(DatasetSource) (any, bool)
 	Parse   func(string) (any, error)
-	Apply   func(DatasetTarget, any) error
+	Apply   func(DatasetTarget, applyInput) error
 	Present func(comp *cdx.Component) bool
 
 	// UI metadata for interactive enrichment.

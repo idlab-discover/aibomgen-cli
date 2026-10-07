@@ -1,5 +1,3 @@
-// File: internal/enricher/interactive.go - Replace the entire file with this corrected version.
-
 package enricher
 
 import (
@@ -12,20 +10,8 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 )
 
-// InteractiveEnricher provides a form-based interactive enrichment experience.
-type InteractiveEnricher struct {
-	enricher *Enricher
-}
-
-// NewInteractiveEnricher creates a new InteractiveEnricher instance.
-func NewInteractiveEnricher(e *Enricher) *InteractiveEnricher {
-	return &InteractiveEnricher{
-		enricher: e,
-	}
-}
-
-// EnrichInteractive enriches fields using interactive forms.
-func (ie *InteractiveEnricher) EnrichInteractive(
+// enrichInteractive enriches fields using interactive forms.
+func enrichInteractive(
 	bom *cdx.BOM,
 	missingFields []metadata.FieldSpec,
 	src metadata.Source,
@@ -56,7 +42,7 @@ func (ie *InteractiveEnricher) EnrichInteractive(
 
 	// Create inputs for each field.
 	for _, spec := range missingFields {
-		fieldInputs := ie.createFieldInput(spec, src, valueStore[spec.Key])
+		fieldInputs := createFieldInput(spec, src, valueStore[spec.Key])
 		if len(fieldInputs) > 0 {
 			formGroups = append(formGroups, huh.NewGroup(fieldInputs...))
 		}
@@ -95,7 +81,7 @@ func (ie *InteractiveEnricher) EnrichInteractive(
 }
 
 // createFieldInput creates form inputs for a field spec.
-func (ie *InteractiveEnricher) createFieldInput(
+func createFieldInput(
 	spec metadata.FieldSpec,
 	src metadata.Source,
 	valuePtr *string,
@@ -105,20 +91,20 @@ func (ie *InteractiveEnricher) createFieldInput(
 	// Create appropriate input based on spec.InputType.
 	switch spec.InputType {
 	case metadata.InputTypeTextArea:
-		inputs = append(inputs, ie.createTextAreaInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
+		inputs = append(inputs, createTextAreaInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
 	case metadata.InputTypeSelect:
-		inputs = append(inputs, ie.createSelectInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
+		inputs = append(inputs, createSelectInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
 	case metadata.InputTypeMultiText:
-		inputs = append(inputs, ie.createMultiTextInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
+		inputs = append(inputs, createMultiTextInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
 	default: // InputTypeText
-		inputs = append(inputs, ie.createTextInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
+		inputs = append(inputs, createTextInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
 	}
 
 	return inputs
 }
 
 // createTextInput creates a standard text input field.
-func (ie *InteractiveEnricher) createTextInput(
+func createTextInput(
 	key metadata.Key,
 	required bool,
 	weight float64,
@@ -130,11 +116,11 @@ func (ie *InteractiveEnricher) createTextInput(
 ) huh.Field {
 	// Get suggestions from sources if not explicitly provided.
 	if len(suggestions) == 0 {
-		suggestions = ie.getSuggestionsFromSources(sources, src)
+		suggestions = getSuggestionsFromSources(sources, src)
 	}
 
-	description := ie.formatDescription(suggestions, placeholder, false)
-	title := ie.formatTitle(key, weight, required)
+	description := formatDescription(suggestions, placeholder, false)
+	title := formatTitle(key, weight, required)
 
 	input := huh.NewInput().
 		Title(title).
@@ -152,7 +138,7 @@ func (ie *InteractiveEnricher) createTextInput(
 }
 
 // createMultiTextInput creates input for comma-separated arrays.
-func (ie *InteractiveEnricher) createMultiTextInput(
+func createMultiTextInput(
 	key metadata.Key,
 	required bool,
 	weight float64,
@@ -163,11 +149,11 @@ func (ie *InteractiveEnricher) createMultiTextInput(
 	valuePtr *string,
 ) huh.Field {
 	if len(suggestions) == 0 {
-		suggestions = ie.getSuggestionsFromSources(sources, src)
+		suggestions = getSuggestionsFromSources(sources, src)
 	}
 
-	description := ie.formatDescription(suggestions, placeholder, true)
-	title := ie.formatTitle(key, weight, required)
+	description := formatDescription(suggestions, placeholder, true)
+	title := formatTitle(key, weight, required)
 
 	input := huh.NewInput().
 		Title(title).
@@ -185,7 +171,7 @@ func (ie *InteractiveEnricher) createMultiTextInput(
 }
 
 // createTextAreaInput creates a multi-line text input.
-func (ie *InteractiveEnricher) createTextAreaInput(
+func createTextAreaInput(
 	key metadata.Key,
 	required bool,
 	weight float64,
@@ -196,11 +182,11 @@ func (ie *InteractiveEnricher) createTextAreaInput(
 	valuePtr *string,
 ) huh.Field {
 	if len(suggestions) == 0 {
-		suggestions = ie.getSuggestionsFromSources(sources, src)
+		suggestions = getSuggestionsFromSources(sources, src)
 	}
 
-	title := ie.formatTitle(key, weight, required)
-	description := ie.formatDescription(suggestions, placeholder, false)
+	title := formatTitle(key, weight, required)
+	description := formatDescription(suggestions, placeholder, false)
 
 	input := huh.NewText().
 		Title(title).
@@ -220,7 +206,7 @@ func (ie *InteractiveEnricher) createTextAreaInput(
 }
 
 // createSelectInput creates a select input with predefined options.
-func (ie *InteractiveEnricher) createSelectInput(
+func createSelectInput(
 	key metadata.Key,
 	required bool,
 	weight float64,
@@ -231,10 +217,10 @@ func (ie *InteractiveEnricher) createSelectInput(
 	valuePtr *string,
 ) huh.Field {
 	if len(suggestions) == 0 {
-		suggestions = ie.getSuggestionsFromSources(sources, src)
+		suggestions = getSuggestionsFromSources(sources, src)
 	}
 
-	title := ie.formatTitle(key, weight, required)
+	title := formatTitle(key, weight, required)
 
 	options := []huh.Option[string]{}
 	for _, suggestion := range suggestions {
@@ -258,7 +244,7 @@ func (ie *InteractiveEnricher) createSelectInput(
 
 // Helper methods.
 
-func (ie *InteractiveEnricher) formatTitle(key metadata.Key, weight float64, required bool) string {
+func formatTitle(key metadata.Key, weight float64, required bool) string {
 	requiredLabel := ""
 	if required {
 		requiredLabel = ui.Error.Render(" [REQUIRED]")
@@ -266,13 +252,10 @@ func (ie *InteractiveEnricher) formatTitle(key metadata.Key, weight float64, req
 
 	weightLabel := ui.Muted.Render(fmt.Sprintf(" (weight: %.1f)", weight))
 
-	// Simplify the key for display.
-	displayKey := ie.simplifyKeyForDisplay(key)
-
-	return fmt.Sprintf("%s%s%s", displayKey, weightLabel, requiredLabel)
+	return fmt.Sprintf("%s%s%s", string(key), weightLabel, requiredLabel)
 }
 
-func (ie *InteractiveEnricher) formatDescription(suggestions []string, placeholder string, isArray bool) string {
+func formatDescription(suggestions []string, placeholder string, isArray bool) string {
 	var parts []string
 
 	if len(suggestions) > 0 {
@@ -299,7 +282,7 @@ func (ie *InteractiveEnricher) formatDescription(suggestions []string, placehold
 	return strings.Join(parts, " • ")
 }
 
-func (ie *InteractiveEnricher) getSuggestionsFromSources(sources []func(metadata.Source) (any, bool), src metadata.Source) []string {
+func getSuggestionsFromSources(sources []func(metadata.Source) (any, bool), src metadata.Source) []string {
 	// Try to get value from sources.
 	for _, sourceFn := range sources {
 		if val, ok := sourceFn(src); ok && val != nil {
@@ -318,13 +301,7 @@ func (ie *InteractiveEnricher) getSuggestionsFromSources(sources []func(metadata
 	return nil
 }
 
-func (ie *InteractiveEnricher) simplifyKeyForDisplay(key metadata.Key) string {
-	// we could define extra logic here to transform key in more readable form.
-	// for now, just return the string representation for clarity.
-	return string(key)
-}
-
-func (ie *InteractiveEnricher) camelToTitle(s string) string {
+func camelToTitle(s string) string {
 	var result []rune
 	for i, r := range s {
 		if i > 0 && r >= 'A' && r <= 'Z' {
@@ -343,8 +320,8 @@ func (ie *InteractiveEnricher) camelToTitle(s string) string {
 	return strings.Join(words, " ")
 }
 
-// EnrichDatasetInteractive enriches dataset fields using interactive forms.
-func (ie *InteractiveEnricher) EnrichDatasetInteractive(
+// enrichDatasetInteractive enriches dataset fields using interactive forms.
+func enrichDatasetInteractive(
 	comp *cdx.Component,
 	missingFields []metadata.DatasetFieldSpec,
 	src metadata.DatasetSource,
@@ -375,7 +352,7 @@ func (ie *InteractiveEnricher) EnrichDatasetInteractive(
 
 	// Create inputs for each field.
 	for _, spec := range missingFields {
-		fieldInputs := ie.createDatasetFieldInput(spec, src, valueStore[spec.Key])
+		fieldInputs := createDatasetFieldInput(spec, src, valueStore[spec.Key])
 		if len(fieldInputs) > 0 {
 			formGroups = append(formGroups, huh.NewGroup(fieldInputs...))
 		}
@@ -414,7 +391,7 @@ func (ie *InteractiveEnricher) EnrichDatasetInteractive(
 }
 
 // createDatasetFieldInput creates form inputs for a dataset field spec.
-func (ie *InteractiveEnricher) createDatasetFieldInput(
+func createDatasetFieldInput(
 	spec metadata.DatasetFieldSpec,
 	src metadata.DatasetSource,
 	valuePtr *string,
@@ -424,20 +401,20 @@ func (ie *InteractiveEnricher) createDatasetFieldInput(
 	// Create appropriate input based on spec.InputType.
 	switch spec.InputType {
 	case metadata.InputTypeTextArea:
-		inputs = append(inputs, ie.createDatasetTextAreaInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
+		inputs = append(inputs, createDatasetTextAreaInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
 	case metadata.InputTypeSelect:
-		inputs = append(inputs, ie.createDatasetSelectInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
+		inputs = append(inputs, createDatasetSelectInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
 	case metadata.InputTypeMultiText:
-		inputs = append(inputs, ie.createDatasetMultiTextInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
+		inputs = append(inputs, createDatasetMultiTextInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
 	default: // InputTypeText
-		inputs = append(inputs, ie.createDatasetTextInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
+		inputs = append(inputs, createDatasetTextInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
 	}
 
 	return inputs
 }
 
 // Dataset-specific input creators.
-func (ie *InteractiveEnricher) createDatasetTextInput(
+func createDatasetTextInput(
 	key metadata.DatasetKey,
 	required bool,
 	weight float64,
@@ -448,11 +425,11 @@ func (ie *InteractiveEnricher) createDatasetTextInput(
 	valuePtr *string,
 ) huh.Field {
 	if len(suggestions) == 0 {
-		suggestions = ie.getDatasetSuggestionsFromSources(sources, src)
+		suggestions = getDatasetSuggestionsFromSources(sources, src)
 	}
 
-	title := ie.formatDatasetTitle(key, weight, required)
-	description := ie.formatDescription(suggestions, placeholder, false)
+	title := formatDatasetTitle(key, weight, required)
+	description := formatDescription(suggestions, placeholder, false)
 
 	input := huh.NewInput().
 		Title(title).
@@ -469,7 +446,7 @@ func (ie *InteractiveEnricher) createDatasetTextInput(
 	return input
 }
 
-func (ie *InteractiveEnricher) createDatasetMultiTextInput(
+func createDatasetMultiTextInput(
 	key metadata.DatasetKey,
 	required bool,
 	weight float64,
@@ -480,11 +457,11 @@ func (ie *InteractiveEnricher) createDatasetMultiTextInput(
 	valuePtr *string,
 ) huh.Field {
 	if len(suggestions) == 0 {
-		suggestions = ie.getDatasetSuggestionsFromSources(sources, src)
+		suggestions = getDatasetSuggestionsFromSources(sources, src)
 	}
 
-	title := ie.formatDatasetTitle(key, weight, required)
-	description := ie.formatDescription(suggestions, placeholder, true)
+	title := formatDatasetTitle(key, weight, required)
+	description := formatDescription(suggestions, placeholder, true)
 
 	input := huh.NewInput().
 		Title(title).
@@ -501,7 +478,7 @@ func (ie *InteractiveEnricher) createDatasetMultiTextInput(
 	return input
 }
 
-func (ie *InteractiveEnricher) createDatasetTextAreaInput(
+func createDatasetTextAreaInput(
 	key metadata.DatasetKey,
 	required bool,
 	weight float64,
@@ -512,11 +489,11 @@ func (ie *InteractiveEnricher) createDatasetTextAreaInput(
 	valuePtr *string,
 ) huh.Field {
 	if len(suggestions) == 0 {
-		suggestions = ie.getDatasetSuggestionsFromSources(sources, src)
+		suggestions = getDatasetSuggestionsFromSources(sources, src)
 	}
 
-	title := ie.formatDatasetTitle(key, weight, required)
-	description := ie.formatDescription(suggestions, placeholder, false)
+	title := formatDatasetTitle(key, weight, required)
+	description := formatDescription(suggestions, placeholder, false)
 
 	input := huh.NewText().
 		Title(title).
@@ -529,7 +506,7 @@ func (ie *InteractiveEnricher) createDatasetTextAreaInput(
 	return input
 }
 
-func (ie *InteractiveEnricher) createDatasetSelectInput(
+func createDatasetSelectInput(
 	key metadata.DatasetKey,
 	required bool,
 	weight float64,
@@ -540,10 +517,10 @@ func (ie *InteractiveEnricher) createDatasetSelectInput(
 	valuePtr *string,
 ) huh.Field {
 	if len(suggestions) == 0 {
-		suggestions = ie.getDatasetSuggestionsFromSources(sources, src)
+		suggestions = getDatasetSuggestionsFromSources(sources, src)
 	}
 
-	title := ie.formatDatasetTitle(key, weight, required)
+	title := formatDatasetTitle(key, weight, required)
 
 	options := []huh.Option[string]{}
 	for _, suggestion := range suggestions {
@@ -565,7 +542,7 @@ func (ie *InteractiveEnricher) createDatasetSelectInput(
 	return input
 }
 
-func (ie *InteractiveEnricher) formatDatasetTitle(key metadata.DatasetKey, weight float64, required bool) string {
+func formatDatasetTitle(key metadata.DatasetKey, weight float64, required bool) string {
 	requiredLabel := ""
 	if required {
 		requiredLabel = ui.Error.Render(" [REQUIRED]")
@@ -573,12 +550,12 @@ func (ie *InteractiveEnricher) formatDatasetTitle(key metadata.DatasetKey, weigh
 
 	weightLabel := ui.Muted.Render(fmt.Sprintf(" (weight: %.1f)", weight))
 
-	displayKey := ie.simplifyDatasetKeyForDisplay(key)
+	displayKey := simplifyDatasetKeyForDisplay(key)
 
 	return fmt.Sprintf("%s%s%s", displayKey, weightLabel, requiredLabel)
 }
 
-func (ie *InteractiveEnricher) simplifyDatasetKeyForDisplay(key metadata.DatasetKey) string {
+func simplifyDatasetKeyForDisplay(key metadata.DatasetKey) string {
 	keyStr := string(key)
 	parts := strings.Split(keyStr, ".")
 
@@ -596,10 +573,10 @@ func (ie *InteractiveEnricher) simplifyDatasetKeyForDisplay(key metadata.Dataset
 		}
 	}
 
-	return ie.camelToTitle(lastPart)
+	return camelToTitle(lastPart)
 }
 
-func (ie *InteractiveEnricher) getDatasetSuggestionsFromSources(sources []func(metadata.DatasetSource) (any, bool), src metadata.DatasetSource) []string {
+func getDatasetSuggestionsFromSources(sources []func(metadata.DatasetSource) (any, bool), src metadata.DatasetSource) []string {
 	// Try to get value from sources.
 	for _, sourceFn := range sources {
 		if val, ok := sourceFn(src); ok && val != nil {

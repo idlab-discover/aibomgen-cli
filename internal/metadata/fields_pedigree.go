@@ -40,23 +40,16 @@ func pedigreeFields() []FieldSpec {
 				}
 				return pedigreeValue{IDs: ids}, nil
 			},
-			Apply: func(tgt Target, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", ComponentPedigreeAncestors)
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
+			Apply: onComponent(func(c *cdx.Component, input applyInput, baseURL string) error {
 				v, _ := input.Value.(pedigreeValue)
 				if len(v.IDs) == 0 {
 					return fmt.Errorf("base models value is empty")
 				}
-				if p := tgt.Component.Pedigree; !input.Force && p != nil && p.Ancestors != nil && len(*p.Ancestors) > 0 {
+				if p := c.Pedigree; !input.Force && p != nil && p.Ancestors != nil && len(*p.Ancestors) > 0 {
 					return nil
 				}
 
-				base := hfBaseURL(tgt.HuggingFaceBaseURL)
+				base := hfBaseURL(baseURL)
 				ancestors := make([]cdx.Component, 0, len(v.IDs))
 				for _, id := range v.IDs {
 					ns, _ := hfNamespace(id)
@@ -70,13 +63,13 @@ func pedigreeFields() []FieldSpec {
 						}},
 					})
 				}
-				if tgt.Component.Pedigree == nil {
-					tgt.Component.Pedigree = &cdx.Pedigree{}
+				if c.Pedigree == nil {
+					c.Pedigree = &cdx.Pedigree{}
 				}
-				tgt.Component.Pedigree.Ancestors = &ancestors
-				tgt.Component.Pedigree.Notes = pedigreeNotes(v)
+				c.Pedigree.Ancestors = &ancestors
+				c.Pedigree.Notes = pedigreeNotes(v)
 				return nil
-			},
+			}),
 			Present: func(b *cdx.BOM) bool {
 				c := bomComponent(b)
 				return c != nil && c.Pedigree != nil && c.Pedigree.Ancestors != nil && len(*c.Pedigree.Ancestors) > 0

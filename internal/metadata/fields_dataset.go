@@ -7,12 +7,6 @@ import (
 	cdx "github.com/CycloneDX/cyclonedx-go"
 )
 
-type datasetExternalRefsSource struct {
-	DatasetID string
-	PaperURL  string
-	DemoURL   string
-}
-
 // datasetNamespace returns the Hugging Face namespace of the dataset:.
 // the org of the resolved (HF.ID) or requested ID, else the HF author.
 func datasetNamespace(src DatasetSource) (string, bool) {
@@ -66,22 +60,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "name")
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetName)
-				}
-				name, _ := input.Value.(string)
-				name = strings.TrimSpace(name)
-				if name == "" {
-					return fmt.Errorf("name value is empty")
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				tgt.Component.Name = name
-				return nil
-			},
+			Apply: onDatasetComponent(applyName),
 			Present: func(comp *cdx.Component) bool {
 				return comp != nil && strings.TrimSpace(comp.Name) != ""
 			},
@@ -100,7 +79,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 					if datasetID == "" {
 						return nil, false
 					}
-					input := datasetExternalRefsSource{DatasetID: datasetID}
+					input := externalRefsSource{Path: "datasets/" + strings.TrimPrefix(datasetID, "/")}
 					if src.Readme != nil {
 						input.PaperURL = linkURL(src.Readme.PaperURL)
 						input.DemoURL = linkURL(src.Readme.DemoURL)
@@ -111,49 +90,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "externalReferences")
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetExternalReferences)
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				var refs []cdx.ExternalReference
-				switch v := input.Value.(type) {
-				case string:
-					url := strings.TrimSpace(v)
-					if url == "" {
-						return fmt.Errorf("externalReferences value is empty")
-					}
-					refs = []cdx.ExternalReference{{
-						Type: cdx.ExternalReferenceType("website"),
-						URL:  url,
-					}}
-				case datasetExternalRefsSource:
-					url := hfBaseURL(tgt.HuggingFaceBaseURL) + "datasets/" + strings.TrimPrefix(v.DatasetID, "/")
-					refs = []cdx.ExternalReference{{
-						Type: cdx.ExternalReferenceType("website"),
-						URL:  url,
-					}}
-					if v.PaperURL != "" {
-						refs = append(refs, cdx.ExternalReference{
-							Type: cdx.ExternalReferenceType("documentation"),
-							URL:  v.PaperURL,
-						})
-					}
-					if v.DemoURL != "" {
-						refs = append(refs, cdx.ExternalReference{
-							Type: cdx.ExternalReferenceType("other"),
-							URL:  v.DemoURL,
-						})
-					}
-				default:
-					return fmt.Errorf("invalid externalReferences value")
-				}
-				tgt.Component.ExternalReferences = &refs
-				return nil
-			},
+			Apply: onDatasetComponent(applyExternalRefs),
 			Present: func(comp *cdx.Component) bool {
 				return comp != nil && comp.ExternalReferences != nil && len(*comp.ExternalReferences) > 0
 			},
@@ -188,21 +125,14 @@ func DatasetRegistry() []DatasetFieldSpec {
 				tags := normalizeStrings(parts)
 				return tags, nil
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetTags)
-				}
+			Apply: onDatasetComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				tags, _ := input.Value.([]string)
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				if !input.Force && tgt.Component.Tags != nil && len(*tgt.Component.Tags) > 0 {
+				if !input.Force && c.Tags != nil && len(*c.Tags) > 0 {
 					return nil
 				}
-				tgt.Component.Tags = &tags
+				c.Tags = &tags
 				return nil
-			},
+			}),
 			Present: func(comp *cdx.Component) bool {
 				return comp != nil && comp.Tags != nil && len(*comp.Tags) > 0
 			},
@@ -225,28 +155,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "license")
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetLicenses)
-				}
-				in, ok := licenseInputFromValue(input.Value)
-				if !ok {
-					return fmt.Errorf("license value is empty")
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				if !input.Force && tgt.Component.Licenses != nil && len(*tgt.Component.Licenses) > 0 {
-					return nil
-				}
-				ls := buildLicenses(in, tgt.HuggingFaceBaseURL)
-				if ls == nil {
-					return fmt.Errorf("license value is a placeholder")
-				}
-				tgt.Component.Licenses = ls
-				return nil
-			},
+			Apply: onDatasetComponent(applyLicenses),
 			Present: func(comp *cdx.Component) bool {
 				return comp != nil && comp.Licenses != nil && len(*comp.Licenses) > 0
 			},
@@ -280,23 +189,16 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "description")
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetDescription)
-				}
+			Apply: onDatasetComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				desc, _ := input.Value.(string)
 				desc = strings.TrimSpace(desc)
 				if desc == "" {
 					return fmt.Errorf("description value is empty")
 				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				data := ensureComponentData(tgt.Component)
+				data := ensureComponentData(c)
 				data.Description = desc
 				return nil
-			},
+			}),
 			Present: func(comp *cdx.Component) bool {
 				data := getComponentData(comp)
 				return data != nil && strings.TrimSpace(data.Description) != ""
@@ -326,24 +228,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "manufacturer")
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetManufacturer)
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				ent, err := organizationalEntity(input.Value, tgt.HuggingFaceBaseURL)
-				if err != nil {
-					return err
-				}
-				if !input.Force && tgt.Component.Manufacturer != nil && strings.TrimSpace(tgt.Component.Manufacturer.Name) != "" {
-					return nil
-				}
-				tgt.Component.Manufacturer = ent
-				return nil
-			},
+			Apply: onDatasetComponent(applyManufacturer),
 			Present: func(comp *cdx.Component) bool {
 				return comp != nil && comp.Manufacturer != nil && strings.TrimSpace(comp.Manufacturer.Name) != ""
 			},
@@ -365,24 +250,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "supplier")
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetSupplier)
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				ent, err := organizationalEntity(input.Value, tgt.HuggingFaceBaseURL)
-				if err != nil {
-					return err
-				}
-				if !input.Force && tgt.Component.Supplier != nil && strings.TrimSpace(tgt.Component.Supplier.Name) != "" {
-					return nil
-				}
-				tgt.Component.Supplier = ent
-				return nil
-			},
+			Apply: onDatasetComponent(applySupplier),
 			Present: func(comp *cdx.Component) bool {
 				return comp != nil && comp.Supplier != nil && strings.TrimSpace(comp.Supplier.Name) != ""
 			},
@@ -421,14 +289,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 				authors := normalizeStrings(parts)
 				return authors, nil
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetAuthors)
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
+			Apply: onDatasetComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				var authors []cdx.OrganizationalContact
 				switch v := input.Value.(type) {
 				case []string:
@@ -449,12 +310,12 @@ func DatasetRegistry() []DatasetFieldSpec {
 				if len(authors) == 0 {
 					return fmt.Errorf("authors value is empty")
 				}
-				if !input.Force && tgt.Component.Authors != nil && len(*tgt.Component.Authors) > 0 {
+				if !input.Force && c.Authors != nil && len(*c.Authors) > 0 {
 					return nil
 				}
-				tgt.Component.Authors = &authors
+				c.Authors = &authors
 				return nil
-			},
+			}),
 			Present: func(comp *cdx.Component) bool {
 				return comp != nil && comp.Authors != nil && len(*comp.Authors) > 0
 			},
@@ -476,25 +337,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "group")
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetGroup)
-				}
-				group, _ := input.Value.(string)
-				group = strings.TrimSpace(group)
-				if group == "" {
-					return fmt.Errorf("group value is empty")
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				if !input.Force && strings.TrimSpace(tgt.Component.Group) != "" {
-					return nil
-				}
-				tgt.Component.Group = group
-				return nil
-			},
+			Apply: onDatasetComponent(applyGroup),
 			Present: func(comp *cdx.Component) bool {
 				return comp != nil && strings.TrimSpace(comp.Group) != ""
 			},
@@ -524,19 +367,12 @@ func DatasetRegistry() []DatasetFieldSpec {
 					return strings.Join(contentParts, "\n"), true
 				},
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetContents)
-				}
+			Apply: onDatasetComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				content, _ := input.Value.(string)
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
 				if strings.TrimSpace(content) == "" {
 					return nil
 				}
-				data := ensureComponentData(tgt.Component)
+				data := ensureComponentData(c)
 				if data.Contents == nil {
 					data.Contents = &cdx.ComponentDataContents{}
 				}
@@ -545,7 +381,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 					ContentType: "text/plain",
 				}
 				return nil
-			},
+			}),
 			Present: func(comp *cdx.Component) bool {
 				data := getComponentData(comp)
 				return data != nil && data.Contents != nil && data.Contents.Attachment != nil
@@ -590,14 +426,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "sensitive data")
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetSensitiveData)
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
+			Apply: onDatasetComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				items := []string{}
 				switch v := input.Value.(type) {
 				case string:
@@ -611,10 +440,10 @@ func DatasetRegistry() []DatasetFieldSpec {
 				if len(items) == 0 {
 					return fmt.Errorf("sensitive data value is empty")
 				}
-				data := ensureComponentData(tgt.Component)
+				data := ensureComponentData(c)
 				data.SensitiveData = &items
 				return nil
-			},
+			}),
 			Present: func(comp *cdx.Component) bool {
 				data := getComponentData(comp)
 				return data != nil && data.SensitiveData != nil && len(*data.SensitiveData) > 0
@@ -642,23 +471,16 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "classification")
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetClassification)
-				}
+			Apply: onDatasetComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				classification, _ := input.Value.(string)
 				classification = strings.TrimSpace(classification)
 				if classification == "" {
 					return fmt.Errorf("classification value is empty")
 				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				data := ensureComponentData(tgt.Component)
+				data := ensureComponentData(c)
 				data.Classification = classification
 				return nil
-			},
+			}),
 			Present: func(comp *cdx.Component) bool {
 				data := getComponentData(comp)
 				return data != nil && strings.TrimSpace(data.Classification) != ""
@@ -711,22 +533,15 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseDataGovernance(value)
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetGovernance)
-				}
+			Apply: onDatasetComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				gov, _ := input.Value.(*cdx.DataGovernance)
 				if gov == nil {
 					return fmt.Errorf("governance value is nil")
 				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				data := ensureComponentData(tgt.Component)
+				data := ensureComponentData(c)
 				data.Governance = gov
 				return nil
-			},
+			}),
 			Present: func(comp *cdx.Component) bool {
 				data := getComponentData(comp)
 				return data != nil && data.Governance != nil
@@ -752,26 +567,7 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "hash")
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetHashes)
-				}
-				hash, _ := input.Value.(string)
-				hash = strings.TrimSpace(hash)
-				if hash == "" {
-					return fmt.Errorf("hash value is empty")
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				hashes := []cdx.Hash{{
-					Algorithm: cdx.HashAlgoSHA1,
-					Value:     hash,
-				}}
-				tgt.Component.Hashes = &hashes
-				return nil
-			},
+			Apply: onDatasetComponent(applyHash),
 			Present: func(comp *cdx.Component) bool {
 				return comp != nil && comp.Hashes != nil && len(*comp.Hashes) > 0
 			},
@@ -796,18 +592,11 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseOptionalString(value)
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetCreatedAt)
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
+			Apply: onDatasetComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				createdAt, _ := input.Value.(string)
-				setProperty(tgt.Component, "huggingface:createdAt", strings.TrimSpace(createdAt))
+				setProperty(c, "huggingface:createdAt", strings.TrimSpace(createdAt))
 				return nil
-			},
+			}),
 			Present: func(comp *cdx.Component) bool {
 				return hasProperty(comp, "huggingface:createdAt")
 			},
@@ -828,18 +617,11 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseOptionalString(value)
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetUsedStorage)
-				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
+			Apply: onDatasetComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				usedStorage, _ := input.Value.(string)
-				setProperty(tgt.Component, "huggingface:usedStorage", strings.TrimSpace(usedStorage))
+				setProperty(c, "huggingface:usedStorage", strings.TrimSpace(usedStorage))
 				return nil
-			},
+			}),
 			Present: func(comp *cdx.Component) bool {
 				return hasProperty(comp, "huggingface:usedStorage")
 			},
@@ -864,29 +646,22 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "lastModified")
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetLastModified)
-				}
+			Apply: onDatasetComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				lastMod, _ := input.Value.(string)
 				lastMod = strings.TrimSpace(lastMod)
 				if lastMod == "" {
 					return fmt.Errorf("lastModified value is empty")
 				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				if tgt.Component.Tags != nil {
-					tags := *tgt.Component.Tags
+				if c.Tags != nil {
+					tags := *c.Tags
 					tags = append(tags, "lastModified:"+lastMod)
-					tgt.Component.Tags = &tags
+					c.Tags = &tags
 				} else {
 					tags := []string{"lastModified:" + lastMod}
-					tgt.Component.Tags = &tags
+					c.Tags = &tags
 				}
 				return nil
-			},
+			}),
 			Present: func(comp *cdx.Component) bool {
 				if comp == nil || comp.Tags == nil {
 					return false
@@ -919,22 +694,15 @@ func DatasetRegistry() []DatasetFieldSpec {
 			Parse: func(value string) (any, error) {
 				return parseNonEmptyString(value, "contact")
 			},
-			Apply: func(tgt DatasetTarget, value any) error {
-				input, ok := value.(applyInput)
-				if !ok {
-					return fmt.Errorf("invalid input for %s", DatasetContact)
-				}
+			Apply: onDatasetComponent(func(c *cdx.Component, input applyInput, _ string) error {
 				contact, _ := input.Value.(string)
 				contact = strings.TrimSpace(contact)
 				if contact == "" {
 					return fmt.Errorf("contact value is empty")
 				}
-				if tgt.Component == nil {
-					return fmt.Errorf("component is nil")
-				}
-				setProperty(tgt.Component, "huggingface:datasetContact", contact)
+				setProperty(c, "huggingface:datasetContact", contact)
 				return nil
-			},
+			}),
 			Present: func(comp *cdx.Component) bool {
 				return hasProperty(comp, "huggingface:datasetContact")
 			},
