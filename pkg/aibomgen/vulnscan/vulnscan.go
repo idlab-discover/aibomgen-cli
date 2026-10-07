@@ -173,36 +173,79 @@ func datasetIDFromPURL(purl string) string {
 }
 
 // ApplyToDOM merges the vulnerability scan results into the BOM in-place.
-// Existing vulnerabilities with the same BOM-ref are replaced; new ones are appended.
-func ApplyToDOM(bom *cdx.BOM, results []ComponentScanResult) {
-	// Build a set of incoming bom-refs so we can detect replacements.
-	incoming := make(map[string]cdx.Vulnerability)
+// For every successfully scanned component, its previous Hugging Face findings
+// ("hfsec-<component-ref>-..." bom-refs) are replaced by the fresh ones, so
+// findings that were resolved upstream disappear. Other vulnerabilities (e.g.
+// CVEs merged from an SBOM) and findings of components whose scan failed are kept.
+// It returns the number of previous findings that were removed.
+func ApplyToDOM(bom *cdx.BOM, results []ComponentScanResult) int {
+	var prefixes []string
+	var fresh []cdx.Vulnerability
 	for _, r := range results {
-		for _, v := range r.Vulnerabilities {
-			incoming[v.BOMRef] = v
+		if r.Err != nil {
+			continue
 		}
+		prefixes = append(prefixes, "hfsec-"+r.ComponentRef+"-")
+		fresh = append(fresh, r.Vulnerabilities...)
 	}
 
-	if len(incoming) == 0 {
-		return
-	}
-
-	if bom.Vulnerabilities == nil {
-		bom.Vulnerabilities = &[]cdx.Vulnerability{}
-	}
-
-	// Replace existing entries that we re-scanned, keep others.
 	var kept []cdx.Vulnerability
-	for _, existing := range *bom.Vulnerabilities {
-		if _, replaced := incoming[existing.BOMRef]; !replaced {
-			kept = append(kept, existing)
+	removed := 0
+	if bom.Vulnerabilities != nil {
+		for _, v := range *bom.Vulnerabilities {
+			if hasAnyPrefix(v.BOMRef, prefixes) {
+				removed++
+				continue
+			}
+			kept = append(kept, v)
 		}
 	}
 
-	// Append all incoming.
-	for _, v := range incoming {
-		kept = append(kept, v)
+	kept = append(kept, fresh...)
+	if len(kept) == 0 {
+		bom.Vulnerabilities = nil
+	} else {
+		bom.Vulnerabilities = &kept
 	}
+	return removed
+}
 
-	*bom.Vulnerabilities = kept
+func hasAnyPrefix(s string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(s, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// severityRank orders the rated CycloneDX severities; unknown or unset is absent.
+var severityRank = map[cdx.Severity]int{
+	cdx.SeverityCritical: 5,
+	cdx.SeverityHigh:     4,
+	cdx.SeverityMedium:   3,
+	cdx.SeverityLow:      2,
+	cdx.SeverityInfo:     1,
+	cdx.SeverityNone:     0,
+}
+
+// HighestSeverity returns the highest severity among a vulnerability's ratings,
+// or cdx.SeverityUnknown when it has no rated severity.
+func HighestSeverity(v cdx.Vulnerability) cdx.Severity {
+	best, bestRank := cdx.SeverityUnknown, -1
+	if v.Ratings != nil {
+		for _, r := range *v.Ratings {
+			if rank, ok := severityRank[r.Severity]; ok && rank > bestRank {
+				best, bestRank = r.Severity, rank
+			}
+		}
+	}
+	return best
+}
+
+// SeverityAtLeast reports whether sev is rated at or above threshold.
+// Unknown or unset severities never meet a threshold.
+func SeverityAtLeast(sev, threshold cdx.Severity) bool {
+	rank, ok := severityRank[sev]
+	return ok && rank >= severityRank[threshold]
 }

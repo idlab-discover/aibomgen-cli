@@ -29,7 +29,8 @@ type SecurityCommit struct {
 
 // SecurityFileStatus holds per-file, per-scanner security results.
 type SecurityFileStatus struct {
-	// Status is the aggregated file status: "safe", "caution", or "unsafe".
+	// Status is the aggregated file status: "safe", "caution", "suspicious" or "unsafe"
+	// (or a non-finding state such as "unscanned" or "queued").
 	Status           string           `json:"status"`
 	ProtectAiScan    ScannerResult    `json:"protectAiScan"`
 	AvScan           ScannerResult    `json:"avScan"`

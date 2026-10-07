@@ -88,8 +88,10 @@ enrich:
 validate:
   # Path to AIBOM file (required)
   input: "./dist/WiebeVandendriessche_model-card-example.aibom.cdx.json"
-  # Strict mode: fail on missing required fields
+  # Strict mode: fail on missing required fields and on vulnerabilities >= fail-severity
   strict: false
+  # Lowest vulnerability severity that fails strict mode: critical|high|medium|low|info
+  fail-severity: "medium"
   # Minimum completeness score (0.0-1.0)
   min-score: 0.0
   # Validate model card fields

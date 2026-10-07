@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"charm.land/huh/v2"
-	cdx "github.com/CycloneDX/cyclonedx-go"
 	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
+	"github.com/idlab-discover/aibomgen-cli/internal/metadata"
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/bomio"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/vulnscan"
@@ -106,15 +106,8 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 	for _, r := range results {
 		total += len(r.Vulnerabilities)
 	}
-	if total == 0 {
-		if !quiet {
-			fmt.Fprintf(w, "\n%s\n", ui.SuccessBox.Render(ui.GetCheckMark()+" No vulnerabilities found – AIBOM not modified."))
-		}
-		return nil
-	}
-
-	// Interactive confirmation.
-	if interactive && !noPreview {
+	// Interactive confirmation (only when there is something to add).
+	if total > 0 && interactive && !noPreview {
 		confirmed, err := confirmVulnEnrich(results)
 		if err != nil {
 			return fmt.Errorf("confirmation error: %w", err)
@@ -124,14 +117,20 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	vulnscan.ApplyToDOM(bom, results)
+	removed := vulnscan.ApplyToDOM(bom, results)
+	if total == 0 && removed == 0 {
+		if !quiet {
+			fmt.Fprintf(w, "\n%s\n", ui.SuccessBox.Render(ui.GetCheckMark()+" No vulnerabilities found – AIBOM not modified."))
+		}
+		return nil
+	}
 
 	if err := bomio.WriteBOM(bom, outPath, specVersion); err != nil {
 		return fmt.Errorf("failed to write enriched BOM: %w", err)
 	}
 
 	if !quiet {
-		msg := fmt.Sprintf("Enriched BOM with %d vulnerabilities → %s", total, outPath)
+		msg := fmt.Sprintf("Enriched BOM with %d vulnerabilities (%d previous findings replaced) → %s", total, removed, outPath)
 		fmt.Fprintf(w, "\n%s\n", ui.SuccessBox.Render(ui.GetCheckMark()+" "+msg))
 	}
 
@@ -160,14 +159,16 @@ func printVulnReport(w io.Writer, results []vulnscan.ComponentScanResult) {
 		}
 
 		// Summary counts.
-		unsafe, caution, safe := 0, 0, 0
+		unsafe, suspicious, caution, safe := 0, 0, 0, 0
 		for _, e := range r.Entries {
 			if e.SecurityFileStatus == nil {
 				continue
 			}
-			switch e.SecurityFileStatus.Status {
+			switch strings.ToLower(e.SecurityFileStatus.Status) {
 			case "unsafe":
 				unsafe++
+			case "suspicious":
+				suspicious++
 			case "caution":
 				caution++
 			default:
@@ -175,12 +176,12 @@ func printVulnReport(w io.Writer, results []vulnscan.ComponentScanResult) {
 			}
 		}
 
-		overallIcon, overallLabel := vulnStatusDisplay(unsafe, caution)
+		overallIcon, overallLabel := vulnStatusDisplay(metadata.OverallSecurityStatus(r.Entries))
 		fmt.Fprintf(w, "%s  %s  %s\n",
 			overallIcon,
 			modelLabel,
-			ui.Muted.Render(fmt.Sprintf("(%d files: %d unsafe, %d caution, %d safe)",
-				len(r.Entries), unsafe, caution, safe)))
+			ui.Muted.Render(fmt.Sprintf("(%d files: %d unsafe, %d suspicious, %d caution, %d safe)",
+				len(r.Entries), unsafe, suspicious, caution, safe)))
 		fmt.Fprintf(w, "    Overall: %s\n", overallLabel)
 
 		if len(r.Vulnerabilities) > 0 {
@@ -190,7 +191,7 @@ func printVulnReport(w io.Writer, results []vulnscan.ComponentScanResult) {
 				if v.Source != nil {
 					src = v.Source.URL
 				}
-				sev := highestSeverity(v)
+				sev := string(vulnscan.HighestSeverity(v))
 				fmt.Fprintf(w, "      • %s  %s  %s\n",
 					renderVulnSeverity(sev, fmt.Sprintf("[%s]", strings.ToUpper(sev))),
 					ui.Dim.Render(v.Description),
@@ -203,42 +204,16 @@ func printVulnReport(w io.Writer, results []vulnscan.ComponentScanResult) {
 	}
 }
 
-// vulnStatusDisplay returns an icon and styled label for the worst file status.
-func vulnStatusDisplay(unsafe, caution int) (string, string) {
-	switch {
-	case unsafe > 0:
-		return ui.Error.Render("✗"), ui.Error.Render("unsafe")
-	case caution > 0:
-		return ui.Warning.Render("⚠"), ui.Warning.Render("caution")
+// vulnStatusDisplay returns an icon and styled label for an overall security status.
+func vulnStatusDisplay(status string) (string, string) {
+	switch status {
+	case "unsafe", "suspicious":
+		return ui.Error.Render("✗"), ui.Error.Render(status)
+	case "caution":
+		return ui.Warning.Render("⚠"), ui.Warning.Render(status)
 	default:
-		return ui.Success.Render("✓"), ui.Success.Render("safe")
+		return ui.Success.Render("✓"), ui.Success.Render(status)
 	}
-}
-
-// highestSeverity returns the highest severity string among a vulnerability's ratings.
-func highestSeverity(v cdx.Vulnerability) string {
-	order := map[cdx.Severity]int{
-		cdx.SeverityCritical: 5,
-		cdx.SeverityHigh:     4,
-		cdx.SeverityMedium:   3,
-		cdx.SeverityLow:      2,
-		cdx.SeverityInfo:     1,
-		cdx.SeverityNone:     0,
-	}
-	best := ""
-	bestRank := -1
-	if v.Ratings != nil {
-		for _, r := range *v.Ratings {
-			if rank, ok := order[r.Severity]; ok && rank > bestRank {
-				bestRank = rank
-				best = string(r.Severity)
-			}
-		}
-	}
-	if best == "" {
-		return "unknown"
-	}
-	return best
 }
 
 func renderVulnSeverity(sev, text string) string {
