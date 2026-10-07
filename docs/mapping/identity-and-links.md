@@ -41,7 +41,7 @@ The model API, README and tree are then fetched at that revision (see [README.md
 `modelCard.modelParameters.datasets[]` must only reference components that exist in the BOM. It is built in three steps:
 
 1. The model-card FieldSpec lists the card's datasets (`cardData.datasets` and `dataset:*` tags, else README front matter `datasets`) as `dataset:{name}` placeholders.
-2. The generator fetches every dataset in `cardData.datasets` and README front matter `datasets`, and builds a data component for each one that resolves. It records which card name produced which component bom-ref. Card names that resolve to the same repository share one component.
+2. The generator fetches every dataset in `cardData.datasets` and README front matter `datasets`, and builds a data component for each one that resolves. If neither lists any, it falls back to the model's `dataset:<id>` tags. It records which card name produced which component bom-ref. Card names that resolve to the same repository share one component.
 3. `builder.LinkDatasetRefs` rewrites the list:
    - A card entry with a component becomes `{"ref": "<component bom-ref>"}`. Matching uses the card name, ignoring case and a `dataset:` prefix, so a renamed dataset still links to its redirected component.
    - A card entry without a component (not on the Hub, or the request failed) becomes an inline entry `{"type": "dataset", "name": "<card name>"}`, instead of a reference to a bom-ref that doesn't exist. If the card value is an `http(s)://` URL, the entry also gets `contents.url`.

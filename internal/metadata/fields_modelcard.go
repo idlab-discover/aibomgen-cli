@@ -417,13 +417,14 @@ func modelCardFields() []FieldSpec {
 						if mt == "" && mv == "" {
 							continue
 						}
-						metrics = append(metrics, cdx.MLPerformanceMetric{Type: mt, Value: mv})
+						metrics = append(metrics, cdx.MLPerformanceMetric{Type: mt, Value: mv, Slice: metricSlice(m.Dataset, m.Split)})
 					}
 					for _, mt := range src.Readme.Metrics {
 						mt = strings.TrimSpace(mt)
 						if mt == "" {
 							continue
 						}
+						// A front matter metric name is covered by any model-index metric of that type.
 						alreadyExists := false
 						for _, existing := range metrics {
 							if existing.Type == mt {
@@ -613,5 +614,19 @@ func ioFieldSpec(key Key, name, placeholder string, pick func(taskIO) []string, 
 		},
 		InputType:   InputTypeMultiText,
 		Placeholder: placeholder,
+	}
+}
+
+// metricSlice describes what a metric was measured on, e.g.
+// "MTEB AmazonCounterfactualClassification (en) / test".
+func metricSlice(dataset, split string) string {
+	dataset, split = strings.TrimSpace(dataset), strings.TrimSpace(split)
+	switch {
+	case dataset != "" && split != "":
+		return dataset + " / " + split
+	case dataset != "":
+		return dataset
+	default:
+		return split
 	}
 }

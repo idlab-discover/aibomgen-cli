@@ -72,6 +72,9 @@ type ModelReadmeCard struct {
 type ModelIndexMetric struct {
 	Type  string
 	Value string
+	// Dataset and Split say what the metric was measured on (from the result's dataset).
+	Dataset string
+	Split   string
 }
 
 // ModelReadmeFetcher fetches the README.md (model card) for a model repo.

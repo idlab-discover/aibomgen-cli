@@ -359,6 +359,16 @@ func extractDatasetsFromModel(modelResp *fetcher.ModelAPIResponse, readme *fetch
 		}
 	}
 
+	// Fallback: datasets known only from dataset:<id> tags.
+	if len(datasets) == 0 && modelResp != nil {
+		for _, tag := range modelResp.Tags {
+			tag = strings.TrimSpace(tag)
+			if id, ok := strings.CutPrefix(tag, "dataset:"); ok && strings.TrimSpace(id) != "" {
+				datasets = append(datasets, strings.TrimSpace(id))
+			}
+		}
+	}
+
 	// Deduplicate.
 	if len(datasets) > 0 {
 		seen := make(map[string]struct{})

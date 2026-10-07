@@ -232,3 +232,73 @@ func TestParseReadmeCard_BaseModelLineage(t *testing.T) {
 		t.Fatalf("baseModelRelation = %q", card.BaseModelRelation)
 	}
 }
+
+func TestParseReadmeCard_ModelIndexSlices(t *testing.T) {
+	readme := `---
+model-index:
+- name: m
+  results:
+  - task:
+      type: Classification
+    dataset:
+      type: mteb/amazon_counterfactual
+      name: MTEB AmazonCounterfactualClassification (en)
+      config: en
+      split: test
+    metrics:
+    - type: accuracy
+      value: 73.79
+    - type: f1
+      value: 67.9
+  - task:
+      type: Retrieval
+    dataset:
+      type: mteb/arguana
+      config: default
+      split: dev
+    metrics:
+    - type: ndcg_at_10
+      value: 59.5
+  - task:
+      type: Other
+    metrics:
+    - type: loss
+      value: 0.1
+---
+# m
+`
+	card := parseReadmeCard(readme)
+	if card.TaskType != "Classification" {
+		t.Fatalf("taskType = %q, want the first result's task", card.TaskType)
+	}
+	want := []ModelIndexMetric{
+		{Type: "accuracy", Value: "73.79", Dataset: "MTEB AmazonCounterfactualClassification (en)", Split: "test"},
+		{Type: "f1", Value: "67.9", Dataset: "MTEB AmazonCounterfactualClassification (en)", Split: "test"},
+		{Type: "ndcg_at_10", Value: "59.5", Dataset: "mteb/arguana (default)", Split: "dev"},
+		{Type: "loss", Value: "0.1"},
+	}
+	if len(card.ModelIndexMetrics) != len(want) {
+		t.Fatalf("metrics = %+v", card.ModelIndexMetrics)
+	}
+	for i := range want {
+		if card.ModelIndexMetrics[i] != want[i] {
+			t.Errorf("metric %d = %+v, want %+v", i, card.ModelIndexMetrics[i], want[i])
+		}
+	}
+}
+
+func TestParseReadmeCard_ModelIndexCap(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("---\nmodel-index:\n- name: m\n  results:\n")
+	for r := 0; r < 15; r++ { // 15 results x 10 metrics = 150
+		b.WriteString("  - dataset:\n      name: d" + strings.Repeat("x", r) + "\n      split: test\n    metrics:\n")
+		for m := 0; m < 10; m++ {
+			b.WriteString("    - type: m\n      value: 1\n")
+		}
+	}
+	b.WriteString("---\n")
+	card := parseReadmeCard(b.String())
+	if len(card.ModelIndexMetrics) != maxModelIndexMetrics {
+		t.Fatalf("metrics = %d, want the cap %d", len(card.ModelIndexMetrics), maxModelIndexMetrics)
+	}
+}

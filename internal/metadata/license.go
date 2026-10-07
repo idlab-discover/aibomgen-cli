@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -52,6 +53,33 @@ type licenseInput struct {
 	// in the repo at the resolved commit; relative links are dropped when either is unknown.
 	RepoPath string
 	SHA      string
+	// LicenseFile is a license file at the repository root (e.g. "LICENSE"), if any.
+	LicenseFile string
+}
+
+// licenseFileRe matches a license file name at the repository root.
+var licenseFileRe = regexp.MustCompile(`(?i)^licen[cs]e(\.(txt|md|rst))?$`)
+
+// rootLicenseFile returns the license file at the repository root, preferring "LICENSE".
+func rootLicenseFile(files []string) string {
+	found := ""
+	for _, f := range files {
+		if strings.Contains(f, "/") || !licenseFileRe.MatchString(f) {
+			continue
+		}
+		if f == "LICENSE" {
+			return f
+		}
+		if found == "" {
+			found = f
+		}
+	}
+	return found
+}
+
+// spdxLicenseURL is the SPDX license list page for an SPDX license ID.
+func spdxLicenseURL(id string) string {
+	return "https://spdx.org/licenses/" + id + ".html"
 }
 
 // firstRealGroup returns the first group that still has values after dropping placeholders.
@@ -106,6 +134,11 @@ func modelLicenseInput(src Source) (licenseInput, bool) {
 			id = strings.TrimSpace(src.ModelID)
 		}
 		in.RepoPath, in.SHA = id, src.HF.SHA
+		files := make([]string, 0, len(src.HF.Siblings))
+		for _, s := range src.HF.Siblings {
+			files = append(files, s.RFilename)
+		}
+		in.LicenseFile = rootLicenseFile(files)
 	}
 	groups = append(groups, licenseTags(tags))
 	if src.Readme != nil {
@@ -175,6 +208,9 @@ func licenseURL(in licenseInput, baseURL string) string {
 // buildLicenses converts HF license data into CycloneDX licenses.
 // SPDX IDs (case-insensitive) become license.id in canonical casing, anything else license.name.
 // Placeholders are dropped; nil means no license is known and the field must be omitted.
+// license.url: for a single license, license_link, else the repository's license file,
+// else the SPDX page; with several licenses, only the SPDX pages (a single link or file
+// can't be attributed to one of them).
 func buildLicenses(in licenseInput, baseURL string) *cdx.Licenses {
 	var ls cdx.Licenses
 	seen := map[string]struct{}{}
@@ -204,6 +240,16 @@ func buildLicenses(in licenseInput, baseURL string) *cdx.Licenses {
 	}
 	if len(ls) == 1 {
 		ls[0].License.URL = licenseURL(in, baseURL)
+		if ls[0].License.URL == "" && in.LicenseFile != "" {
+			if base := blobBase(baseURL, in.RepoPath, in.SHA); base != "" {
+				ls[0].License.URL = base + in.LicenseFile
+			}
+		}
+	}
+	for i := range ls {
+		if l := ls[i].License; l.URL == "" && l.ID != "" {
+			l.URL = spdxLicenseURL(l.ID)
+		}
 	}
 	return &ls
 }

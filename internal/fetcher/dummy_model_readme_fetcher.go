@@ -49,9 +49,9 @@ func (f *DummyModelReadmeFetcher) Fetch(modelID string) (*ModelReadmeCard, error
 		TaskType: "text-generation",
 		TaskName: "Text Generation",
 		ModelIndexMetrics: []ModelIndexMetric{
-			{Type: "perplexity", Value: "15.2"},
-			{Type: "accuracy", Value: "0.85"},
-			{Type: "bleu", Value: "32.4"},
+			{Type: "perplexity", Value: "15.2", Dataset: "WikiText-103", Split: "test"},
+			{Type: "accuracy", Value: "0.85", Dataset: "LAMBADA", Split: "test"},
+			{Type: "bleu", Value: "32.4", Dataset: "WMT14 (en-de)", Split: "test"},
 		},
 
 		// Quantitative Analysis sections.

@@ -49,6 +49,9 @@ func (f *DummyModelAPIFetcher) Fetch(modelID string) (*ModelAPIResponse, error) 
 			ModelType:     "gpt2",
 			Architectures: []string{"GPT2LMHeadModel"},
 		},
+		Siblings: []struct {
+			RFilename string `json:"rfilename"`
+		}{{RFilename: "LICENSE"}, {RFilename: "config.json"}, {RFilename: "model.safetensors"}},
 		BaseModels: &ModelBaseModels{
 			Relation: "finetune",
 			Models: []struct {

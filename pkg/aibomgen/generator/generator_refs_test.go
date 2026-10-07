@@ -307,3 +307,29 @@ func TestBuild_Evidence(t *testing.T) {
 		t.Fatalf("concludedValue = %q", id.ConcludedValue)
 	}
 }
+
+// A dataset known only from a dataset:<id> tag gets a component, and the card's
+// datasets entry (built from the same tag) references it.
+func TestBuildFromModelIDs_DatasetTagFallback(t *testing.T) {
+	api := &mockModelAPIFetcher{fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
+		return &fetcher.ModelAPIResponse{ID: "org/model", SHA: "abc", Tags: []string{"pytorch", "dataset:wikipedia"}}, nil
+	}}
+	withFetchers(t, hfLikeFetchers(api))
+
+	boms, err := BuildFromModelIDs([]string{"org/model"}, GenerateOptions{})
+	if err != nil || len(boms) != 1 {
+		t.Fatalf("BuildFromModelIDs = %d boms, err %v", len(boms), err)
+	}
+	bom := boms[0].BOM
+	if bom.Components == nil || len(*bom.Components) != 1 {
+		t.Fatalf("components = %+v, want the wikipedia data component", bom.Components)
+	}
+	wantRef := "pkg:huggingface/datasets/legacy-datasets/wikipedia@" + wikiSHA
+	ds := *bom.Metadata.Component.ModelCard.ModelParameters.Datasets
+	if len(ds) != 1 || ds[0].Ref != wantRef {
+		t.Fatalf("modelCard datasets = %+v, want a ref to %s", ds, wantRef)
+	}
+	if dangling := validator.DanglingRefs(bom); len(dangling) != 0 {
+		t.Fatalf("dangling refs: %v", dangling)
+	}
+}

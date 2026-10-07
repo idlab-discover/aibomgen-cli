@@ -104,9 +104,14 @@ func normalizeStrings(in []string) []string {
 	return out
 }
 
+// maxModelIndexMetrics caps the metrics taken from model-index: MTEB-style cards list
+// hundreds of results with thousands of metrics.
+const maxModelIndexMetrics = 100
+
+// parseModelIndex reads the task (from the first result) and the metrics of every
+// result of the first model-index entry, each with the dataset and split it was
+// measured on.
 func parseModelIndex(mi any, card *ModelReadmeCard) {
-	// The model-index is typically a list of entries.
-	// We only take the first result for now.
 	list, ok := mi.([]any)
 	if !ok || len(list) == 0 {
 		return
@@ -119,19 +124,26 @@ func parseModelIndex(mi any, card *ModelReadmeCard) {
 	if !ok || len(resultsAny) == 0 {
 		return
 	}
-	res, ok := resultsAny[0].(map[string]any)
-	if !ok {
-		return
+	if res, ok := resultsAny[0].(map[string]any); ok {
+		if taskAny, ok := res["task"].(map[string]any); ok {
+			card.TaskType = strings.TrimSpace(stringFromAny(taskAny["type"]))
+			card.TaskName = strings.TrimSpace(stringFromAny(taskAny["name"]))
+		}
 	}
-	// task.
-	if taskAny, ok := res["task"].(map[string]any); ok {
-		card.TaskType = strings.TrimSpace(stringFromAny(taskAny["type"]))
-		card.TaskName = strings.TrimSpace(stringFromAny(taskAny["name"]))
-	}
-	// metrics.
-	if metricsAny, ok := res["metrics"].([]any); ok {
-		out := make([]ModelIndexMetric, 0, len(metricsAny))
+
+	var out []ModelIndexMetric
+	for _, r := range resultsAny {
+		res, ok := r.(map[string]any)
+		if !ok {
+			continue
+		}
+		dataset, split := modelIndexDataset(res["dataset"])
+		metricsAny, _ := res["metrics"].([]any)
 		for _, m := range metricsAny {
+			if len(out) >= maxModelIndexMetrics {
+				card.ModelIndexMetrics = out
+				return
+			}
 			mm, ok := m.(map[string]any)
 			if !ok {
 				continue
@@ -141,12 +153,29 @@ func parseModelIndex(mi any, card *ModelReadmeCard) {
 			if mt == "" && mv == "" {
 				continue
 			}
-			out = append(out, ModelIndexMetric{Type: mt, Value: mv})
-		}
-		if len(out) > 0 {
-			card.ModelIndexMetrics = out
+			out = append(out, ModelIndexMetric{Type: mt, Value: mv, Dataset: dataset, Split: split})
 		}
 	}
+	if len(out) > 0 {
+		card.ModelIndexMetrics = out
+	}
+}
+
+// modelIndexDataset labels a model-index result dataset: its name, else its type plus
+// the config in parentheses. It also returns the split.
+func modelIndexDataset(v any) (label, split string) {
+	ds, ok := v.(map[string]any)
+	if !ok {
+		return "", ""
+	}
+	label = strings.TrimSpace(stringFromAny(ds["name"]))
+	if label == "" {
+		label = strings.TrimSpace(stringFromAny(ds["type"]))
+		if cfg := strings.TrimSpace(stringFromAny(ds["config"])); cfg != "" && label != "" {
+			label += " (" + cfg + ")"
+		}
+	}
+	return label, strings.TrimSpace(stringFromAny(ds["split"]))
 }
 
 // Heading aliases for the model card considerations. Popular cards rarely use the exact

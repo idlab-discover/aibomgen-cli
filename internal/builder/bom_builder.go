@@ -32,6 +32,7 @@ func (b BOMBuilder) Build(ctx BuildContext) (*cdx.BOM, error) {
 	if err := AddMetaTools(bom, "", GetAIBoMGenVersion()); err != nil {
 		return nil, err
 	}
+	AddMetaLifecycles(bom)
 
 	// Apply registry exactly once (no duplication).
 	src := metadata.Source{

@@ -99,3 +99,14 @@ func TestBuild_EvidenceReplacesAibomgenProperties(t *testing.T) {
 		t.Fatalf("concludedValue = %q, want the computed purl", id.ConcludedValue)
 	}
 }
+
+func TestBuild_LifecyclePostBuild(t *testing.T) {
+	bom, err := NewBOMBuilder(DefaultOptions()).Build(BuildContext{ModelID: "org/m"})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	lc := bom.Metadata.Lifecycles
+	if lc == nil || len(*lc) != 1 || (*lc)[0].Phase != cyclonedx.LifecyclePhasePostBuild {
+		t.Fatalf("lifecycles = %+v, want one post-build phase", lc)
+	}
+}

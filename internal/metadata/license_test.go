@@ -46,9 +46,9 @@ func TestBuildLicenses(t *testing.T) {
 		in   licenseInput
 		want []lic
 	}{
-		{"spdx canonical casing", licenseInput{Values: []string{"apache-2.0"}}, []lic{{id: "Apache-2.0"}}},
-		{"spdx mit", licenseInput{Values: []string{"mit"}}, []lic{{id: "MIT"}}},
-		{"spdx cc-by-nc", licenseInput{Values: []string{"cc-by-nc-4.0"}}, []lic{{id: "CC-BY-NC-4.0"}}},
+		{"spdx canonical casing", licenseInput{Values: []string{"apache-2.0"}}, []lic{{id: "Apache-2.0", url: spdxURL("Apache-2.0")}}},
+		{"spdx mit", licenseInput{Values: []string{"mit"}}, []lic{{id: "MIT", url: spdxURL("MIT")}}},
+		{"spdx cc-by-nc", licenseInput{Values: []string{"cc-by-nc-4.0"}}, []lic{{id: "CC-BY-NC-4.0", url: spdxURL("CC-BY-NC-4.0")}}},
 		{"custom llama stays name", licenseInput{Values: []string{"llama3.1"}}, []lic{{name: "llama3.1"}}},
 		{"custom name stays name", licenseInput{Values: []string{"my-license"}}, []lic{{name: "my-license"}}},
 		{"other uses license_name", licenseInput{Values: []string{"other"}, Name: "deepseek-license"}, []lic{{name: "deepseek-license"}}},
@@ -57,8 +57,17 @@ func TestBuildLicenses(t *testing.T) {
 		{"relative license_link at commit", licenseInput{Values: []string{"llama3.2"}, Link: "LICENSE.txt", RepoPath: "meta-llama/M", SHA: "ABC"},
 			[]lic{{name: "llama3.2", url: "https://huggingface.co/meta-llama/M/blob/abc/LICENSE.txt"}}},
 		{"relative license_link without commit", licenseInput{Values: []string{"llama3.2"}, Link: "LICENSE"}, []lic{{name: "llama3.2"}}},
-		{"multi license", licenseInput{Values: []string{"cc-by-sa-3.0", "gfdl"}, Link: "https://x/y"}, []lic{{id: "CC-BY-SA-3.0"}, {name: "gfdl"}}},
-		{"dedupe case-insensitive", licenseInput{Values: []string{"MIT", "mit"}}, []lic{{id: "MIT"}}},
+		{"multi license: SPDX pages only, no shared link", licenseInput{Values: []string{"cc-by-sa-3.0", "gfdl"}, Link: "https://x/y", LicenseFile: "LICENSE", RepoPath: "org/m", SHA: "abc"},
+			[]lic{{id: "CC-BY-SA-3.0", url: spdxURL("CC-BY-SA-3.0")}, {name: "gfdl"}}},
+		{"dedupe case-insensitive", licenseInput{Values: []string{"MIT", "mit"}}, []lic{{id: "MIT", url: spdxURL("MIT")}}},
+		{"license_link beats license file", licenseInput{Values: []string{"mit"}, Link: "https://example.com/L", LicenseFile: "LICENSE", RepoPath: "org/m", SHA: "abc"},
+			[]lic{{id: "MIT", url: "https://example.com/L"}}},
+		{"license file beats SPDX page", licenseInput{Values: []string{"apache-2.0"}, LicenseFile: "LICENSE.txt", RepoPath: "org/m", SHA: "ABC"},
+			[]lic{{id: "Apache-2.0", url: "https://huggingface.co/org/m/blob/abc/LICENSE.txt"}}},
+		{"license file needs a commit", licenseInput{Values: []string{"apache-2.0"}, LicenseFile: "LICENSE", RepoPath: "org/m"},
+			[]lic{{id: "Apache-2.0", url: spdxURL("Apache-2.0")}}},
+		{"name-only license with a license file", licenseInput{Values: []string{"llama3.2"}, LicenseFile: "LICENSE", RepoPath: "org/m", SHA: "abc"},
+			[]lic{{name: "llama3.2", url: "https://huggingface.co/org/m/blob/abc/LICENSE"}}},
 		{"no values", licenseInput{}, nil},
 		{"[unknown]", licenseInput{Values: []string{"[unknown]"}}, nil},
 		{"unknown", licenseInput{Values: []string{"unknown"}}, nil},
@@ -95,7 +104,7 @@ func TestModelLicenseSourcePrecedence(t *testing.T) {
 			Tags:     []string{"license:mit"},
 		},
 	}
-	if got := apply(src); !reflect.DeepEqual(got, []lic{{id: "MIT"}}) {
+	if got := apply(src); !reflect.DeepEqual(got, []lic{{id: "MIT", url: spdxURL("MIT")}}) {
 		t.Fatalf("placeholder cardData should fall through to tags, got %+v", got)
 	}
 
@@ -120,7 +129,7 @@ func TestModelLicenseSourcePrecedence(t *testing.T) {
 	if err := ApplyUserValue(spec, "apache-2.0", Target{Component: comp}); err != nil {
 		t.Fatal(err)
 	}
-	if got := licensesOf(comp.Licenses); !reflect.DeepEqual(got, []lic{{id: "Apache-2.0"}}) {
+	if got := licensesOf(comp.Licenses); !reflect.DeepEqual(got, []lic{{id: "Apache-2.0", url: spdxURL("Apache-2.0")}}) {
 		t.Fatalf("user license = %+v", got)
 	}
 }
@@ -140,7 +149,7 @@ func TestDatasetLicenseFromList(t *testing.T) {
 		HF:     &fetcher.DatasetAPIResponse{ID: "legacy-datasets/wikipedia", CardData: map[string]any{"license": []any{"cc-by-sa-3.0", "gfdl"}}},
 		Readme: &fetcher.DatasetReadmeCard{FrontMatter: map[string]any{"license": "mit"}},
 	})
-	if !reflect.DeepEqual(got, []lic{{id: "CC-BY-SA-3.0"}, {name: "gfdl"}}) {
+	if !reflect.DeepEqual(got, []lic{{id: "CC-BY-SA-3.0", url: spdxURL("CC-BY-SA-3.0")}, {name: "gfdl"}}) {
 		t.Fatalf("wikipedia licenses = %+v", got)
 	}
 }
@@ -155,5 +164,42 @@ func TestIsPlaceholder(t *testing.T) {
 		if isPlaceholder(s) {
 			t.Errorf("isPlaceholder(%q) = true", s)
 		}
+	}
+}
+
+func spdxURL(id string) string { return "https://spdx.org/licenses/" + id + ".html" }
+
+func TestRootLicenseFile(t *testing.T) {
+	tests := []struct {
+		files []string
+		want  string
+	}{
+		{[]string{"config.json", "LICENSE", "README.md"}, "LICENSE"},
+		{[]string{"LICENSE.txt", "config.json"}, "LICENSE.txt"},
+		{[]string{"license.md", "LICENSE"}, "LICENSE"},
+		{[]string{"Licence"}, "Licence"},
+		{[]string{"docs/LICENSE", "LICENSE-MIT", "NOTICE"}, ""},
+		{nil, ""},
+	}
+	for _, tt := range tests {
+		if got := rootLicenseFile(tt.files); got != tt.want {
+			t.Errorf("rootLicenseFile(%v) = %q, want %q", tt.files, got, tt.want)
+		}
+	}
+}
+
+func TestModelLicenseURLFromSiblings(t *testing.T) {
+	spec := specFor(t, ComponentLicenses)
+	comp := &cdx.Component{}
+	hf := &fetcher.ModelAPIResponse{ID: "google-bert/bert-base-uncased", SHA: "86b5", CardData: map[string]any{"license": "apache-2.0"}}
+	for _, f := range []string{"config.json", "LICENSE"} {
+		hf.Siblings = append(hf.Siblings, struct {
+			RFilename string `json:"rfilename"`
+		}{RFilename: f})
+	}
+	ApplyFromSources(spec, Source{HF: hf}, Target{Component: comp, HuggingFaceBaseURL: "https://huggingface.co/"})
+	want := []lic{{id: "Apache-2.0", url: "https://huggingface.co/google-bert/bert-base-uncased/blob/86b5/LICENSE"}}
+	if got := licensesOf(comp.Licenses); !reflect.DeepEqual(got, want) {
+		t.Fatalf("licenses = %+v, want %+v", got, want)
 	}
 }

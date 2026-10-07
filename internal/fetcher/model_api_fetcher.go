@@ -76,6 +76,10 @@ type ModelAPIResponse struct {
 		ModelType     string   `json:"model_type"`
 		Architectures []string `json:"architectures"`
 	} `json:"config"`
+	// Siblings lists the repository files at the fetched revision.
+	Siblings []struct {
+		RFilename string `json:"rfilename"`
+	} `json:"siblings"`
 	// BaseModels is the Hub's lineage for models whose card declares a base_model.
 	// It comes from a separate ?expand[]=baseModels request (see FetchRevision).
 	BaseModels *ModelBaseModels `json:"baseModels,omitempty"`
