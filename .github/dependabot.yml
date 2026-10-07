@@ -4,6 +4,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Let new releases age a week before proposing them (supply-chain hygiene).
+    cooldown:
+      default-days: 7
     groups:
       dependencies:
         patterns:
@@ -14,6 +17,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Let new releases age a week before proposing them (supply-chain hygiene).
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns:
