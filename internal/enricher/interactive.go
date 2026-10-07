@@ -10,6 +10,18 @@ import (
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 )
 
+// runForm runs a form; tests swap it to drive the form non-interactively.
+var runForm = func(f *huh.Form) error { return f.Run() }
+
+// formField is the kind-independent view of a model or dataset FieldSpec.
+type formField struct {
+	title       string
+	required    bool
+	inputType   metadata.InputType
+	placeholder string
+	suggestions []string
+}
+
 // enrichInteractive enriches fields using interactive forms.
 func enrichInteractive(
 	bom *cdx.BOM,
@@ -21,230 +33,131 @@ func enrichInteractive(
 		return nil, nil
 	}
 
-	// Storage for form values - use map of pointers.
-	valueStore := make(map[metadata.Key]*string)
-	for _, spec := range missingFields {
-		val := ""
-		valueStore[spec.Key] = &val
-	}
-
-	// Create form groups - one form with all fields.
-	formGroups := []*huh.Group{}
-
-	// Add intro note.
-	formGroups = append(formGroups, huh.NewGroup(
-		huh.NewNote().
-			Title("Model Enrichment").
-			Description("Please provide values for the missing fields.\nPress Enter to skip optional fields.").
-			Next(true).
-			NextLabel("Continue"),
-	))
-
-	// Create inputs for each field.
-	for _, spec := range missingFields {
-		fieldInputs := createFieldInput(spec, src, valueStore[spec.Key])
-		if len(fieldInputs) > 0 {
-			formGroups = append(formGroups, huh.NewGroup(fieldInputs...))
+	fields := make([]formField, len(missingFields))
+	for i, spec := range missingFields {
+		fields[i] = formField{
+			title:       formatTitle(string(spec.Key), spec.Weight, spec.Required),
+			required:    spec.Required,
+			inputType:   spec.InputType,
+			placeholder: spec.Placeholder,
+			suggestions: suggestions(spec.Suggestions, spec.Sources, src),
 		}
 	}
 
-	// Skip if no inputs were created.
-	if len(formGroups) <= 1 {
-		return nil, nil
-	}
-
-	// Create and run form.
-	form := huh.NewForm(formGroups...)
-	err := form.Run()
+	values, err := runFields("Model Enrichment", "Please provide values for the missing fields.\nPress Enter to skip optional fields.", fields)
 	if err != nil {
 		return nil, err
 	}
 
-	// Now read the values from the pointers and apply them.
+	// Apply non-empty values; a value that fails to apply is skipped.
 	changes := make(map[metadata.Key]string)
-	for _, spec := range missingFields {
-		strValue := *valueStore[spec.Key]
-		if strValue == "" {
-			continue
+	for i, spec := range missingFields {
+		if values[i] != "" && metadata.ApplyUserValue(spec, values[i], tgt) == nil {
+			changes[spec.Key] = values[i]
 		}
-
-		// Apply the value.
-		err := metadata.ApplyUserValue(spec, strValue, tgt)
-		if err != nil {
-			// Continue on error, just skip this field.
-			continue
-		}
-		changes[spec.Key] = strValue
 	}
-
 	return changes, nil
 }
 
-// createFieldInput creates form inputs for a field spec.
-func createFieldInput(
-	spec metadata.FieldSpec,
-	src metadata.Source,
-	valuePtr *string,
-) []huh.Field {
-	var inputs []huh.Field
+// enrichDatasetInteractive enriches dataset fields using interactive forms.
+func enrichDatasetInteractive(
+	comp *cdx.Component,
+	missingFields []metadata.DatasetFieldSpec,
+	src metadata.DatasetSource,
+	tgt metadata.DatasetTarget,
+) (map[metadata.DatasetKey]string, error) {
+	if len(missingFields) == 0 {
+		return nil, nil
+	}
 
-	// Create appropriate input based on spec.InputType.
-	switch spec.InputType {
-	case metadata.InputTypeTextArea:
-		inputs = append(inputs, createTextAreaInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
+	fields := make([]formField, len(missingFields))
+	for i, spec := range missingFields {
+		fields[i] = formField{
+			title:       formatTitle(simplifyDatasetKeyForDisplay(spec.Key), spec.Weight, spec.Required),
+			required:    spec.Required,
+			inputType:   spec.InputType,
+			placeholder: spec.Placeholder,
+			suggestions: suggestions(spec.Suggestions, spec.Sources, src),
+		}
+	}
+
+	values, err := runFields(fmt.Sprintf("Dataset Enrichment: %s", comp.Name), "Please provide values for the missing dataset fields.\nPress Enter to skip optional fields.", fields)
+	if err != nil {
+		return nil, err
+	}
+
+	changes := make(map[metadata.DatasetKey]string)
+	for i, spec := range missingFields {
+		if values[i] != "" && metadata.ApplyDatasetUserValue(spec, values[i], tgt) == nil {
+			changes[spec.Key] = values[i]
+		}
+	}
+	return changes, nil
+}
+
+// runFields shows an intro note followed by one group per field and returns
+// the entered values in field order.
+func runFields(title, description string, fields []formField) ([]string, error) {
+	values := make([]string, len(fields))
+	groups := []*huh.Group{huh.NewGroup(
+		huh.NewNote().
+			Title(title).
+			Description(description).
+			Next(true).
+			NextLabel("Continue"),
+	)}
+	for i, f := range fields {
+		groups = append(groups, huh.NewGroup(field(f, &values[i])))
+	}
+	if err := runForm(huh.NewForm(groups...)); err != nil {
+		return nil, err
+	}
+	return values, nil
+}
+
+// field builds the huh input for f according to its InputType.
+func field(f formField, value *string) huh.Field {
+	validate := func(s string) error {
+		if f.required && strings.TrimSpace(s) == "" {
+			return fmt.Errorf("this field is required")
+		}
+		return nil
+	}
+
+	switch f.inputType {
 	case metadata.InputTypeSelect:
-		inputs = append(inputs, createSelectInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
-	case metadata.InputTypeMultiText:
-		inputs = append(inputs, createMultiTextInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
-	default: // InputTypeText
-		inputs = append(inputs, createTextInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
+		options := []huh.Option[string]{}
+		for _, s := range f.suggestions {
+			options = append(options, huh.NewOption(s, s))
+		}
+		return huh.NewSelect[string]().
+			Title(f.title).
+			Description(f.placeholder).
+			Options(options...).
+			Value(value).
+			Validate(validate)
+	case metadata.InputTypeTextArea:
+		return huh.NewText().
+			Title(f.title).
+			Description(formatDescription(f.suggestions, f.placeholder, false)).
+			Placeholder(f.placeholder).
+			Value(value).
+			Lines(5).
+			CharLimit(1000).
+			Validate(validate)
+	default: // InputTypeText, InputTypeMultiText
+		return huh.NewInput().
+			Title(f.title).
+			Description(formatDescription(f.suggestions, f.placeholder, f.inputType == metadata.InputTypeMultiText)).
+			Placeholder(f.placeholder).
+			Value(value).
+			Validate(validate)
 	}
-
-	return inputs
-}
-
-// createTextInput creates a standard text input field.
-func createTextInput(
-	key metadata.Key,
-	required bool,
-	weight float64,
-	placeholder string,
-	suggestions []string,
-	sources []func(metadata.Source) (any, bool),
-	src metadata.Source,
-	valuePtr *string,
-) huh.Field {
-	// Get suggestions from sources if not explicitly provided.
-	if len(suggestions) == 0 {
-		suggestions = getSuggestionsFromSources(sources, src)
-	}
-
-	description := formatDescription(suggestions, placeholder, false)
-	title := formatTitle(key, weight, required)
-
-	input := huh.NewInput().
-		Title(title).
-		Description(description).
-		Placeholder(placeholder).
-		Value(valuePtr).
-		Validate(func(s string) error {
-			if required && strings.TrimSpace(s) == "" {
-				return fmt.Errorf("this field is required")
-			}
-			return nil
-		})
-
-	return input
-}
-
-// createMultiTextInput creates input for comma-separated arrays.
-func createMultiTextInput(
-	key metadata.Key,
-	required bool,
-	weight float64,
-	placeholder string,
-	suggestions []string,
-	sources []func(metadata.Source) (any, bool),
-	src metadata.Source,
-	valuePtr *string,
-) huh.Field {
-	if len(suggestions) == 0 {
-		suggestions = getSuggestionsFromSources(sources, src)
-	}
-
-	description := formatDescription(suggestions, placeholder, true)
-	title := formatTitle(key, weight, required)
-
-	input := huh.NewInput().
-		Title(title).
-		Description(description).
-		Placeholder(placeholder).
-		Value(valuePtr).
-		Validate(func(s string) error {
-			if required && strings.TrimSpace(s) == "" {
-				return fmt.Errorf("this field is required")
-			}
-			return nil
-		})
-
-	return input
-}
-
-// createTextAreaInput creates a multi-line text input.
-func createTextAreaInput(
-	key metadata.Key,
-	required bool,
-	weight float64,
-	placeholder string,
-	suggestions []string,
-	sources []func(metadata.Source) (any, bool),
-	src metadata.Source,
-	valuePtr *string,
-) huh.Field {
-	if len(suggestions) == 0 {
-		suggestions = getSuggestionsFromSources(sources, src)
-	}
-
-	title := formatTitle(key, weight, required)
-	description := formatDescription(suggestions, placeholder, false)
-
-	input := huh.NewText().
-		Title(title).
-		Description(description).
-		Placeholder(placeholder).
-		Value(valuePtr).
-		Lines(5).
-		CharLimit(1000).
-		Validate(func(s string) error {
-			if required && strings.TrimSpace(s) == "" {
-				return fmt.Errorf("this field is required")
-			}
-			return nil
-		})
-
-	return input
-}
-
-// createSelectInput creates a select input with predefined options.
-func createSelectInput(
-	key metadata.Key,
-	required bool,
-	weight float64,
-	placeholder string,
-	suggestions []string,
-	sources []func(metadata.Source) (any, bool),
-	src metadata.Source,
-	valuePtr *string,
-) huh.Field {
-	if len(suggestions) == 0 {
-		suggestions = getSuggestionsFromSources(sources, src)
-	}
-
-	title := formatTitle(key, weight, required)
-
-	options := []huh.Option[string]{}
-	for _, suggestion := range suggestions {
-		options = append(options, huh.NewOption(suggestion, suggestion))
-	}
-
-	input := huh.NewSelect[string]().
-		Title(title).
-		Description(placeholder).
-		Options(options...).
-		Value(valuePtr).
-		Validate(func(s string) error {
-			if required && s == "" {
-				return fmt.Errorf("this field is required")
-			}
-			return nil
-		})
-
-	return input
 }
 
 // Helper methods.
 
-func formatTitle(key metadata.Key, weight float64, required bool) string {
+func formatTitle(name string, weight float64, required bool) string {
 	requiredLabel := ""
 	if required {
 		requiredLabel = ui.Error.Render(" [REQUIRED]")
@@ -252,7 +165,7 @@ func formatTitle(key metadata.Key, weight float64, required bool) string {
 
 	weightLabel := ui.Muted.Render(fmt.Sprintf(" (weight: %.1f)", weight))
 
-	return fmt.Sprintf("%s%s%s", string(key), weightLabel, requiredLabel)
+	return fmt.Sprintf("%s%s%s", name, weightLabel, requiredLabel)
 }
 
 func formatDescription(suggestions []string, placeholder string, isArray bool) string {
@@ -282,8 +195,11 @@ func formatDescription(suggestions []string, placeholder string, isArray bool) s
 	return strings.Join(parts, " • ")
 }
 
-func getSuggestionsFromSources(sources []func(metadata.Source) (any, bool), src metadata.Source) []string {
-	// Try to get value from sources.
+// suggestions returns explicit when set, else the first non-empty source value.
+func suggestions[S any](explicit []string, sources []func(S) (any, bool), src S) []string {
+	if len(explicit) > 0 {
+		return explicit
+	}
 	for _, sourceFn := range sources {
 		if val, ok := sourceFn(src); ok && val != nil {
 			switch v := val.(type) {
@@ -320,241 +236,6 @@ func camelToTitle(s string) string {
 	return strings.Join(words, " ")
 }
 
-// enrichDatasetInteractive enriches dataset fields using interactive forms.
-func enrichDatasetInteractive(
-	comp *cdx.Component,
-	missingFields []metadata.DatasetFieldSpec,
-	src metadata.DatasetSource,
-	tgt metadata.DatasetTarget,
-) (map[metadata.DatasetKey]string, error) {
-	if len(missingFields) == 0 {
-		return nil, nil
-	}
-
-	// Storage for form values - use map of pointers.
-	valueStore := make(map[metadata.DatasetKey]*string)
-	for _, spec := range missingFields {
-		val := ""
-		valueStore[spec.Key] = &val
-	}
-
-	// Create form groups.
-	formGroups := []*huh.Group{}
-
-	// Add intro note.
-	formGroups = append(formGroups, huh.NewGroup(
-		huh.NewNote().
-			Title(fmt.Sprintf("Dataset Enrichment: %s", comp.Name)).
-			Description("Please provide values for the missing dataset fields.\nPress Enter to skip optional fields.").
-			Next(true).
-			NextLabel("Continue"),
-	))
-
-	// Create inputs for each field.
-	for _, spec := range missingFields {
-		fieldInputs := createDatasetFieldInput(spec, src, valueStore[spec.Key])
-		if len(fieldInputs) > 0 {
-			formGroups = append(formGroups, huh.NewGroup(fieldInputs...))
-		}
-	}
-
-	// Skip if no inputs were created.
-	if len(formGroups) <= 1 {
-		return nil, nil
-	}
-
-	// Create and run form.
-	form := huh.NewForm(formGroups...)
-	err := form.Run()
-	if err != nil {
-		return nil, err
-	}
-
-	// Now read the values from the pointers and apply them.
-	changes := make(map[metadata.DatasetKey]string)
-	for _, spec := range missingFields {
-		strValue := *valueStore[spec.Key]
-		if strValue == "" {
-			continue
-		}
-
-		// Apply the value.
-		err := metadata.ApplyDatasetUserValue(spec, strValue, tgt)
-		if err != nil {
-			// Continue on error, just skip this field.
-			continue
-		}
-		changes[spec.Key] = strValue
-	}
-
-	return changes, nil
-}
-
-// createDatasetFieldInput creates form inputs for a dataset field spec.
-func createDatasetFieldInput(
-	spec metadata.DatasetFieldSpec,
-	src metadata.DatasetSource,
-	valuePtr *string,
-) []huh.Field {
-	var inputs []huh.Field
-
-	// Create appropriate input based on spec.InputType.
-	switch spec.InputType {
-	case metadata.InputTypeTextArea:
-		inputs = append(inputs, createDatasetTextAreaInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
-	case metadata.InputTypeSelect:
-		inputs = append(inputs, createDatasetSelectInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
-	case metadata.InputTypeMultiText:
-		inputs = append(inputs, createDatasetMultiTextInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
-	default: // InputTypeText
-		inputs = append(inputs, createDatasetTextInput(spec.Key, spec.Required, spec.Weight, spec.Placeholder, spec.Suggestions, spec.Sources, src, valuePtr))
-	}
-
-	return inputs
-}
-
-// Dataset-specific input creators.
-func createDatasetTextInput(
-	key metadata.DatasetKey,
-	required bool,
-	weight float64,
-	placeholder string,
-	suggestions []string,
-	sources []func(metadata.DatasetSource) (any, bool),
-	src metadata.DatasetSource,
-	valuePtr *string,
-) huh.Field {
-	if len(suggestions) == 0 {
-		suggestions = getDatasetSuggestionsFromSources(sources, src)
-	}
-
-	title := formatDatasetTitle(key, weight, required)
-	description := formatDescription(suggestions, placeholder, false)
-
-	input := huh.NewInput().
-		Title(title).
-		Description(description).
-		Placeholder(placeholder).
-		Value(valuePtr).
-		Validate(func(s string) error {
-			if required && strings.TrimSpace(s) == "" {
-				return fmt.Errorf("this field is required")
-			}
-			return nil
-		})
-
-	return input
-}
-
-func createDatasetMultiTextInput(
-	key metadata.DatasetKey,
-	required bool,
-	weight float64,
-	placeholder string,
-	suggestions []string,
-	sources []func(metadata.DatasetSource) (any, bool),
-	src metadata.DatasetSource,
-	valuePtr *string,
-) huh.Field {
-	if len(suggestions) == 0 {
-		suggestions = getDatasetSuggestionsFromSources(sources, src)
-	}
-
-	title := formatDatasetTitle(key, weight, required)
-	description := formatDescription(suggestions, placeholder, true)
-
-	input := huh.NewInput().
-		Title(title).
-		Description(description).
-		Placeholder(placeholder).
-		Value(valuePtr).
-		Validate(func(s string) error {
-			if required && strings.TrimSpace(s) == "" {
-				return fmt.Errorf("this field is required")
-			}
-			return nil
-		})
-
-	return input
-}
-
-func createDatasetTextAreaInput(
-	key metadata.DatasetKey,
-	required bool,
-	weight float64,
-	placeholder string,
-	suggestions []string,
-	sources []func(metadata.DatasetSource) (any, bool),
-	src metadata.DatasetSource,
-	valuePtr *string,
-) huh.Field {
-	if len(suggestions) == 0 {
-		suggestions = getDatasetSuggestionsFromSources(sources, src)
-	}
-
-	title := formatDatasetTitle(key, weight, required)
-	description := formatDescription(suggestions, placeholder, false)
-
-	input := huh.NewText().
-		Title(title).
-		Description(description).
-		Placeholder(placeholder).
-		Value(valuePtr).
-		Lines(5).
-		CharLimit(1000)
-
-	return input
-}
-
-func createDatasetSelectInput(
-	key metadata.DatasetKey,
-	required bool,
-	weight float64,
-	placeholder string,
-	suggestions []string,
-	sources []func(metadata.DatasetSource) (any, bool),
-	src metadata.DatasetSource,
-	valuePtr *string,
-) huh.Field {
-	if len(suggestions) == 0 {
-		suggestions = getDatasetSuggestionsFromSources(sources, src)
-	}
-
-	title := formatDatasetTitle(key, weight, required)
-
-	options := []huh.Option[string]{}
-	for _, suggestion := range suggestions {
-		options = append(options, huh.NewOption(suggestion, suggestion))
-	}
-
-	input := huh.NewSelect[string]().
-		Title(title).
-		Description(placeholder).
-		Options(options...).
-		Value(valuePtr).
-		Validate(func(s string) error {
-			if required && s == "" {
-				return fmt.Errorf("this field is required")
-			}
-			return nil
-		})
-
-	return input
-}
-
-func formatDatasetTitle(key metadata.DatasetKey, weight float64, required bool) string {
-	requiredLabel := ""
-	if required {
-		requiredLabel = ui.Error.Render(" [REQUIRED]")
-	}
-
-	weightLabel := ui.Muted.Render(fmt.Sprintf(" (weight: %.1f)", weight))
-
-	displayKey := simplifyDatasetKeyForDisplay(key)
-
-	return fmt.Sprintf("%s%s%s", displayKey, weightLabel, requiredLabel)
-}
-
 func simplifyDatasetKeyForDisplay(key metadata.DatasetKey) string {
 	keyStr := string(key)
 	parts := strings.Split(keyStr, ".")
@@ -574,23 +255,4 @@ func simplifyDatasetKeyForDisplay(key metadata.DatasetKey) string {
 	}
 
 	return camelToTitle(lastPart)
-}
-
-func getDatasetSuggestionsFromSources(sources []func(metadata.DatasetSource) (any, bool), src metadata.DatasetSource) []string {
-	// Try to get value from sources.
-	for _, sourceFn := range sources {
-		if val, ok := sourceFn(src); ok && val != nil {
-			switch v := val.(type) {
-			case string:
-				if v != "" {
-					return []string{v}
-				}
-			case []string:
-				if len(v) > 0 {
-					return v
-				}
-			}
-		}
-	}
-	return nil
 }

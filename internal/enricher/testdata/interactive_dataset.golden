@@ -1,0 +1,159 @@
+=== view group 0 ===
+[38;5;238m┃[m [1;38;2;90;86;224mDataset Enrichment: acme/demo-ds[m                                                                  
+[38;5;238m┃[m                                                                                                   
+[38;5;238m┃[m Please provide values for the missing dataset fields.                                             
+[38;5;238m┃[m Press Enter to skip optional fields.[0m                                                              
+[38;5;238m┃[m                                                                                                   
+[38;5;238m┃[m [48;2;247;128;226m  [m[38;2;255;253;245;48;2;247;128;226mContinue[m[48;2;247;128;226m  [m                                                                                     
+=== view group 1 ===
+[38;5;238m┃[m [1;38;2;90;86;224mName[38;2;107;114;128m (weight: 1.0)[m[38;2;239;68;68m [REQUIRED][m[m                                                                     
+[38;5;238m┃[m [38;2;156;163;175mSuggestions: [macme/demo-ds • [38;2;107;114;128mFormat: [me.g., organization/dataset-name                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132me[m[38;5;248m.g., organization/dataset-name[m[38;5;248m                                                                 [m
+=== view group 2 ===
+[38;5;238m┃[m [1;38;2;90;86;224mExternal References[38;2;107;114;128m (weight: 0.5)[m[m                                                                 
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mh[m[38;5;248mttps://example.com/dataset[m[38;5;248m                                                                     [m
+=== view group 3 ===
+[38;5;238m┃[m [1;38;2;90;86;224mTags[38;2;107;114;128m (weight: 0.5)[m[m                                                                                
+[38;5;238m┃[m [38;2;156;163;175mSuggestions: [mnlp, vision, audio, tabular, multimodal, text, image • [38;2;107;114;128mEnter comma-separated values[m •
+[38;5;238m┃[m [38;2;107;114;128mFormat: [mnlp, text, en                                                                            
+=== view group 4 ===
+[38;5;238m┃[m [1;38;2;90;86;224mLicenses[38;2;107;114;128m (weight: 0.8)[m[m                                                                            
+[38;5;238m┃[m Select a license                                                                                  
+[38;5;238m┃[m [38;2;247;128;226m> [m[38;2;2;186;132mApache-2.0[m                                                                                      
+[38;5;238m┃[m   [38;5;252mMIT[m                                                                                             
+[38;5;238m┃[m   [38;5;252mCC-BY-4.0[m                                                                                       
+[38;5;238m┃[m   [38;5;252mCC-BY-SA-4.0[m                                                                                    
+[38;5;238m┃[m   [38;5;252mCC0-1.0[m                                                                                        
+=== view group 5 ===
+[38;5;238m┃[m [1;38;2;90;86;224mDescription[38;2;107;114;128m (weight: 0.7)[m[m                                                                         
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m[m[7mD[m[38;5;248mescribe the dataset...[m                                                                           
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                
+=== view group 6 ===
+[38;5;238m┃[m [1;38;2;90;86;224mManufacturer[38;2;107;114;128m (weight: 0.6)[m[m                                                                        
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mO[m[38;5;248mrganization or author name[m[38;5;248m                                                                     [m
+=== view group 7 ===
+[38;5;238m┃[m [1;38;2;90;86;224mSupplier[38;2;107;114;128m (weight: 0.4)[m[m                                                                            
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mO[m[38;5;248mrganization distributing the dataset[m[38;5;248m                                                           [m
+=== view group 8 ===
+[38;5;238m┃[m [1;38;2;90;86;224mAuthors[38;2;107;114;128m (weight: 0.6)[m[m                                                                             
+[38;5;238m┃[m [38;2;107;114;128mEnter comma-separated values[m • [38;2;107;114;128mFormat: [mauthor1, author2, author3                                  
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132ma[m[38;5;248muthor1, author2, author3[m[38;5;248m                                                                       [m
+=== view group 9 ===
+[38;5;238m┃[m [1;38;2;90;86;224mGroup[38;2;107;114;128m (weight: 0.4)[m[m                                                                               
+[38;5;238m┃[m [38;2;156;163;175mSuggestions: [macme • [38;2;107;114;128mFormat: [mOrganization or group name                                            
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mO[m[38;5;248mrganization or group name[m[38;5;248m                                                                      [m
+=== view group 10 ===
+[38;5;238m┃[m [1;38;2;90;86;224mAttachments[38;2;107;114;128m (weight: 0.5)[m[m                                                                         
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m[m[7mD[m[38;5;248mescribe dataset contents...[m                                                                      
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                
+=== view group 11 ===
+[38;5;238m┃[m [1;38;2;90;86;224mSensitive Data[38;2;107;114;128m (weight: 0.6)[m[m                                                                      
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m[m[7mD[m[38;5;248mescribe any sensitive data...[m                                                                    
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                
+=== view group 12 ===
+[38;5;238m┃[m [1;38;2;90;86;224mClassification[38;2;107;114;128m (weight: 0.6)[m[m                                                                      
+[38;5;238m┃[m [38;2;156;163;175mSuggestions: [mtext, image, audio, video, tabular • [38;2;107;114;128mFormat: [mtext, image, audio, etc.                
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mt[m[38;5;248mext, image, audio, etc.[m[38;5;248m                                                                        [m
+=== view group 13 ===
+[38;5;238m┃[m [1;38;2;90;86;224mGovernance[38;2;107;114;128m (weight: 0.7)[m[m                                                                          
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m[m[7mc[m[38;5;248mustodian:OrgName,steward:CuratorName,owner:FunderName[m                                            
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                 
+[38;5;238m┃[m [38;5;248m[38;2;247;128;226m[m[m[30m [m                                                                                                
+=== view group 14 ===
+[38;5;238m┃[m [1;38;2;90;86;224mHashes[38;2;107;114;128m (weight: 0.5)[m[m                                                                              
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mS[m[38;5;248mHA-256 hash value[m[38;5;248m                                                                              [m
+=== view group 15 ===
+[38;5;238m┃[m [1;38;2;90;86;224mCreated At[38;2;107;114;128m (weight: 0.3)[m[m                                                                          
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mY[m[38;5;248mYYY-MM-DD[m[38;5;248m                                                                                      [m
+=== view group 16 ===
+[38;5;238m┃[m [1;38;2;90;86;224mUsed Storage[38;2;107;114;128m (weight: 0.3)[m[m                                                                        
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mS[m[38;5;248mtorage size in bytes[m[38;5;248m                                                                           [m
+=== view group 17 ===
+[38;5;238m┃[m [1;38;2;90;86;224mLast Modified[38;2;107;114;128m (weight: 0.3)[m[m                                                                       
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mY[m[38;5;248mYYY-MM-DD[m[38;5;248m                                                                                      [m
+=== view group 18 ===
+[38;5;238m┃[m [1;38;2;90;86;224mDataset Contact[38;2;107;114;128m (weight: 0.5)[m[m                                                                     
+[38;5;238m┃[m [38;2;107;114;128mPress Enter to skip[m                                                                               
+[38;5;238m┃[m [38;2;247;128;226m> [m[7;38;2;2;186;132mC[m[38;5;248montact information[m[38;5;248m                                                                             [m
+=== accessible transcript ===
+[1;38;2;90;86;224mDataset Enrichment: acme/demo-ds[m
+Please provide values for the missing dataset fields.
+Press Enter to skip optional fields.
+
+[1;38;2;90;86;224mName[38;2;107;114;128m (weight: 1.0)[m[38;2;239;68;68m [REQUIRED][m[m this field is required
+[1;38;2;90;86;224mName[38;2;107;114;128m (weight: 1.0)[m[38;2;239;68;68m [REQUIRED][m[m 
+[1;38;2;90;86;224mExternal References[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mTags[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mLicenses[38;2;107;114;128m (weight: 0.8)[m[m 
+1. Apache-2.0
+2. MIT
+3. CC-BY-4.0
+4. CC-BY-SA-4.0
+5. CC0-1.0
+Enter a number between 1 and 5: 
+[1;38;2;90;86;224mDescription[38;2;107;114;128m (weight: 0.7)[m[m 
+[1;38;2;90;86;224mManufacturer[38;2;107;114;128m (weight: 0.6)[m[m 
+[1;38;2;90;86;224mSupplier[38;2;107;114;128m (weight: 0.4)[m[m 
+[1;38;2;90;86;224mAuthors[38;2;107;114;128m (weight: 0.6)[m[m 
+[1;38;2;90;86;224mGroup[38;2;107;114;128m (weight: 0.4)[m[m 
+[1;38;2;90;86;224mAttachments[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mSensitive Data[38;2;107;114;128m (weight: 0.6)[m[m 
+[1;38;2;90;86;224mClassification[38;2;107;114;128m (weight: 0.6)[m[m 
+[1;38;2;90;86;224mGovernance[38;2;107;114;128m (weight: 0.7)[m[m 
+[1;38;2;90;86;224mHashes[38;2;107;114;128m (weight: 0.5)[m[m 
+[1;38;2;90;86;224mCreated At[38;2;107;114;128m (weight: 0.3)[m[m 
+[1;38;2;90;86;224mUsed Storage[38;2;107;114;128m (weight: 0.3)[m[m 
+[1;38;2;90;86;224mLast Modified[38;2;107;114;128m (weight: 0.3)[m[m 
+[1;38;2;90;86;224mDataset Contact[38;2;107;114;128m (weight: 0.5)[m[m 
+=== err ===
+<nil>
+=== changes ===
+BOM.components[DATA].data.description = "Scripted dataset description."
+BOM.components[DATA].licenses = "CC-BY-4.0"
+BOM.components[DATA].name = "acme/ds-override"
+BOM.components[DATA].tags = "x, y"
+=== result ===
+{
+  "type": "data",
+  "name": "acme/ds-override",
+  "licenses": [
+    {
+      "license": {
+        "id": "CC-BY-4.0",
+        "url": "https://spdx.org/licenses/CC-BY-4.0.html"
+      }
+    }
+  ],
+  "data": [
+    {
+      "type": "dataset",
+      "description": "Scripted dataset description."
+    }
+  ],
+  "tags": [
+    "x",
+    "y"
+  ]
+}
