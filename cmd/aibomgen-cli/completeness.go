@@ -24,17 +24,12 @@ var completenessCmd = &cobra.Command{
 			return err
 		}
 
-		// Get input path and format from viper.
+		// Get input path from viper.
 		inputPath := viper.GetString("completeness.input")
 		if inputPath == "" {
 			return errors.New("--input is required")
 		}
-		inputFormat := viper.GetString("completeness.format")
-		if inputFormat == "" {
-			inputFormat = "auto"
-		}
-
-		bom, err := bomio.ReadBOM(inputPath, inputFormat)
+		bom, err := bomio.ReadBOM(inputPath)
 		if err != nil {
 			return err
 		}
@@ -62,7 +57,7 @@ var completenessCmd = &cobra.Command{
 
 func init() {
 	completenessCmd.Flags().StringP("input", "i", "", "Path to existing AIBOM file (required)")
-	completenessCmd.Flags().StringP("format", "f", "", "Input BOM format: json|xml|auto")
+	addDeprecatedFlag(completenessCmd, "format", "f", inputFormatDeprecation)
 	completenessCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")
 	completenessCmd.Flags().Bool("plain-summary", false, "Print a single-line plain summary (no styling)")
 

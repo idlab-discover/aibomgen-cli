@@ -43,11 +43,7 @@ from Hugging Face API and README before enrichment.`,
 		if inputPath == "" {
 			return errors.New("--input is required")
 		}
-		inputFormat := viper.GetString("enrich.format")
-		if inputFormat == "" {
-			inputFormat = "auto"
-		}
-		bom, err := bomio.ReadBOM(inputPath, inputFormat)
+		bom, err := bomio.ReadBOM(inputPath)
 		if err != nil {
 			return fmt.Errorf("failed to read input BOM: %w", err)
 		}
@@ -60,10 +56,6 @@ from Hugging Face API and README before enrichment.`,
 
 		// Get settings from viper (respects config file).
 		specVersion := strings.TrimSpace(viper.GetString("enrich.spec"))
-		outputFormat := viper.GetString("enrich.output-format")
-		if outputFormat == "" {
-			outputFormat = "auto"
-		}
 
 		// Build enricher configuration.
 		cfg := enricher.Config{
@@ -104,7 +96,7 @@ from Hugging Face API and README before enrichment.`,
 		}
 
 		// Write output.
-		if err := bomio.WriteBOM(enriched, outPath, outputFormat, specVersion); err != nil {
+		if err := bomio.WriteBOM(enriched, outPath, specVersion); err != nil {
 			return fmt.Errorf("failed to write output: %w", err)
 		}
 
@@ -120,8 +112,8 @@ from Hugging Face API and README before enrichment.`,
 func init() {
 	enrichCmd.Flags().StringP("input", "i", "", "Path to existing AIBOM (required)")
 	enrichCmd.Flags().StringP("output", "o", "", "Output file path (default: overwrite input)")
-	enrichCmd.Flags().StringP("format", "f", "", "Input BOM format: json|xml|auto")
-	enrichCmd.Flags().String("output-format", "", "Output BOM format: json|xml|auto")
+	addDeprecatedFlag(enrichCmd, "format", "f", inputFormatDeprecation)
+	addDeprecatedFlag(enrichCmd, "output-format", "", outputFormatDeprecation)
 	enrichCmd.Flags().String("spec", "", "CycloneDX spec version for output (default: same as input)")
 
 	enrichCmd.Flags().String("strategy", "", "Enrichment strategy: interactive|file")

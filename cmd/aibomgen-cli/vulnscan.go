@@ -36,11 +36,6 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 		return errors.New("--input is required")
 	}
 
-	inputFormat := viper.GetString("vuln-scan.format")
-	if inputFormat == "" {
-		inputFormat = "auto"
-	}
-
 	quiet, err := quietFrom(viper.GetString("vuln-scan.log-level"))
 	if err != nil {
 		return err
@@ -55,7 +50,7 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 	}
 
 	// ── Read AIBOM ──────────────────────────────────────────────────────────.
-	bom, err := bomio.ReadBOM(inputPath, inputFormat)
+	bom, err := bomio.ReadBOM(inputPath)
 	if err != nil {
 		return fmt.Errorf("failed to read input BOM: %w", err)
 	}
@@ -63,10 +58,6 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 	outPath := viper.GetString("vuln-scan.output")
 	if outPath == "" {
 		outPath = inputPath
-	}
-	outputFormat := viper.GetString("vuln-scan.output-format")
-	if outputFormat == "" {
-		outputFormat = "auto"
 	}
 	specVersion := strings.TrimSpace(viper.GetString("vuln-scan.spec"))
 
@@ -135,7 +126,7 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 
 	vulnscan.ApplyToDOM(bom, results)
 
-	if err := bomio.WriteBOM(bom, outPath, outputFormat, specVersion); err != nil {
+	if err := bomio.WriteBOM(bom, outPath, specVersion); err != nil {
 		return fmt.Errorf("failed to write enriched BOM: %w", err)
 	}
 
@@ -299,8 +290,8 @@ func confirmVulnEnrich(results []vulnscan.ComponentScanResult) (bool, error) {
 func init() {
 	vulnScanCmd.Flags().StringP("input", "i", "", "Path to existing AIBOM (required)")
 	vulnScanCmd.Flags().StringP("output", "o", "", "Output path when --enrich is set (default: overwrite input)")
-	vulnScanCmd.Flags().StringP("format", "f", "", "Input BOM format: json|xml|auto")
-	vulnScanCmd.Flags().String("output-format", "", "Output BOM format: json|xml|auto")
+	addDeprecatedFlag(vulnScanCmd, "format", "f", inputFormatDeprecation)
+	addDeprecatedFlag(vulnScanCmd, "output-format", "", outputFormatDeprecation)
 	vulnScanCmd.Flags().String("spec", "", "CycloneDX spec version for output")
 
 	vulnScanCmd.Flags().Bool("enrich", false, "Inject discovered vulnerabilities back into the AIBOM")

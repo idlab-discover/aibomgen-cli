@@ -29,7 +29,7 @@ func TestWriteBOM_EvidencePerSpecVersion(t *testing.T) {
 	for _, spec := range []string{"1.5", "1.6", "1.7"} {
 		t.Run(spec, func(t *testing.T) {
 			out := filepath.Join(t.TempDir(), "bom.json")
-			if err := WriteBOM(evidenceBOM(), out, "json", spec); err != nil {
+			if err := WriteBOM(evidenceBOM(), out, spec); err != nil {
 				t.Fatalf("WriteBOM: %v", err)
 			}
 			raw, err := os.ReadFile(out)

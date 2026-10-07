@@ -1,9 +1,8 @@
 // Package bomio provides read and write helpers for CycloneDX BOMs.
 //
-// Both JSON and XML serialisation are supported. When the format parameter is.
-// "auto", the format is inferred from the file extension (.json → JSON,.
-// .xml → XML). [WriteBOM] accepts an optional CycloneDX spec version string.
-// (e.g. "1.5") to downgrade the output; omitting it encodes with the version.
-// already set on the BOM. [WriteOutputFiles] writes one file per.
-// [generator.DiscoveredBOM], deriving filenames from the model component name.
+// [ReadBOM] detects JSON or XML from the file content. [WriteBOM] picks the
+// encoding from the output extension (".xml" → XML, anything else → JSON) and
+// accepts an optional CycloneDX spec version (e.g. "1.5") to downgrade the
+// output. [WriteOutputFiles] writes one "<model-ref>.aibom.cdx.json" (or ".xml")
+// file per [generator.DiscoveredBOM].
 package bomio

@@ -11,10 +11,10 @@ generate:
   model-ids: []
   # Interactive model selector (cannot be used with model-ids)
   interactive: false
-  # Output file path (directory is used)
-  output: "./dist/aibom"
-  # Output BOM format: json|xml|auto
-  format: "auto"
+  # Output directory; one <model-ref>.aibom.cdx.<json|xml> file is written per model
+  output: "./dist"
+  # Output BOM format: json|xml
+  format: "json"
   # CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7) empty is latest (1.7)
   spec: ""
   # Hugging Face metadata mode: online|dummy
@@ -34,10 +34,10 @@ generate:
 scan:
   # Path to scan (defaults to current directory)
   input: "./targets/target-3"
-  # Output file path (directory is used)
-  output: "./dist/aibom"
-  # Output BOM format: json|xml|auto
-  format: "auto"
+  # Output directory; one <model-ref>.aibom.cdx.<json|xml> file is written per model
+  output: "./dist"
+  # Output BOM format: json|xml
+  format: "json"
   # CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7) empty is latest (1.7)
   spec: ""
   # Hugging Face metadata mode: online|dummy
@@ -56,13 +56,9 @@ scan:
 # ============================================================================
 enrich:
   # Path to existing AIBOM (required)
-  input: "./dist/WiebeVandendriessche_model-card-example_aibom.json"
-  # Output file path (default: overwrite input)
+  input: "./dist/WiebeVandendriessche_model-card-example.aibom.cdx.json"
+  # Output file path (default: overwrite input); .xml writes XML, anything else JSON
   output: ""
-  # Input BOM format: json|xml|auto
-  format: "auto"
-  # Output BOM format: json|xml|auto
-  output-format: "auto"
   # CycloneDX spec version for output (default: same as input)
   spec: ""
   # Enrichment strategy: interactive|file
@@ -91,9 +87,7 @@ enrich:
 # ============================================================================
 validate:
   # Path to AIBOM file (required)
-  input: "./dist/WiebeVandendriessche_model-card-example_aibom.json"
-  # Input format: json|xml|auto
-  format: "auto"
+  input: "./dist/WiebeVandendriessche_model-card-example.aibom.cdx.json"
   # Strict mode: fail on missing required fields
   strict: false
   # Minimum completeness score (0.0-1.0)
@@ -108,9 +102,7 @@ validate:
 # ============================================================================
 completeness:
   # Path to existing AIBOM file (required)
-  input: "./dist/WiebeVandendriessche_model-card-example_aibom.json"
-  # Input BOM format: json|xml|auto
-  format: "auto"
+  input: "./dist/WiebeVandendriessche_model-card-example.aibom.cdx.json"
   # Log level: quiet|standard|debug
   log-level: "standard"
   # Print a single-line plain summary (no styling)
@@ -124,10 +116,8 @@ merge:
   aiboms: []
   # Path to SBOM file (required)
   sbom: ""
-  # Output path for merged BOM (required)
+  # Output path for merged BOM (required); .xml writes XML, anything else JSON
   output: ""
-  # Output format: json|xml|auto
-  format: "auto"
   # Remove duplicate components based on BOM-ref
   deduplicate: true
   # Log level: quiet|standard|debug

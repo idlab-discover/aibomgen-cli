@@ -27,7 +27,7 @@ func TestWriteOutputFiles_NamesFromRequestedRef(t *testing.T) {
 		{Discovery: scanner.Discovery{ID: "org_x"}, BOM: bomNamed("org_x")},
 		{BOM: bomNamed("from/component")},
 	}
-	written, err := WriteOutputFiles(boms, dir, ".json", "json", "")
+	written, err := WriteOutputFiles(boms, dir, "json", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,14 +36,27 @@ func TestWriteOutputFiles_NamesFromRequestedRef(t *testing.T) {
 		names = append(names, filepath.Base(p))
 	}
 	want := []string{
-		"gpt2_aibom.json",
-		"openai-community_gpt2_aibom.json",
-		"gpt2_v1.0_aibom.json",
-		"org_x_aibom.json",
-		"org_x_2_aibom.json", // sanitizing collision gets a suffix instead of overwriting
-		"from_component_aibom.json",
+		"gpt2.aibom.cdx.json",
+		"openai-community_gpt2.aibom.cdx.json",
+		"gpt2_v1.0.aibom.cdx.json",
+		"org_x.aibom.cdx.json",
+		"org_x_2.aibom.cdx.json", // sanitizing collision gets a suffix instead of overwriting
+		"from_component.aibom.cdx.json",
 	}
 	if !reflect.DeepEqual(names, want) {
 		t.Fatalf("file names = %v, want %v", names, want)
+	}
+}
+
+func TestWriteOutputFiles_XML(t *testing.T) {
+	written, err := WriteOutputFiles([]generator.DiscoveredBOM{{Discovery: scanner.Discovery{ID: "org/m"}, BOM: bomNamed("org/m")}}, t.TempDir(), "xml", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := filepath.Base(written[0]); got != "org_m.aibom.cdx.xml" {
+		t.Fatalf("file name = %s, want org_m.aibom.cdx.xml", got)
+	}
+	if _, err := ReadBOM(written[0]); err != nil {
+		t.Fatalf("ReadBOM: %v", err)
 	}
 }

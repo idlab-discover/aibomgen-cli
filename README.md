@@ -130,16 +130,18 @@ aibomgen-cli scan -i targets/target-3 --format xml --hf-mode online
 aibomgen-cli scan -i targets/target-1 --no-security-scan
 ```
 
-By default this writes JSON files under `dist/` with filenames derived from the model ID, e.g.:
+By default this writes one JSON file per model under `dist/`, e.g.:
 
-- `dist/google-bert_bert-base-uncased_aibom.json`
-- `dist/templates_model-card-example_aibom.json`
+- `dist/google-bert_bert-base-uncased.aibom.cdx.json`
+- `dist/templates_model-card-example.aibom.cdx.json`
+
+File names follow the CycloneDX `*.cdx.json` / `*.cdx.xml` convention: `<model-ref>.aibom.cdx.<json|xml>`, where `<model-ref>` is the requested model ID (plus `_<revision>` when one was requested) with every character outside `[A-Za-z0-9._-]` replaced by `_`. Names that collide get a `_2`, `_3`, … suffix. Existing files are overwritten.
 
 Options:
 
 - `--input, -i <path>`: directory to scan (default: current directory; cannot be used with `--hf-mode=dummy`)
-- `--output, -o <path>`: output file path (directory portion is used)
-- `--format, -f json|xml|auto` (default: `auto`)
+- `--output, -o <dir>`: output directory (default: `dist`)
+- `--format, -f json|xml` (default: `json`)
 - `--spec <version>`: CycloneDX spec version for output (e.g., `1.5`, `1.6`, `1.7`; default `1.7`)
 - `--hf-mode online|dummy` (default: `online`)
 - `--hf-token <token>`: for gated/private models
@@ -161,8 +163,8 @@ Options:
 
 - `--model-id, -m <id>`: Hugging Face model ID, optionally with a revision as `org/name@revision` (can be specified multiple times or comma-separated)
 - `--interactive`: open an interactive model selector (cannot be used with `--model-id`)
-- `--output, -o <path>`: output file path (directory portion is used)
-- `--format, -f json|xml|auto` (default: `auto`)
+- `--output, -o <dir>`: output directory (default: `dist`)
+- `--format, -f json|xml` (default: `json`)
 - `--spec <version>`: CycloneDX spec version for output (e.g., `1.5`, `1.6`, `1.7`; default `1.7`)
 - `--hf-mode online|dummy` (default: `online`)
 - `--hf-token <token>`: for gated/private models
@@ -175,14 +177,13 @@ Options:
 Validates an existing AIBOM file (JSON/XML), runs completeness checks, and can fail in strict mode.
 
 ```bash
-aibomgen-cli validate -i dist/google-bert_bert-base-uncased_aibom.json
-aibomgen-cli validate -i dist/google-bert_bert-base-uncased_aibom.json --strict --min-score 0.5
+aibomgen-cli validate -i dist/google-bert_bert-base-uncased.aibom.cdx.json
+aibomgen-cli validate -i dist/google-bert_bert-base-uncased.aibom.cdx.json --strict --min-score 0.5
 ```
 
 Options:
 
 - `--input, -i <path>`: path to AIBOM file (required)
-- `--format, -f json|xml|auto`
 - `--strict`: fail on missing required fields
 - `--min-score 0.0-1.0`: minimum acceptable completeness score
 - `--check-model-card`: validate model card fields (default: `false`)
@@ -193,13 +194,12 @@ Options:
 Computes and prints a completeness score for an existing AIBOM using the metadata field registry. Scores both the model component and any linked dataset components.
 
 ```bash
-aibomgen-cli completeness -i dist/google-bert_bert-base-uncased_aibom.json
+aibomgen-cli completeness -i dist/google-bert_bert-base-uncased.aibom.cdx.json
 ```
 
 Options:
 
 - `--input, -i <path>`: path to AIBOM file (required)
-- `--format, -f json|xml|auto`
 - `--plain-summary`: print a single-line machine-readable summary (no styling)
 - `--log-level quiet|standard|debug`
 
@@ -208,17 +208,15 @@ Options:
 Enriches an existing AIBOM by filling missing metadata fields interactively or from a YAML configuration file. Can optionally refetch the latest metadata from Hugging Face before prompting.
 
 ```bash
-aibomgen-cli enrich -i dist/google-bert_bert-base-uncased_aibom.json
-aibomgen-cli enrich -i dist/google-bert_bert-base-uncased_aibom.json --strategy interactive
-aibomgen-cli enrich -i dist/google-bert_bert-base-uncased_aibom.json --strategy file --file config/enrichment.yaml
+aibomgen-cli enrich -i dist/google-bert_bert-base-uncased.aibom.cdx.json
+aibomgen-cli enrich -i dist/google-bert_bert-base-uncased.aibom.cdx.json --strategy interactive
+aibomgen-cli enrich -i dist/google-bert_bert-base-uncased.aibom.cdx.json --strategy file --file config/enrichment.yaml
 ```
 
 Options:
 
 - `--input, -i <path>`: path to existing AIBOM (required)
-- `--output, -o <path>`: output file path (default: overwrite input)
-- `--format, -f json|xml|auto`: input BOM format
-- `--output-format json|xml|auto`: output BOM format (default: same as input)
+- `--output, -o <path>`: output file path (default: overwrite input); a `.xml` path writes XML, anything else JSON
 - `--spec <version>`: CycloneDX spec version for output
 - `--strategy interactive|file` (default: `interactive`)
 - `--file <path>`: enrichment config file for file-based enrichment (default: `./config/enrichment.yaml`)
@@ -238,17 +236,15 @@ Fetches per-file security scan results from the Hugging Face Hub for every model
 Optionally re-injects the findings back into the AIBOM as CycloneDX `BOM.Vulnerabilities` using `--enrich`.
 
 ```bash
-aibomgen-cli vuln-scan -i dist/google-bert_bert-base-uncased_aibom.json
-aibomgen-cli vuln-scan -i dist/google-bert_bert-base-uncased_aibom.json --enrich
-aibomgen-cli vuln-scan -i dist/google-bert_bert-base-uncased_aibom.json --enrich --no-preview
+aibomgen-cli vuln-scan -i dist/google-bert_bert-base-uncased.aibom.cdx.json
+aibomgen-cli vuln-scan -i dist/google-bert_bert-base-uncased.aibom.cdx.json --enrich
+aibomgen-cli vuln-scan -i dist/google-bert_bert-base-uncased.aibom.cdx.json --enrich --no-preview
 ```
 
 Options:
 
 - `--input, -i <path>`: path to existing AIBOM (required)
-- `--output, -o <path>`: output path when `--enrich` is set (default: overwrite input)
-- `--format, -f json|xml|auto`: input BOM format
-- `--output-format json|xml|auto`: output BOM format
+- `--output, -o <path>`: output path when `--enrich` is set (default: overwrite input); a `.xml` path writes XML, anything else JSON
 - `--spec <version>`: CycloneDX spec version for output
 - `--enrich`: inject discovered vulnerabilities back into the AIBOM
 - `--interactive`: show confirmation prompt before saving (default: `true`, only relevant with `--enrich`)
@@ -269,21 +265,20 @@ The SBOM's application metadata is preserved as the main component, while AI/ML 
 syft scan . -o cyclonedx-json > sbom.json
 
 # 2. Generate AIBOM for AI/ML components using AIBoMGen
-aibomgen-cli scan -i . -o aibom.json
+aibomgen-cli scan -i . -o dist
 
 # 3. Merge them into a comprehensive BOM
-aibomgen-cli merge --aibom aibom.json --sbom sbom.json -o merged.json
+aibomgen-cli merge --aibom dist/org_model.aibom.cdx.json --sbom sbom.json -o merged.cdx.json
 
 # 4. Merge multiple AIBOMs with one SBOM (for projects using multiple models in separate AIBOM files)
-aibomgen-cli merge --aibom model1_aibom.json --aibom model2_aibom.json --sbom sbom.json -o merged.json
+aibomgen-cli merge --aibom dist/org_model1.aibom.cdx.json --aibom dist/org_model2.aibom.cdx.json --sbom sbom.json -o merged.cdx.json
 ```
 
 Options:
 
 - `--aibom <path>`: path to AIBOM file (can be specified multiple times, required)
 - `--sbom <path>`: path to SBOM file (required)
-- `--output, -o <path>`: output path for merged BOM (required)
-- `--format, -f json|xml|auto`: output format (default: `auto`)
+- `--output, -o <path>`: output path for merged BOM (required); a `.xml` path writes XML, anything else JSON
 - `--deduplicate`: remove duplicate components based on BOM-ref (default: `true`)
 - `--log-level quiet|standard|debug`
 

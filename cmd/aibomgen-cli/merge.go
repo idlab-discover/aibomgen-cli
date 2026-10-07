@@ -58,12 +58,6 @@ Example:
 			return err
 		}
 
-		// Get format from viper or detect from output path.
-		format := viper.GetString("merge.format")
-		if format == "" {
-			format = "auto"
-		}
-
 		// Initialize UI (workflow is nil when quiet).
 		start := time.Now()
 		var wf *ui.Workflow
@@ -86,7 +80,7 @@ Example:
 		if wf != nil {
 			wf.StartTask(0, ui.Dim.Render(sbomPath))
 		}
-		sbom, err := bomio.ReadBOM(sbomPath, "auto")
+		sbom, err := bomio.ReadBOM(sbomPath)
 		if err != nil {
 			fail(fmt.Errorf("failed to read SBOM: %w", err))
 			return err
@@ -110,7 +104,7 @@ Example:
 				}
 				wf.StartTask(1, ui.Dim.Render(msg))
 			}
-			aibom, err := bomio.ReadBOM(aibomPath, "auto")
+			aibom, err := bomio.ReadBOM(aibomPath)
 			if err != nil {
 				fail(fmt.Errorf("failed to read AIBOM %s: %w", aibomPath, err))
 				return err
@@ -145,7 +139,7 @@ Example:
 			wf.CompleteTask(2, fmt.Sprintf("%d total components", result.SBOMComponentCount+result.AIBOMComponentCount))
 			wf.StartTask(3, ui.Dim.Render(outputPath))
 		}
-		if err := bomio.WriteBOM(result.MergedBOM, outputPath, format, ""); err != nil {
+		if err := bomio.WriteBOM(result.MergedBOM, outputPath, ""); err != nil {
 			fail(fmt.Errorf("failed to write merged BOM: %w", err))
 			return err
 		}
@@ -165,7 +159,7 @@ func init() {
 	mergeCmd.Flags().StringSlice("aibom", []string{}, "Path to AIBOM file (can be specified multiple times, required)")
 	mergeCmd.Flags().String("sbom", "", "Path to SBOM file (required)")
 	mergeCmd.Flags().StringP("output", "o", "", "Output path for merged BOM (required)")
-	mergeCmd.Flags().StringP("format", "f", "", "Output format: json|xml|auto (default: auto)")
+	addDeprecatedFlag(mergeCmd, "format", "f", outputFormatDeprecation)
 	mergeCmd.Flags().Bool("deduplicate", true, "Remove duplicate components based on BOM-ref")
 	mergeCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")
 

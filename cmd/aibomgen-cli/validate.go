@@ -28,14 +28,8 @@ var validateCmd = &cobra.Command{
 			return err
 		}
 
-		// Get format from viper.
-		format := viper.GetString("validate.format")
-		if format == "" {
-			format = "auto"
-		}
-
 		// Read BOM.
-		bom, err := bomio.ReadBOM(inputPath, format)
+		bom, err := bomio.ReadBOM(inputPath)
 		if err != nil {
 			return fmt.Errorf("failed to read BOM: %w", err)
 		}
@@ -63,7 +57,7 @@ var validateCmd = &cobra.Command{
 
 func init() {
 	validateCmd.Flags().StringP("input", "i", "", "Path to AIBOM file (required)")
-	validateCmd.Flags().StringP("format", "f", "", "Input format: json|xml|auto")
+	addDeprecatedFlag(validateCmd, "format", "f", inputFormatDeprecation)
 	validateCmd.Flags().Bool("strict", false, "Strict mode: fail on missing required fields")
 	validateCmd.Flags().Float64("min-score", 0.0, "Minimum completeness score (0.0-1.0)")
 	validateCmd.Flags().Bool("check-model-card", false, "Validate model card fields")

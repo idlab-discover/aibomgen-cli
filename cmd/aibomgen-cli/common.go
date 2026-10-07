@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -115,39 +114,27 @@ func trackProgress(wf *ui.Workflow, processIdx, writeIdx, total int, hasToken bo
 	return onProgress, finish
 }
 
-// resolveOutput fails fast on a format/extension mismatch and returns the
-// output directory and the concrete format (json|xml) to write.
-func resolveOutput(output, format string) (dir, fmtChosen string, err error) {
-	ext := filepath.Ext(output)
-	if (format == "xml" && ext == ".json") || (format == "json" && ext == ".xml") {
-		return "", "", fmt.Errorf("output path extension %q does not match format %q", ext, format)
+// outputFormat validates a --format value for directory outputs: json (default)
+// or xml. "auto" is accepted as json for backwards compatibility.
+func outputFormat(format string) (string, error) {
+	switch format = strings.ToLower(strings.TrimSpace(format)); format {
+	case "", "auto":
+		return "json", nil
+	case "json", "xml":
+		return format, nil
 	}
-	if output == "" {
-		output = "dist/aibom.json"
-		if format == "xml" {
-			output = "dist/aibom.xml"
-		}
-	}
-	fmtChosen = format
-	if fmtChosen == "auto" || fmtChosen == "" {
-		fmtChosen = "json"
-		if filepath.Ext(output) == ".xml" {
-			fmtChosen = "xml"
-		}
-	}
-	return filepath.Dir(output), fmtChosen, nil
+	return "", fmt.Errorf("invalid --format %q (expected json|xml)", format)
 }
 
-// writeDiscovered writes one file per BOM into dir and prints the summary.
-func writeDiscovered(genUI *ui.GenerateUI, boms []generator.DiscoveredBOM, dir, fmtChosen, specVersion string) error {
+// writeDiscovered writes one file per BOM into dir (default "dist") and prints the summary.
+func writeDiscovered(genUI *ui.GenerateUI, boms []generator.DiscoveredBOM, dir, format, specVersion string) error {
+	if dir == "" {
+		dir = "dist"
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	fileExt := ".json"
-	if fmtChosen == "xml" {
-		fileExt = ".xml"
-	}
-	written, err := bomio.WriteOutputFiles(boms, dir, fileExt, fmtChosen, specVersion)
+	written, err := bomio.WriteOutputFiles(boms, dir, format, specVersion)
 	if err != nil {
 		return err
 	}
@@ -155,6 +142,18 @@ func writeDiscovered(genUI *ui.GenerateUI, boms []generator.DiscoveredBOM, dir, 
 		genUI.PrintNoBOMsWritten()
 		return nil
 	}
-	genUI.PrintSummary(len(written), dir, fmtChosen)
+	genUI.PrintSummary(written, format)
 	return nil
+}
+
+const (
+	inputFormatDeprecation  = "the input format is now detected from the file content"
+	outputFormatDeprecation = "the output format now follows the --output extension (.xml writes XML, anything else JSON)"
+)
+
+// addDeprecatedFlag keeps a removed string flag parseable (hidden and ignored), so
+// existing scripts get a deprecation notice instead of an "unknown flag" error.
+func addDeprecatedFlag(c *cobra.Command, name, shorthand, msg string) {
+	c.Flags().StringP(name, shorthand, "", "")
+	_ = c.Flags().MarkDeprecated(name, msg)
 }
