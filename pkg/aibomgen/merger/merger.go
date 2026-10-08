@@ -2,6 +2,7 @@ package merger
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	cdx "github.com/CycloneDX/cyclonedx-go"
@@ -157,6 +158,7 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 			shouldAdd := true
 			if opts.DeduplicateComponents && bomRef != "" {
 				if _, exists := componentsMap[bomRef]; exists {
+					slog.Debug("merge: duplicate component dropped", "bom-ref", bomRef)
 					result.DuplicatesRemoved++
 					shouldAdd = false
 				} else {
@@ -186,6 +188,7 @@ func MergeAIBOMsWithSBOM(sbom *cdx.BOM, aiboms []*cdx.BOM, opts MergeOptions) (*
 
 				if opts.DeduplicateComponents && bomRef != "" {
 					if _, exists := componentsMap[bomRef]; exists {
+						slog.Debug("merge: duplicate component dropped", "bom-ref", bomRef)
 						result.DuplicatesRemoved++
 						continue
 					}

@@ -1,124 +1,142 @@
-# aibomgen-cli Global Configuration
-# This file provides default values for all command flags.
-# Values can be overridden by command-line flags or by using --config to specify a different file.
-# Default location: $HOME/.aibomgen-cli.yaml or ./config/defaults.yaml
+# aibomgen-cli example configuration
+# Reference of every configurable key with its default. Copy it to
+# $HOME/.aibomgen-cli.yaml (or pass --config <file>) and edit as needed.
+# When run from the repo root without --config, this file is loaded as-is.
+# Keys match the flag names; any key can also be set as an AIBOMGEN_* env var
+# (e.g. generate.hf-token -> AIBOMGEN_GENERATE_HF_TOKEN).
+
+# Output verbosity for all commands (same as the -q / -v / -vv flags).
+# quiet suppresses progress output; verbose 1 logs info, 2 logs debug, to stderr.
+quiet: false
+verbose: 0
+# Never prompt; commands that would need input fail with a hint instead.
+# Prompts are also skipped automatically when stdin/stderr is not a terminal.
+no-input: false
+
+# Hugging Face settings (hf-token, hf-base-url, hf-timeout) exist on generate,
+# scan, enrich and vuln-scan. An empty hf-token falls back to $HF_TOKEN and an
+# empty hf-base-url to $HF_ENDPOINT, then https://huggingface.co.
 
 # ============================================================================
 # Command: generate
 # ============================================================================
 generate:
-  # Hugging Face model ID(s) to generate AIBOMs for (list)
-  model-ids: []
-  # Interactive model selector (cannot be used with model-ids)
+  # Hugging Face model IDs (org/name or org/name@revision) to generate AIBOMs for
+  model-id: []
+  # Pick models in an interactive selector (cannot be combined with model-id)
   interactive: false
   # Output directory; one <model-ref>.aibom.cdx.<json|xml> file is written per model
-  output: "./dist"
+  output: "dist"
   # Output BOM format: json|xml
   format: "json"
-  # CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7) empty is latest (1.7)
+  # CycloneDX spec version for output, e.g. 1.6; empty is latest
   spec: ""
-  # Hugging Face metadata mode: online|dummy
-  hf-mode: "online"
+  # Skip fetching the Hugging Face security scan tree
+  no-security-scan: false
+  hf-token: ""
+  hf-base-url: ""
   # Timeout in seconds per Hugging Face API request
   hf-timeout: 10
-  # Hugging Face access token
-  hf-token: ""
-  # Log level: quiet|standard|debug
-  log-level: "standard"
-  # Skip fetching the HuggingFace security scan tree
-  no-security-scan: false
 
 # ============================================================================
 # Command: scan
 # ============================================================================
 scan:
-  # Path to scan (defaults to current directory)
-  input: "./targets/target-3"
+  # Directory to scan; empty is the current directory
+  input: ""
   # Output directory; one <model-ref>.aibom.cdx.<json|xml> file is written per model
-  output: "./dist"
+  output: "dist"
   # Output BOM format: json|xml
   format: "json"
-  # CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7) empty is latest (1.7)
+  # CycloneDX spec version for output, e.g. 1.6; empty is latest
   spec: ""
-  # Hugging Face metadata mode: online|dummy
-  hf-mode: "online"
+  # Skip fetching the Hugging Face security scan tree
+  no-security-scan: false
+  hf-token: ""
+  hf-base-url: ""
   # Timeout in seconds per Hugging Face API request
   hf-timeout: 10
-  # Hugging Face access token
-  hf-token: ""
-  # Log level: quiet|standard|debug
-  log-level: "standard"
-  # Skip fetching the HuggingFace security scan tree
-  no-security-scan: false
 
 # ============================================================================
 # Command: enrich
 # ============================================================================
 enrich:
-  # Path to existing AIBOM (required)
-  input: "./dist/WiebeVandendriessche_model-card-example.aibom.cdx.json"
-  # Output file path (default: overwrite input); .xml writes XML, anything else JSON
+  # AIBOM file to enrich
+  input: ""
+  # Output file; empty overwrites the input. .xml writes XML, anything else JSON
   output: ""
-  # CycloneDX spec version for output (default: same as input)
+  # CycloneDX spec version for output; empty keeps the input's version
   spec: ""
-  # Enrichment strategy: interactive|file
-  strategy: "interactive"
-  # Path to enrichment config file (YAML)
-  file: "./config/enrichment.yaml"
-  # Only prompt for required fields
+  # YAML file with the values to fill in (see config/enrichment.yaml);
+  # empty prompts for them interactively
+  file: ""
+  # Only fill required fields
   required-only: false
-  # Only prompt for fields with weight >= this value
+  # Only fill fields with weight >= this value
   min-weight: 0.0
-  # Refetch model metadata from Hugging Face before enrichment
+  # Refetch model metadata from Hugging Face first
   refetch: true
-  # Skip preview before saving
-  no-preview: false
-  # Log level: quiet|standard|debug
-  log-level: "standard"
-  # Hugging Face API token (for refetch)
+  # Save without preview or confirmation (required when not in a terminal)
+  yes: false
   hf-token: ""
-  # Hugging Face base URL (for refetch)
-  hf-base-url: "https://huggingface.co"
-  # Hugging Face API timeout in seconds (for refetch)
+  hf-base-url: ""
+  # Timeout in seconds per Hugging Face API request
   hf-timeout: 10
 
 # ============================================================================
 # Command: validate
 # ============================================================================
 validate:
-  # Path to AIBOM file (required)
-  input: "./dist/WiebeVandendriessche_model-card-example.aibom.cdx.json"
+  # AIBOM file to validate
+  input: ""
   # Strict mode: fail on missing required fields and on vulnerabilities >= fail-severity
   strict: false
   # Lowest vulnerability severity that fails strict mode: critical|high|medium|low|info
   fail-severity: "medium"
   # Minimum completeness score (0.0-1.0), enforced with or without strict
   min-score: 0.0
-  # Log level: quiet|standard|debug (debug also lists missing optional fields)
-  log-level: "standard"
+  # Print the result as JSON
+  json: false
 
 # ============================================================================
 # Command: completeness
 # ============================================================================
 completeness:
-  # Path to existing AIBOM file (required)
-  input: "./dist/WiebeVandendriessche_model-card-example.aibom.cdx.json"
-  # Log level: quiet|standard|debug
-  log-level: "standard"
-  # Print a single-line plain summary (no styling)
-  plain-summary: false
+  # AIBOM file to score
+  input: ""
+  # Print the result as JSON
+  json: false
 
 # ============================================================================
 # Command: merge
 # ============================================================================
 merge:
-  # Path(s) to AIBOM file(s) (list, required)
-  aiboms: []
-  # Path to SBOM file (required)
+  # AIBOM files to merge
+  aibom: []
+  # SBOM file to merge into (required)
   sbom: ""
-  # Output path for merged BOM (required); .xml writes XML, anything else JSON
+  # Output file for the merged BOM (required); .xml writes XML, anything else JSON
   output: ""
-  # Remove duplicate components based on BOM-ref
-  deduplicate: true
-  # Log level: quiet|standard|debug
-  log-level: "standard"
+  # Keep components with duplicate BOM-refs
+  no-deduplicate: false
+
+# ============================================================================
+# Command: vuln-scan
+# ============================================================================
+vuln-scan:
+  # AIBOM file to scan
+  input: ""
+  # Output file with enrich; empty overwrites the input. .xml writes XML, anything else JSON
+  output: ""
+  # CycloneDX spec version for output; empty keeps the input's version
+  spec: ""
+  # Inject discovered vulnerabilities back into the AIBOM
+  enrich: false
+  # Apply without preview or confirmation (only with enrich; required when not in a terminal)
+  yes: false
+  # Print the scan results as JSON
+  json: false
+  hf-token: ""
+  hf-base-url: ""
+  # Timeout in seconds per Hugging Face API request
+  hf-timeout: 10

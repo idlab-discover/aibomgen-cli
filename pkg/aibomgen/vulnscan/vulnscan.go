@@ -2,6 +2,7 @@ package vulnscan
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -101,6 +102,7 @@ func scanOne(comp *cdx.Component, modelID string, tf treeFetcherIface) Component
 	entries, err := tf.Fetch(modelID)
 	if err != nil {
 		res.Err = fmt.Errorf("security scan for %q failed: %w", modelID, err)
+		slog.Info("vuln-scan: component failed", "ref", comp.BOMRef, "model", modelID, "err", err)
 		return res
 	}
 
@@ -113,6 +115,7 @@ func scanOne(comp *cdx.Component, modelID string, tf treeFetcherIface) Component
 	if tmpBOM.Vulnerabilities != nil {
 		res.Vulnerabilities = *tmpBOM.Vulnerabilities
 	}
+	slog.Info("vuln-scan: component scanned", "ref", comp.BOMRef, "model", modelID, "entries", len(entries), "vulns", len(res.Vulnerabilities))
 
 	return res
 }

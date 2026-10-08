@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -16,7 +15,7 @@ import (
 )
 
 var validateCmd = &cobra.Command{
-	Use:   "validate",
+	Use:   "validate [file]",
 	Short: "Validate an existing AIBOM file",
 	Long: `Validates a CycloneDX AIBOM (JSON or XML).
 
@@ -27,28 +26,21 @@ missing required fields and vulnerabilities at or above --fail-severity fail
 validation.
 
 Exit codes: 0 valid, 1 error (e.g. unreadable file, bad flag), 2 invalid BOM.`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get input from viper (respects config file and CLI flag).
-		inputPath := viper.GetString("validate.input")
-		if inputPath == "" {
-			return errors.New("--input is required")
-		}
-
-		// Get log level from viper.
-		level := viper.GetString("validate.log-level")
-		quiet, err := quietFrom(level)
+		inputPath, err := requireInput(cmd, args, "validate")
 		if err != nil {
 			return err
 		}
 
+		quiet := verbosity < 0
+
 		failSeverity := cdx.Severity(strings.ToLower(strings.TrimSpace(viper.GetString("validate.fail-severity"))))
 		switch failSeverity {
-		case "":
-			failSeverity = cdx.SeverityMedium
 		case cdx.SeverityCritical, cdx.SeverityHigh, cdx.SeverityMedium, cdx.SeverityLow, cdx.SeverityInfo:
 			// ok.
 		default:
-			return fmt.Errorf("invalid --fail-severity %q (expected critical|high|medium|low|info)", failSeverity)
+			return fmt.Errorf("invalid severity %q for --fail-severity (expected critical|high|medium|low|info)", failSeverity)
 		}
 
 		data, err := os.ReadFile(inputPath)
@@ -65,9 +57,13 @@ Exit codes: 0 valid, 1 error (e.g. unreadable file, bad flag), 2 invalid BOM.`,
 
 		result := validator.ValidateData(data, opts)
 
-		// Use the new UI for rendering if not in quiet mode.
-		ui := ui.NewValidationUI(cmd.OutOrStdout(), quiet, strings.EqualFold(strings.TrimSpace(level), "debug"))
-		ui.PrintReport(result)
+		if viper.GetBool("validate.json") {
+			if err := writeJSON(cmd.OutOrStdout(), result); err != nil {
+				return err
+			}
+		} else {
+			ui.NewValidationUI(cmd.OutOrStdout(), quiet, verbosity >= 1).PrintReport(result)
+		}
 
 		if !result.Valid {
 			return apperr.ErrValidation
@@ -78,16 +74,11 @@ Exit codes: 0 valid, 1 error (e.g. unreadable file, bad flag), 2 invalid BOM.`,
 }
 
 func init() {
-	validateCmd.Flags().StringP("input", "i", "", "Path to AIBOM file (required)")
-	addDeprecatedFlag(validateCmd, "format", "f", inputFormatDeprecation)
+	validateCmd.Flags().StringP("input", "i", "", "AIBOM file, instead of the argument")
 	validateCmd.Flags().Bool("strict", false, "Strict mode: fail on missing required fields and on vulnerabilities at or above --fail-severity")
-	validateCmd.Flags().String("fail-severity", "", "Lowest vulnerability severity that fails --strict: critical|high|medium|low|info (default medium)")
+	validateCmd.Flags().String("fail-severity", "medium", "Lowest vulnerability severity that fails --strict: critical|high|medium|low|info")
 	validateCmd.Flags().Float64("min-score", 0.0, "Minimum completeness score (0.0-1.0), enforced with or without --strict")
-	validateCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug (debug also lists missing optional fields)")
-	// Deprecated: completeness already scores model card fields.
-	validateCmd.Flags().Bool("check-model-card", false, "")
-	_ = validateCmd.Flags().MarkDeprecated("check-model-card", "model card fields are covered by the completeness score")
+	validateCmd.Flags().Bool("json", false, "Print the result as JSON")
 
-	// Bind all flags to viper for config file support.
 	bindFlags(validateCmd, "validate")
 }

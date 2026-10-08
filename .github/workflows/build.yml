@@ -61,10 +61,12 @@ jobs:
       # Offline end-to-end smoke test (dummy HF mode, no network).
       - name: Smoke test (scan → validate → completeness)
         run: |
-          ./aibomgen-cli scan --hf-mode dummy -o dist/ --log-level quiet
+          ./aibomgen-cli scan --hf-mode dummy -o dist/ -q
           for f in dist/*; do
-            ./aibomgen-cli validate -i "$f" --strict --min-score 0.1 --log-level quiet
-            ./aibomgen-cli completeness -i "$f" --plain-summary | tee -a "$GITHUB_STEP_SUMMARY"
+            ./aibomgen-cli validate "$f" --strict --min-score 0.1 -q
+            ./aibomgen-cli completeness "$f" --json \
+              | jq -r '"Model: \(.modelId) | Score: \(.score * 100 | floor)% | Fields: \(.passed)/\(.total)"' \
+              | tee -a "$GITHUB_STEP_SUMMARY"
           done
 
   zizmor:

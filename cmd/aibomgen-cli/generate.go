@@ -3,9 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -17,39 +15,27 @@ import (
 
 // generateCmd represents the generate command.
 var generateCmd = &cobra.Command{
-	Use:   "generate",
+	Use:   "generate [model-id...]",
 	Short: "Generate an AI-aware BOM (AIBOM) from Hugging Face model IDs",
-	Long:  "Generate BOM from Hugging Face model ID(s). Use --model-id to specify models directly or --interactive for a model selector. Use 'scan' command to scan directories for AI imports.",
+	Long:  "Generate BOM from Hugging Face model ID(s), given as arguments or with --model-id, or picked with --interactive. Use 'scan' command to scan directories for AI imports.",
+	Args:  cobra.ArbitraryArgs,
 	RunE:  runGenerate,
 }
 
 func runGenerate(cmd *cobra.Command, args []string) error {
-	// Resolve effective log level (from config, env, or flag).
-	quiet, err := quietFrom(viper.GetString("generate.log-level"))
+	quiet := verbosity < 0
+
+	mode, err := hfMode("generate")
 	if err != nil {
 		return err
-	}
-
-	// Resolve effective HF mode (from config, env, or flag).
-	mode := strings.ToLower(strings.TrimSpace(viper.GetString("generate.hf-mode")))
-	if mode == "" {
-		mode = "online"
-	}
-	switch mode {
-	case "online", "dummy":
-		// ok.
-	default:
-		return fmt.Errorf("invalid --hf-mode %q (expected online|dummy)", mode)
 	}
 
 	// Check if --interactive was explicitly provided.
 	interactiveMode := viper.GetBool("generate.interactive")
 
-	// Check if --model-id was explicitly provided on the command line.
-	modelIDFlagProvided := cmd.Flags().Changed("model-id")
-
-	// Get model IDs from viper (respects config file and CLI flag).
-	modelIDs := viper.GetStringSlice("generate.model-ids")
+	// Model IDs come from arguments and --model-id (flag, env or config).
+	modelIDs := append(viper.GetStringSlice("generate.model-id"), args...)
+	modelIDFlagProvided := cmd.Flags().Changed("model-id") || len(args) > 0
 	// Filter out empty strings.
 	var cleanModelIDs []string
 	for _, id := range modelIDs {
@@ -65,7 +51,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	// Interactive mode validation.
 	if interactiveMode {
 		if modelIDFlagProvided {
-			return errors.New("--interactive cannot be used with --model-id")
+			return errors.New("cannot combine --interactive with model IDs")
 		}
 	}
 
@@ -73,16 +59,16 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	// Dummy mode uses a built-in fixture (BuildDummyBOM) — allow empty input only.
 	if mode == "dummy" {
 		if modelIDFlagProvided || len(cleanModelIDs) > 0 {
-			return errors.New("--model-id cannot be used with --hf-mode=dummy")
+			return errors.New("cannot combine model IDs with --hf-mode=dummy")
 		}
 		if interactiveMode {
-			return errors.New("--interactive cannot be used with --hf-mode=dummy")
+			return errors.New("cannot combine --interactive with --hf-mode=dummy")
 		}
 	}
 
 	// Validate that we have either model IDs or interactive mode for non-dummy modes.
 	if !interactiveMode && len(cleanModelIDs) == 0 && mode != "dummy" {
-		return errors.New("either --model-id or --interactive is required. Use 'scan' command to scan directories")
+		return errors.New("no model given: pass model IDs or --interactive (use 'scan' to scan a directory)")
 	}
 
 	// Validate the output format before doing any work.
@@ -92,22 +78,20 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	}
 	outputDir := viper.GetString("generate.output")
 
-	// Get HF settings.
-	hfToken := viper.GetString("generate.hf-token")
-	hfTimeout := viper.GetInt("generate.hf-timeout")
-	if hfTimeout <= 0 {
-		hfTimeout = 10
-	}
-	timeout := time.Duration(hfTimeout) * time.Second
+	hf := hfOptions("generate")
 
 	// Create UI handler.
 	genUI := ui.NewGenerateUI(cmd.OutOrStdout(), quiet)
 
 	if interactiveMode {
+		if !ui.CanPrompt() {
+			return errors.New("interactive model selection needs a terminal; pass model IDs instead")
+		}
 		// Interactive mode: show model selector.
 		selectedModels, err := ui.RunModelSelector(ui.ModelSelectorConfig{
-			HFToken: hfToken,
-			Timeout: timeout,
+			HFToken: hf.Token,
+			BaseURL: hf.BaseURL,
+			Timeout: hf.Timeout,
 		})
 		if err != nil {
 			return err
@@ -120,15 +104,15 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 
 	// Generate BOMs from model IDs.
 	var discoveredBOMs []generator.DiscoveredBOM
-	if err := runModelIDMode(genUI, cleanModelIDs, mode, hfToken, timeout, quiet, &discoveredBOMs); err != nil {
+	if err := runModelIDMode(genUI, cleanModelIDs, mode, hf, quiet, &discoveredBOMs); err != nil {
 		return err
 	}
 
 	return writeDiscovered(genUI, discoveredBOMs, outputDir, fmtChosen, viper.GetString("generate.spec"))
 }
 
-func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode, hfToken string, timeout time.Duration, quiet bool, results *[]generator.DiscoveredBOM) error {
-	hasToken := strings.TrimSpace(hfToken) != ""
+func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode string, hf hfSettings, quiet bool, results *[]generator.DiscoveredBOM) error {
+	hasToken := strings.TrimSpace(hf.Token) != ""
 	if mode == "dummy" {
 		if !quiet {
 			genUI.LogStep("info", "Using dummy mode (no API calls)")
@@ -146,7 +130,7 @@ func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode, hfToken strin
 	var processTaskIdx, writeTaskIdx int
 
 	if !quiet {
-		workflow = ui.NewWorkflow(os.Stdout)
+		workflow = newWorkflow()
 		processTaskIdx = workflow.AddTask("Processing possible models")
 		writeTaskIdx = workflow.AddTask("Writing output")
 		workflow.Start()
@@ -155,8 +139,9 @@ func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode, hfToken strin
 	onProgress, finish := trackProgress(workflow, processTaskIdx, writeTaskIdx, len(modelIDs), hasToken)
 
 	opts := generator.GenerateOptions{
-		HFToken:          hfToken,
-		Timeout:          timeout,
+		HFToken:          hf.Token,
+		BaseURL:          hf.BaseURL,
+		Timeout:          hf.Timeout,
 		OnProgress:       onProgress,
 		SkipSecurityScan: viper.GetBool("generate.no-security-scan"),
 	}
@@ -175,21 +160,16 @@ func runModelIDMode(genUI *ui.GenerateUI, modelIDs []string, mode, hfToken strin
 }
 
 func init() {
-	generateCmd.Flags().StringSliceP("model-id", "m", []string{}, "Hugging Face model ID(s) (e.g., gpt2, org/model-name or org/model-name@revision) - can be used multiple times or comma-separated")
-	generateCmd.Flags().StringP("output", "o", "", "Output directory (default dist)")
-	generateCmd.Flags().StringP("format", "f", "", "Output BOM format: json|xml (default json)")
-	generateCmd.Flags().String("spec", "", "CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7; default 1.7)")
-	generateCmd.Flags().String("hf-mode", "", "Hugging Face metadata mode: online|dummy")
-	generateCmd.Flags().Int("hf-timeout", 0, "Timeout in seconds per Hugging Face API request (default 10)")
-	generateCmd.Flags().String("hf-token", "", "Hugging Face access token")
-	generateCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")
-	generateCmd.Flags().Bool("interactive", false, "Interactive model selector (cannot be used with --model-id)")
-	generateCmd.Flags().Bool("no-security-scan", false, "Skip fetching the HuggingFace security scan tree")
+	generateCmd.Flags().StringSliceP("model-id", "m", []string{}, "Hugging Face model ID (org/name or org/name@revision); repeatable, comma-separated, or given as arguments")
+	generateCmd.Flags().StringP("output", "o", "dist", "Output directory; one file per model")
+	generateCmd.Flags().StringP("format", "f", "json", "Output BOM format: json|xml")
+	generateCmd.Flags().String("spec", "", "CycloneDX spec version for output, e.g. 1.6 (default latest)")
+	generateCmd.Flags().Bool("interactive", false, "Pick models in an interactive selector")
+	generateCmd.Flags().Bool("no-security-scan", false, "Skip fetching the Hugging Face security scan tree")
+	addHFFlags(generateCmd)
+	addHFModeFlag(generateCmd)
 
-	// Bind all flags to viper for config file support; the model-id flag
-	// is (also) exposed under the plural config key.
 	bindFlags(generateCmd, "generate")
-	_ = viper.BindPFlag("generate.model-ids", generateCmd.Flags().Lookup("model-id"))
 }
 
 // datasetResult holds the outcome of fetching a single dataset referenced by a model.

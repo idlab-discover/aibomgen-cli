@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -18,42 +17,31 @@ import (
 
 // scanCmd represents the scan command.
 var scanCmd = &cobra.Command{
-	Use:   "scan",
+	Use:   "scan [dir]",
 	Short: "Scan a directory for AI imports and generate AIBOMs",
 	Long:  "Scan a directory or repository for AI-related imports (e.g., Hugging Face models) and generate AI-aware BOMs.",
+	Args:  cobra.MaximumNArgs(1),
 	RunE:  runScan,
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
-	// Resolve effective log level (from config, env, or flag).
-	quiet, err := quietFrom(viper.GetString("scan.log-level"))
+	quiet := verbosity < 0
+
+	mode, err := hfMode("scan")
 	if err != nil {
 		return err
 	}
 
-	// Resolve effective HF mode (from config, env, or flag).
-	mode := strings.ToLower(strings.TrimSpace(viper.GetString("scan.hf-mode")))
-	if mode == "" {
-		mode = "online"
+	inputPath, err := inputFrom(cmd, args, "scan")
+	if err != nil {
+		return err
 	}
-	switch mode {
-	case "online", "dummy":
-		// ok.
-	default:
-		return fmt.Errorf("invalid --hf-mode %q (expected online|dummy)", mode)
+	// Dummy mode uses built-in fixture data and does not read the filesystem.
+	if mode == "dummy" && inputPath != "" {
+		return errors.New("cannot combine an input directory with --hf-mode=dummy")
 	}
-
-	inputPath := viper.GetString("scan.input")
-	// Detect whether the user explicitly provided --input on the CLI (vs. using default).
-	inputPathProvided := cmd.Flags().Changed("input")
 	if inputPath == "" {
 		inputPath = "."
-	}
-
-	// Disallow providing an input path when running in dummy HF mode — dummy mode.
-	// uses built-in fixture data and does not consult the filesystem.
-	if mode == "dummy" && inputPathProvided {
-		return errors.New("--input cannot be used with --hf-mode=dummy")
 	}
 
 	// Validate the output format before doing any work.
@@ -63,25 +51,17 @@ func runScan(cmd *cobra.Command, args []string) error {
 	}
 	outputDir := viper.GetString("scan.output")
 
-	// Get HF settings.
-	hfToken := viper.GetString("scan.hf-token")
-	hfTimeout := viper.GetInt("scan.hf-timeout")
-	if hfTimeout <= 0 {
-		hfTimeout = 10
-	}
-	timeout := time.Duration(hfTimeout) * time.Second
-
 	// Run the scan.
 	var discoveredBOMs []generator.DiscoveredBOM
-	if err := runScanDirectory(inputPath, mode, hfToken, timeout, quiet, &discoveredBOMs); err != nil {
+	if err := runScanDirectory(inputPath, mode, hfOptions("scan"), quiet, &discoveredBOMs); err != nil {
 		return err
 	}
 
 	return writeDiscovered(ui.NewGenerateUI(cmd.OutOrStdout(), quiet), discoveredBOMs, outputDir, fmtChosen, viper.GetString("scan.spec"))
 }
 
-func runScanDirectory(inputPath, mode, hfToken string, timeout time.Duration, quiet bool, results *[]generator.DiscoveredBOM) error {
-	hasToken := strings.TrimSpace(hfToken) != ""
+func runScanDirectory(inputPath, mode string, hf hfSettings, quiet bool, results *[]generator.DiscoveredBOM) error {
+	hasToken := strings.TrimSpace(hf.Token) != ""
 	absTarget, err := filepath.Abs(inputPath)
 	if err != nil {
 		return err
@@ -105,7 +85,7 @@ func runScanDirectory(inputPath, mode, hfToken string, timeout time.Duration, qu
 	var scanTaskIdx, processTaskIdx, writeTaskIdx int
 
 	if !quiet {
-		workflow = ui.NewWorkflow(os.Stdout)
+		workflow = newWorkflow()
 		scanTaskIdx = workflow.AddTask("Scanning for possible AI imports")
 		processTaskIdx = workflow.AddTask("Processing possible models")
 		writeTaskIdx = workflow.AddTask("Writing output")
@@ -144,8 +124,9 @@ func runScanDirectory(inputPath, mode, hfToken string, timeout time.Duration, qu
 	onProgress, finish := trackProgress(workflow, processTaskIdx, writeTaskIdx, len(discoveries), hasToken)
 
 	opts := generator.GenerateOptions{
-		HFToken:          hfToken,
-		Timeout:          timeout,
+		HFToken:          hf.Token,
+		BaseURL:          hf.BaseURL,
+		Timeout:          hf.Timeout,
 		OnProgress:       onProgress,
 		SkipSecurityScan: viper.GetBool("scan.no-security-scan"),
 	}
@@ -165,16 +146,13 @@ func runScanDirectory(inputPath, mode, hfToken string, timeout time.Duration, qu
 }
 
 func init() {
-	scanCmd.Flags().StringP("input", "i", "", "Path to scan (defaults to current directory)")
-	scanCmd.Flags().StringP("output", "o", "", "Output directory (default dist)")
-	scanCmd.Flags().StringP("format", "f", "", "Output BOM format: json|xml (default json)")
-	scanCmd.Flags().String("spec", "", "CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7; default 1.7)")
-	scanCmd.Flags().String("hf-mode", "", "Hugging Face metadata mode: online|dummy")
-	scanCmd.Flags().Int("hf-timeout", 0, "Timeout in seconds per Hugging Face API request (default 10)")
-	scanCmd.Flags().String("hf-token", "", "Hugging Face access token")
-	scanCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")
-	scanCmd.Flags().Bool("no-security-scan", false, "Skip fetching the HuggingFace security scan tree")
+	scanCmd.Flags().StringP("input", "i", "", "Directory to scan, instead of the argument (default current directory)")
+	scanCmd.Flags().StringP("output", "o", "dist", "Output directory; one file per model")
+	scanCmd.Flags().StringP("format", "f", "json", "Output BOM format: json|xml")
+	scanCmd.Flags().String("spec", "", "CycloneDX spec version for output, e.g. 1.6 (default latest)")
+	scanCmd.Flags().Bool("no-security-scan", false, "Skip fetching the Hugging Face security scan tree")
+	addHFFlags(scanCmd)
+	addHFModeFlag(scanCmd)
 
-	// Bind all flags to viper for config file support.
 	bindFlags(scanCmd, "scan")
 }

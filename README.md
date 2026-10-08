@@ -105,29 +105,33 @@ generate:
   hf-token: "hf_config_value"
 # 3. Environment variable (if set)
 export AIBOMGEN_GENERATE_HF_TOKEN="hf_env_value"
-aibomgen-cli generate -m gpt2
+aibomgen-cli generate gpt2
 # Result: env_value is used
 
 # 4. Explicit flag (always wins)
-aibomgen-cli generate -m gpt2 --hf-token hf_flag_value
+aibomgen-cli generate gpt2 --hf-token hf_flag_value
 # Result: flag_value is used (env var and config are ignored)
 ```
 
-Config keys with dashes are translated to underscores in env var names:
+Config keys match the flag names. Dashes and dots become underscores in env var names:
 - `generate.hf-token` → `AIBOMGEN_GENERATE_HF_TOKEN`
-- `scan.hf-mode` → `AIBOMGEN_SCAN_HF_MODE`
-- `enrich.log-level` → `AIBOMGEN_ENRICH_LOG_LEVEL`
+- `vuln-scan.hf-timeout` → `AIBOMGEN_VULN_SCAN_HF_TIMEOUT`
+- `verbose` → `AIBOMGEN_VERBOSE` (top-level keys have no command prefix)
+
+**Hugging Face settings.** `generate`, `scan`, `enrich` and `vuln-scan` share `--hf-token`, `--hf-base-url` and `--hf-timeout` (default `10` seconds). When no token or base URL is configured, the standard Hugging Face env vars `HF_TOKEN` and `HF_ENDPOINT` are used. Prefer `HF_TOKEN` over `--hf-token`: a token on the command line ends up in your shell history and the process list.
 
 ## Commands
+
+Commands that read a file or directory take it as an argument; `--input, -i` does the same and is useful in a config file. Passing both is an error.
 
 ### `scan`
 
 Walks a directory for AI-related imports across Python, YAML, JSON, Markdown, shell, Dockerfile, and JavaScript/TypeScript files. Writes one AIBOM per detected model. Security scan data from the Hugging Face tree API is embedded in each BOM by default.
 
 ```bash
-aibomgen-cli scan -i targets/target-2
-aibomgen-cli scan -i targets/target-3 --format xml --hf-mode online
-aibomgen-cli scan -i targets/target-1 --no-security-scan
+aibomgen-cli scan                       # current directory
+aibomgen-cli scan targets/target-3 --format xml
+aibomgen-cli scan targets/target-1 --no-security-scan
 ```
 
 By default this writes one JSON file per model under `dist/`, e.g.:
@@ -137,40 +141,34 @@ By default this writes one JSON file per model under `dist/`, e.g.:
 
 File names follow the CycloneDX `*.cdx.json` / `*.cdx.xml` convention: `<model-ref>.aibom.cdx.<json|xml>`, where `<model-ref>` is the requested model ID (plus `_<revision>` when one was requested) with every character outside `[A-Za-z0-9._-]` replaced by `_`. Names that collide get a `_2`, `_3`, … suffix. Existing files are overwritten.
 
-Options:
+Usage: `aibomgen-cli scan [dir]`
 
-- `--input, -i <path>`: directory to scan (default: current directory; cannot be used with `--hf-mode=dummy`)
+- `--input, -i <dir>`: directory to scan, instead of the argument (default: current directory)
 - `--output, -o <dir>`: output directory (default: `dist`)
 - `--format, -f json|xml` (default: `json`)
-- `--spec <version>`: CycloneDX spec version for output (e.g., `1.5`, `1.6`, `1.7`; default `1.7`)
-- `--hf-mode online|dummy` (default: `online`)
-- `--hf-token <token>`: for gated/private models
-- `--hf-timeout <seconds>`
+- `--spec <version>`: CycloneDX spec version for output, e.g. `1.6` (default: latest, `1.7`)
 - `--no-security-scan`: skip fetching the Hugging Face security scan tree
-- `--log-level quiet|standard|debug`
+- `--hf-token`, `--hf-base-url`, `--hf-timeout`: see Hugging Face settings above
 
 ### `generate`
 
-Generates an AIBOM from one or more Hugging Face model IDs specified directly, or through an interactive model browser. Security scan data is embedded in the BOM by default. Use `scan` instead when you want to detect models from a source directory.
+Generates an AIBOM from one or more Hugging Face model IDs, or from models picked in an interactive browser. Security scan data is embedded in the BOM by default. Use `scan` instead when you want to detect models from a source directory.
 
 ```bash
-aibomgen-cli generate -m google-bert/bert-base-uncased
-aibomgen-cli generate -m gpt2 -m meta-llama/Llama-3.1-8B
+aibomgen-cli generate google-bert/bert-base-uncased
+aibomgen-cli generate gpt2 meta-llama/Llama-3.1-8B@main
 aibomgen-cli generate --interactive
 ```
 
-Options:
+Usage: `aibomgen-cli generate [model-id...]`
 
-- `--model-id, -m <id>`: Hugging Face model ID, optionally with a revision as `org/name@revision` (can be specified multiple times or comma-separated)
-- `--interactive`: open an interactive model selector (cannot be used with `--model-id`)
+- `--model-id, -m <id>`: model ID as `org/name` or `org/name@revision`; repeatable or comma-separated, combined with the arguments
+- `--interactive`: pick models in an interactive selector (needs a terminal; cannot be combined with model IDs)
 - `--output, -o <dir>`: output directory (default: `dist`)
 - `--format, -f json|xml` (default: `json`)
-- `--spec <version>`: CycloneDX spec version for output (e.g., `1.5`, `1.6`, `1.7`; default `1.7`)
-- `--hf-mode online|dummy` (default: `online`)
-- `--hf-token <token>`: for gated/private models
-- `--hf-timeout <seconds>`
+- `--spec <version>`: CycloneDX spec version for output, e.g. `1.6` (default: latest, `1.7`)
 - `--no-security-scan`: skip fetching the Hugging Face security scan tree
-- `--log-level quiet|standard|debug`
+- `--hf-token`, `--hf-base-url`, `--hf-timeout`: see Hugging Face settings above
 
 ### `validate`
 
@@ -182,17 +180,17 @@ Validates an existing AIBOM file (JSON or XML).
 - **Vulnerabilities:** reported as warnings; with `--strict`, those rated at or above `--fail-severity` are errors.
 
 ```bash
-aibomgen-cli validate -i dist/google-bert_bert-base-uncased.aibom.cdx.json
-aibomgen-cli validate -i dist/google-bert_bert-base-uncased.aibom.cdx.json --strict --min-score 0.5
+aibomgen-cli validate dist/google-bert_bert-base-uncased.aibom.cdx.json
+aibomgen-cli validate dist/google-bert_bert-base-uncased.aibom.cdx.json --strict --min-score 0.5
 ```
 
-Options:
+Usage: `aibomgen-cli validate [file]`
 
-- `--input, -i <path>`: path to AIBOM file (required)
+- `--input, -i <file>`: AIBOM file, instead of the argument
 - `--strict`: fail on missing required fields and on vulnerabilities rated at or above `--fail-severity`
 - `--fail-severity critical|high|medium|low|info`: lowest vulnerability severity that fails `--strict` (default: `medium`). Vulnerabilities below it, or without a rated severity, are reported as warnings. Hugging Face scanner findings are rated `critical` (unsafe), `high` (suspicious) or `medium` (caution).
 - `--min-score 0.0-1.0`: minimum acceptable completeness score
-- `--log-level quiet|standard|debug`: `debug` also lists the missing optional fields
+- `--json`: print the result as JSON
 
 Exit codes: `0` valid, `1` error (unreadable file, invalid flag, …), `2` invalid BOM.
 
@@ -201,40 +199,35 @@ Exit codes: `0` valid, `1` error (unreadable file, invalid flag, …), `2` inval
 Computes and prints a completeness score for an existing AIBOM using the metadata field registry. Scores both the model component and any linked dataset components.
 
 ```bash
-aibomgen-cli completeness -i dist/google-bert_bert-base-uncased.aibom.cdx.json
+aibomgen-cli completeness dist/google-bert_bert-base-uncased.aibom.cdx.json
+aibomgen-cli completeness dist/google-bert_bert-base-uncased.aibom.cdx.json --json | jq .score
 ```
 
-Options:
+Usage: `aibomgen-cli completeness [file]`
 
-- `--input, -i <path>`: path to AIBOM file (required)
-- `--plain-summary`: print a single-line machine-readable summary (no styling)
-- `--log-level quiet|standard|debug`
+- `--input, -i <file>`: AIBOM file, instead of the argument
+- `--json`: print the result as JSON
 
 ### `enrich`
 
-Enriches an existing AIBOM by filling missing metadata fields interactively or from a YAML configuration file. Can optionally refetch the latest metadata from Hugging Face before prompting.
+Enriches an existing AIBOM by filling missing metadata fields: interactively, or from a YAML file with `--file` (see [`config/enrichment.yaml`](config/enrichment.yaml) for an example). By default the latest metadata is refetched from Hugging Face first.
 
 ```bash
-aibomgen-cli enrich -i dist/google-bert_bert-base-uncased.aibom.cdx.json
-aibomgen-cli enrich -i dist/google-bert_bert-base-uncased.aibom.cdx.json --strategy interactive
-aibomgen-cli enrich -i dist/google-bert_bert-base-uncased.aibom.cdx.json --strategy file --file config/enrichment.yaml
+aibomgen-cli enrich dist/google-bert_bert-base-uncased.aibom.cdx.json
+aibomgen-cli enrich dist/google-bert_bert-base-uncased.aibom.cdx.json --file config/enrichment.yaml --yes
 ```
 
-Options:
+Usage: `aibomgen-cli enrich [file]`
 
-- `--input, -i <path>`: path to existing AIBOM (required)
-- `--output, -o <path>`: output file path (default: overwrite input); a `.xml` path writes XML, anything else JSON
-- `--spec <version>`: CycloneDX spec version for output
-- `--strategy interactive|file` (default: `interactive`)
-- `--file <path>`: enrichment config file for file-based enrichment (default: `./config/enrichment.yaml`)
-- `--required-only`: only enrich required fields
-- `--min-weight <float>`: minimum weight threshold for fields to enrich
-- `--refetch`: refetch model metadata from Hugging Face Hub before enrichment
-- `--no-preview`: skip preview before saving
-- `--hf-token <token>`: Hugging Face API token (for refetch)
-- `--hf-base-url <url>`: Hugging Face base URL (for refetch)
-- `--hf-timeout <seconds>`: Hugging Face API timeout (for refetch)
-- `--log-level quiet|standard|debug`
+- `--input, -i <file>`: AIBOM file, instead of the argument
+- `--output, -o <file>`: output file (default: overwrite the input); a `.xml` path writes XML, anything else JSON
+- `--spec <version>`: CycloneDX spec version for output (default: same as input)
+- `--file <path>`: YAML file with the values to fill in, instead of prompting (required when not running in a terminal)
+- `--required-only`: only fill required fields
+- `--min-weight <float>`: only fill fields with at least this weight
+- `--refetch`: refetch model metadata from Hugging Face first (default: `true`; disable with `--refetch=false`)
+- `-y, --yes`: save without preview or confirmation (required when not running in a terminal)
+- `--hf-token`, `--hf-base-url`, `--hf-timeout`: see Hugging Face settings above
 
 ### `vuln-scan`
 
@@ -243,23 +236,20 @@ Fetches per-file security scan results from the Hugging Face Hub for every model
 Optionally re-injects the findings back into the AIBOM as CycloneDX `BOM.Vulnerabilities` using `--enrich`.
 
 ```bash
-aibomgen-cli vuln-scan -i dist/google-bert_bert-base-uncased.aibom.cdx.json
-aibomgen-cli vuln-scan -i dist/google-bert_bert-base-uncased.aibom.cdx.json --enrich
-aibomgen-cli vuln-scan -i dist/google-bert_bert-base-uncased.aibom.cdx.json --enrich --no-preview
+aibomgen-cli vuln-scan dist/google-bert_bert-base-uncased.aibom.cdx.json
+aibomgen-cli vuln-scan dist/google-bert_bert-base-uncased.aibom.cdx.json --enrich
+aibomgen-cli vuln-scan dist/google-bert_bert-base-uncased.aibom.cdx.json --enrich --yes
 ```
 
-Options:
+Usage: `aibomgen-cli vuln-scan [file]`
 
-- `--input, -i <path>`: path to existing AIBOM (required)
-- `--output, -o <path>`: output path when `--enrich` is set (default: overwrite input); a `.xml` path writes XML, anything else JSON
-- `--spec <version>`: CycloneDX spec version for output
+- `--input, -i <file>`: AIBOM file, instead of the argument
+- `--output, -o <file>`: output file with `--enrich` (default: overwrite the input); a `.xml` path writes XML, anything else JSON
+- `--spec <version>`: CycloneDX spec version for output (default: same as input)
 - `--enrich`: inject discovered vulnerabilities back into the AIBOM
-- `--interactive`: show confirmation prompt before saving (default: `true`, only relevant with `--enrich`)
-- `--no-preview`: skip the confirmation prompt (only with `--enrich`)
-- `--hf-token <token>`: Hugging Face API token
-- `--hf-base-url <url>`: Hugging Face base URL override
-- `--hf-timeout <seconds>` (default: `15`)
-- `--log-level quiet|standard|debug`
+- `-y, --yes`: apply without preview or confirmation (only with `--enrich`; required when not running in a terminal)
+- `--json`: print the scan results as JSON
+- `--hf-token`, `--hf-base-url`, `--hf-timeout`: see Hugging Face settings above
 
 ### `merge`
 
@@ -271,35 +261,45 @@ The SBOM's application metadata is preserved as the main component, while AI/ML 
 # 1. Generate SBOM for software dependencies using Syft
 syft scan . -o cyclonedx-json > sbom.json
 
-# 2. Generate AIBOM for AI/ML components using AIBoMGen
-aibomgen-cli scan -i . -o dist
+# 2. Generate AIBOMs for AI/ML components using AIBoMGen
+aibomgen-cli scan .
 
 # 3. Merge them into a comprehensive BOM
-aibomgen-cli merge --aibom dist/org_model.aibom.cdx.json --sbom sbom.json -o merged.cdx.json
-
-# 4. Merge multiple AIBOMs with one SBOM (for projects using multiple models in separate AIBOM files)
-aibomgen-cli merge --aibom dist/org_model1.aibom.cdx.json --aibom dist/org_model2.aibom.cdx.json --sbom sbom.json -o merged.cdx.json
+aibomgen-cli merge dist/*.aibom.cdx.json --sbom sbom.json -o merged.cdx.json
 ```
 
-Options:
+Usage: `aibomgen-cli merge [aibom...] --sbom <file> -o <file>`
 
-- `--aibom <path>`: path to AIBOM file (can be specified multiple times, required)
-- `--sbom <path>`: path to SBOM file (required)
-- `--output, -o <path>`: output path for merged BOM (required); a `.xml` path writes XML, anything else JSON
-- `--deduplicate`: remove duplicate components based on BOM-ref (default: `true`)
-- `--log-level quiet|standard|debug`
+- `--aibom <file>`: AIBOM file; repeatable, combined with the arguments
+- `--sbom <file>`: SBOM file to merge into (required)
+- `--output, -o <file>`: output file for the merged BOM (required); a `.xml` path writes XML, anything else JSON
+- `--no-deduplicate`: keep components with duplicate BOM-refs (by default duplicates are removed)
+
+### `version`
+
+Prints the version: `aibomgen-cli version`.
 
 ### Global flags
 
 - `--config <path>`: config file to use (default: `$HOME/.aibomgen-cli.yaml` or `./config/defaults.yaml`)
+- `-q, --quiet`: only print errors and results (no progress output)
+- `-v, --verbose`: log to stderr; `-v` shows info (config file used, scan and vuln-scan summaries, missing optional fields in `validate`), `-vv` adds debug detail (HF requests, scanner hits, metadata fields applied, completeness checks, merge dedup)
+- `--no-input`: never prompt; commands that would need input fail with a hint instead
+
+`-q` and `-v` are mutually exclusive. `-q` silences output, not prompts.
+
+**Output streams and interactive mode.** Results go to stdout. Logs, prompts and TUIs (the `generate --interactive` model selector, `enrich` forms, and the confirmations of `enrich` and `vuln-scan --enrich`) go to stderr. While a prompt is open, log lines are held back and printed when it closes, so `-v`/`-vv` can be combined with interactive mode. Prompts only run when stdin and stderr are terminals; otherwise (CI, pipes, `--no-input`) the command fails up front with a hint, such as `--file` or `--yes`. Progress spinners are only animated on a terminal without `-v`.
+
+**Machine-readable output.** `validate`, `completeness` and `vuln-scan` accept `--json` to print their result as JSON on stdout, with no styling or progress output. Exit codes are unchanged.
 
 The config file is a YAML file that sets default values for any command flag, so you don't have to repeat them on the command line. Keys are namespaced by command:
 
 ```yaml
+verbose: 2  # same as -vv, for every command
+
 scan:
-  hf-token: "hf_..."
-  hf-mode: "online"
-  log-level: "debug"
+  output: "out"
+  no-security-scan: true
 
 validate:
   strict: true

@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -254,7 +255,9 @@ func Scan(root string) ([]Discovery, error) {
 		return compareOccurrences(firstOccurrence(a), firstOccurrence(b))
 	})
 
-	return dedupe(results), nil
+	deduped := dedupe(results)
+	slog.Info("scan complete", "root", root, "files", len(paths), "hits", len(results), "models", len(deduped))
+	return deduped, nil
 }
 
 func firstOccurrence(d Discovery) Occurrence {
@@ -437,8 +440,10 @@ func applyRules(results []Discovery, rules []detectionRule, text string, lineNum
 			}
 			modelID := text[m[2]:m[3]]
 			if !isPlausibleModelID(modelID) {
+				slog.Debug("scan: rejected model id", "path", path, "line", lineNum, "rule", rule.method, "id", modelID)
 				continue
 			}
+			slog.Debug("scan: model reference", "path", path, "line", lineNum, "rule", rule.method, "id", modelID)
 			evidence := rule.method + " at line " + strconv.Itoa(lineNum) + ": " + strings.TrimSpace(text)
 			results = append(results, Discovery{
 				ID:       modelID,
