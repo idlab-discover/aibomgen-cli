@@ -17,8 +17,9 @@ var RootCmd = &cobra.Command{
 	Short: "BOM Generator for Software Projects using AI {}",
 	Long:  longDescription,
 
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		initUIAndBanner(cmd)
+		return initConfig()
 	},
 
 	// When invoked without a subcommand, show help (with banner) instead of.
@@ -37,8 +38,6 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,.
 	// will be global for your application.
 
-	cobra.OnInitialize(initConfig)
-
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.aibomgen-cli.yaml or ./config/defaults.yaml)")
 
 	// Ensure `--help` (and help subcommands) show a green banner consistently.
@@ -56,7 +55,7 @@ func init() {
 	RootCmd.AddCommand(generateCmd, scanCmd, enrichCmd, validateCmd, completenessCmd, mergeCmd, vulnScanCmd)
 }
 
-func initConfig() {
+func initConfig() error {
 	// Enable environment variable support up-front so overrides apply regardless
 	// of how (or whether) the config file is located below. Previously this
 	// block only ran in the `cfgFile != ""` branch, so users without `--config`
@@ -74,12 +73,11 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 		err = viper.ReadInConfig()
 	} else {
-		// Find home directory.
-		home, herr := os.UserHomeDir()
-		cobra.CheckErr(herr)
-
 		viper.SetConfigType("yaml")
-		viper.AddConfigPath(home)
+		// Without a home directory, skip it: the config file is optional.
+		if home, herr := os.UserHomeDir(); herr == nil {
+			viper.AddConfigPath(home)
+		}
 		viper.AddConfigPath("./config")
 
 		// Try .aibomgen-cli first, then defaults.yaml.
@@ -96,9 +94,10 @@ func initConfig() {
 		configMsg := ui.Dim.Render("Using config file: ") + ui.Secondary.Render(viper.ConfigFileUsed())
 		fmt.Fprintln(os.Stderr, configMsg)
 	case !errors.As(err, notFound):
-		cobra.CheckErr(err)
+		return fmt.Errorf("reading config file: %w", err)
 	}
 	// The config file is optional, we shouldn't exit when the config is not found.
+	return nil
 }
 
 const longDescription = "BOM Generator for Software Projects using AI. Helps PDE manufacturers create accurate Bills of Materials for their AI-based software projects."

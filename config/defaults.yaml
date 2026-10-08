@@ -1,7 +1,7 @@
-# aibomgen-cli Global Configuration
-# This file provides default values for all command flags.
-# Values can be overridden by command-line flags or by using --config to specify a different file.
-# Default location: $HOME/.aibomgen-cli.yaml or ./config/defaults.yaml
+# aibomgen-cli example configuration
+# Reference of every configurable key with its default. Copy it to
+# $HOME/.aibomgen-cli.yaml (or pass --config <file>) and edit as needed.
+# When run from the repo root without --config, this file is loaded as-is.
 
 # ============================================================================
 # Command: generate
@@ -33,7 +33,7 @@ generate:
 # ============================================================================
 scan:
   # Path to scan (defaults to current directory)
-  input: "./targets/target-3"
+  input: ""
   # Output directory; one <model-ref>.aibom.cdx.<json|xml> file is written per model
   output: "./dist"
   # Output BOM format: json|xml
@@ -56,7 +56,7 @@ scan:
 # ============================================================================
 enrich:
   # Path to existing AIBOM (required)
-  input: "./dist/WiebeVandendriessche_model-card-example.aibom.cdx.json"
+  input: ""
   # Output file path (default: overwrite input); .xml writes XML, anything else JSON
   output: ""
   # CycloneDX spec version for output (default: same as input)
@@ -87,7 +87,7 @@ enrich:
 # ============================================================================
 validate:
   # Path to AIBOM file (required)
-  input: "./dist/WiebeVandendriessche_model-card-example.aibom.cdx.json"
+  input: ""
   # Strict mode: fail on missing required fields and on vulnerabilities >= fail-severity
   strict: false
   # Lowest vulnerability severity that fails strict mode: critical|high|medium|low|info
@@ -102,7 +102,7 @@ validate:
 # ============================================================================
 completeness:
   # Path to existing AIBOM file (required)
-  input: "./dist/WiebeVandendriessche_model-card-example.aibom.cdx.json"
+  input: ""
   # Log level: quiet|standard|debug
   log-level: "standard"
   # Print a single-line plain summary (no styling)
@@ -120,5 +120,30 @@ merge:
   output: ""
   # Remove duplicate components based on BOM-ref
   deduplicate: true
+  # Log level: quiet|standard|debug
+  log-level: "standard"
+
+# ============================================================================
+# Command: vuln-scan
+# ============================================================================
+vuln-scan:
+  # Path to existing AIBOM (required)
+  input: ""
+  # Output path when enrich is true (default: overwrite input); .xml writes XML, anything else JSON
+  output: ""
+  # CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7) empty is latest (1.7)
+  spec: ""
+  # Inject discovered vulnerabilities back into the AIBOM
+  enrich: false
+  # Show confirmation prompt before saving (only with enrich)
+  interactive: true
+  # Skip preview prompt (only with enrich)
+  no-preview: false
+  # Hugging Face access token
+  hf-token: ""
+  # Hugging Face base URL
+  hf-base-url: "https://huggingface.co"
+  # Timeout in seconds per Hugging Face API request
+  hf-timeout: 15
   # Log level: quiet|standard|debug
   log-level: "standard"
