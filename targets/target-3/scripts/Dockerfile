@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:0dd364ba7e10242f07755449e3a3d0e35f9efd987952737b90def6709ab0c5ce
 
 # ENV assignments (detected: shell_model_env)
 ENV MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct
@@ -7,7 +7,7 @@ ENV HF_MODEL=mistralai/Mistral-7B-Instruct-v0.3
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 # huggingface-cli download inside RUN (detected: hf_cli_download)
 RUN huggingface-cli download google/gemma-2-9b-it --local-dir /models/gemma
