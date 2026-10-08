@@ -41,6 +41,9 @@ type Workflow struct {
 	stopChan   chan struct{}
 	running    bool
 	lastRender string
+
+	// Static disables the spinner: only the final state is rendered on Stop.
+	Static bool
 }
 
 // NewWorkflow creates a new workflow tracker.
@@ -128,6 +131,9 @@ func (wf *Workflow) Start() {
 	}
 	wf.running = true
 	wf.mu.Unlock()
+	if wf.Static {
+		return
+	}
 
 	// Start spinner animation.
 	go func() {

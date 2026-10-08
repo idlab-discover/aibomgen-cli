@@ -5,12 +5,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 )
 
-// hfTransport injects a Bearer token into every request when a token is set.
+// hfTransport injects a Bearer token into every request when a token is set,
+// and logs each request at debug level (never the token).
 type hfTransport struct {
 	base  http.RoundTripper
 	token string
@@ -21,19 +23,21 @@ func (t *hfTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		req = req.Clone(req.Context())
 		req.Header.Set("Authorization", "Bearer "+t.token)
 	}
-	return t.base.RoundTrip(req)
+	start := time.Now()
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		slog.Debug("http request failed", "method", req.Method, "url", req.URL.String(), "duration", time.Since(start), "err", err)
+		return nil, err
+	}
+	slog.Debug("http request", "method", req.Method, "url", req.URL.String(), "status", resp.StatusCode, "duration", time.Since(start))
+	return resp, nil
 }
 
 // NewHFClient creates an *http.Client configured for Hugging Face API calls.
 // timeout is the per-request deadline (0 = no timeout).
 // token is automatically injected as a Bearer token on every request when non-empty.
 func NewHFClient(timeout time.Duration, token string) *http.Client {
-	token = strings.TrimSpace(token)
-	base := http.DefaultTransport
-	transport := base
-	if token != "" {
-		transport = &hfTransport{base: base, token: token}
-	}
+	transport := &hfTransport{base: http.DefaultTransport, token: strings.TrimSpace(token)}
 	return &http.Client{Timeout: timeout, Transport: transport}
 }
 

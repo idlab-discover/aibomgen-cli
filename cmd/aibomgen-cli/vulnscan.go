@@ -3,9 +3,10 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	cdx "github.com/CycloneDX/cyclonedx-go"
 	"io"
+	"os"
 	"strings"
-	"time"
 
 	"charm.land/huh/v2"
 	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
@@ -19,34 +20,32 @@ import (
 
 // vulnScanCmd represents the vuln-scan command.
 var vulnScanCmd = &cobra.Command{
-	Use:   "vuln-scan",
+	Use:   "vuln-scan [file]",
 	Short: "Scan an existing AIBOM for model/dataset security vulnerabilities",
 	Long: `Fetch per-file security scan results from Hugging Face for every model and
 dataset referenced in an existing AIBOM and display a vulnerability report.
 
 Optionally enrich the AIBOM in-place with the discovered vulnerabilities using
-the --enrich flag. When --interactive is also set (default when --enrich is
-active) a preview and confirmation prompt are shown before writing.`,
+the --enrich flag. A preview and confirmation prompt are shown before writing,
+unless --yes is set.`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: runVulnScan,
 }
 
-func runVulnScan(cmd *cobra.Command, _ []string) error {
-	inputPath := viper.GetString("vuln-scan.input")
-	if inputPath == "" {
-		return errors.New("--input is required")
-	}
-
-	quiet, err := quietFrom(viper.GetString("vuln-scan.log-level"))
+func runVulnScan(cmd *cobra.Command, args []string) error {
+	inputPath, err := requireInput(cmd, args, "vuln-scan")
 	if err != nil {
 		return err
 	}
 
+	asJSON := viper.GetBool("vuln-scan.json")
+	quiet := verbosity < 0 || asJSON // --json: only JSON on stdout
+
 	enrich := viper.GetBool("vuln-scan.enrich")
-	interactive := viper.GetBool("vuln-scan.interactive")
-	noPreview := viper.GetBool("vuln-scan.no-preview")
-	timeout := viper.GetInt("vuln-scan.hf-timeout")
-	if timeout <= 0 {
-		timeout = 15
+	yes := viper.GetBool("vuln-scan.yes")
+	// Fail before any work if the confirmation can't be shown.
+	if enrich && !yes && !ui.CanPrompt() {
+		return errors.New("confirming the enrichment needs a terminal; pass --yes to apply without asking")
 	}
 
 	// ── Read AIBOM ──────────────────────────────────────────────────────────.
@@ -66,7 +65,7 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 	// ── Workflow / progress ──────────────────────────────────────────────────.
 	var workflow *ui.Workflow
 	if !quiet {
-		workflow = ui.NewWorkflow(w)
+		workflow = newWorkflow()
 		workflow.AddTask("Scanning components")
 		workflow.AddTask("Building report")
 		workflow.Start()
@@ -77,10 +76,11 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 		workflow.StartTask(0, "")
 	}
 
+	hf := hfOptions("vuln-scan")
 	opts := vulnscan.Options{
-		HFToken: viper.GetString("vuln-scan.hf-token"),
-		Timeout: time.Duration(timeout) * time.Second,
-		BaseURL: viper.GetString("vuln-scan.hf-base-url"),
+		HFToken: hf.Token,
+		Timeout: hf.Timeout,
+		BaseURL: hf.BaseURL,
 	}
 	results := vulnscan.ScanBOM(bom, opts)
 
@@ -94,7 +94,13 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 	}
 
 	// ── Print report ─────────────────────────────────────────────────────────.
-	printVulnReport(w, results)
+	if asJSON {
+		if err := writeJSON(w, vulnJSON(results)); err != nil {
+			return err
+		}
+	} else {
+		printVulnReport(w, results)
+	}
 
 	// ── Optional enrichment ───────────────────────────────────────────────────.
 	if !enrich {
@@ -107,8 +113,11 @@ func runVulnScan(cmd *cobra.Command, _ []string) error {
 		total += len(r.Vulnerabilities)
 	}
 	// Interactive confirmation (only when there is something to add).
-	if total > 0 && interactive && !noPreview {
+	if total > 0 && !yes {
 		confirmed, err := confirmVulnEnrich(results)
+		if errors.Is(err, apperr.ErrCancelled) {
+			return apperr.ErrCancelled
+		}
 		if err != nil {
 			return fmt.Errorf("confirmation error: %w", err)
 		}
@@ -243,7 +252,8 @@ func confirmVulnEnrich(results []vulnscan.ComponentScanResult) (bool, error) {
 			ui.Warning.Render(fmt.Sprintf("%d vulnerability entries", len(r.Vulnerabilities)))))
 	}
 
-	fmt.Println(ui.Box.Render(sb.String()))
+	// The preview is part of the prompt, so it goes to stderr with the form.
+	fmt.Fprintln(os.Stderr, ui.Box.Render(sb.String()))
 
 	var confirm bool
 	form := huh.NewForm(
@@ -256,28 +266,47 @@ func confirmVulnEnrich(results []vulnscan.ComponentScanResult) (bool, error) {
 				Negative("No"),
 		),
 	)
-	if err := form.Run(); err != nil {
+	if err := ui.RunForm(form); err != nil {
 		return false, err
 	}
 	return confirm, nil
 }
 
 func init() {
-	vulnScanCmd.Flags().StringP("input", "i", "", "Path to existing AIBOM (required)")
-	vulnScanCmd.Flags().StringP("output", "o", "", "Output path when --enrich is set (default: overwrite input)")
-	addDeprecatedFlag(vulnScanCmd, "format", "f", inputFormatDeprecation)
-	addDeprecatedFlag(vulnScanCmd, "output-format", "", outputFormatDeprecation)
-	vulnScanCmd.Flags().String("spec", "", "CycloneDX spec version for output")
+	vulnScanCmd.Flags().StringP("input", "i", "", "AIBOM file, instead of the argument")
+	vulnScanCmd.Flags().StringP("output", "o", "", "Output file with --enrich (default: overwrite the input); .xml writes XML, anything else JSON")
+	vulnScanCmd.Flags().String("spec", "", "CycloneDX spec version for output (default: same as input)")
 
 	vulnScanCmd.Flags().Bool("enrich", false, "Inject discovered vulnerabilities back into the AIBOM")
-	vulnScanCmd.Flags().Bool("interactive", true, "Show confirmation prompt before saving (only with --enrich)")
-	vulnScanCmd.Flags().Bool("no-preview", false, "Skip preview prompt (only with --enrich)")
+	vulnScanCmd.Flags().BoolP("yes", "y", false, "Apply without preview or confirmation (only with --enrich)")
 
-	vulnScanCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")
-	vulnScanCmd.Flags().String("hf-token", "", "Hugging Face API token")
-	vulnScanCmd.Flags().String("hf-base-url", "", "Hugging Face base URL override")
-	vulnScanCmd.Flags().Int("hf-timeout", 15, "Hugging Face API timeout in seconds")
+	vulnScanCmd.Flags().Bool("json", false, "Print the scan results as JSON")
+	addHFFlags(vulnScanCmd)
 
 	// Bind to viper.
 	bindFlags(vulnScanCmd, "vuln-scan")
+}
+
+// vulnResultJSON is the --json view of one scanned component: the raw tree
+// entries are left out and the error becomes a string.
+type vulnResultJSON struct {
+	Ref             string              `json:"ref"`
+	Model           string              `json:"model"`
+	Vulnerabilities []cdx.Vulnerability `json:"vulnerabilities"`
+	Error           string              `json:"error,omitempty"`
+}
+
+func vulnJSON(results []vulnscan.ComponentScanResult) []vulnResultJSON {
+	out := make([]vulnResultJSON, 0, len(results))
+	for _, r := range results {
+		v := vulnResultJSON{Ref: r.ComponentRef, Model: r.ModelID, Vulnerabilities: r.Vulnerabilities}
+		if v.Vulnerabilities == nil {
+			v.Vulnerabilities = []cdx.Vulnerability{}
+		}
+		if r.Err != nil {
+			v.Error = r.Err.Error()
+		}
+		out = append(out, v)
+	}
+	return out
 }

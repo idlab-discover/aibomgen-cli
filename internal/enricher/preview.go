@@ -2,6 +2,7 @@ package enricher
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"charm.land/huh/v2"
@@ -101,7 +102,8 @@ func ShowPreviewWithConfirm(
 	// Render preview in a box using UI styles.
 	previewBox := ui.Box.Render(sb.String())
 
-	fmt.Println(previewBox)
+	// The preview is part of the prompt, so it goes to stderr with the form.
+	fmt.Fprintln(os.Stderr, previewBox)
 
 	// Confirmation prompt.
 	var confirm bool
@@ -116,11 +118,9 @@ func ShowPreviewWithConfirm(
 		),
 	)
 
-	err := form.Run()
-	if err != nil {
+	if err := ui.RunForm(form); err != nil {
 		return false, err
 	}
-
 	return confirm, nil
 }
 

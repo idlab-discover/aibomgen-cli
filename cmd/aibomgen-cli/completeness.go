@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -13,21 +10,16 @@ import (
 )
 
 var completenessCmd = &cobra.Command{
-	Use:   "completeness",
+	Use:   "completeness [file]",
 	Short: "Compute completeness score for an AIBOM",
 	Long:  "Reads an existing CycloneDX AIBOM (json/xml) and scores it against the configured field registry.",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		quiet := verbosity < 0
 
-		// Get log level from viper.
-		quiet, err := quietFrom(viper.GetString("completeness.log-level"))
+		inputPath, err := requireInput(cmd, args, "completeness")
 		if err != nil {
 			return err
-		}
-
-		// Get input path from viper.
-		inputPath := viper.GetString("completeness.input")
-		if inputPath == "" {
-			return errors.New("--input is required")
 		}
 		bom, err := bomio.ReadBOM(inputPath)
 		if err != nil {
@@ -36,31 +28,17 @@ var completenessCmd = &cobra.Command{
 
 		res := completeness.Check(bom)
 
-		// If plain-summary requested, print a machine-readable plain summary (no styling).
-		if viper.GetBool("completeness.plain-summary") {
-			// Model summary line.
-			fmt.Printf("Model: %s | Score: %.1f%% | Fields: %d/%d\n", res.ModelID, res.Score*100, res.Passed, res.Total)
-			// Dataset summary lines (if any).
-			for dsName, ds := range res.DatasetResults {
-				fmt.Printf("Dataset: %s | Score: %.1f%% | Fields: %d/%d\n", dsName, ds.Score*100, ds.Passed, ds.Total)
-			}
-			return nil
+		if viper.GetBool("completeness.json") {
+			return writeJSON(cmd.OutOrStdout(), res)
 		}
-
-		// Use the new UI for rendering if not in quiet mode.
-		ui := ui.NewCompletenessUI(cmd.OutOrStdout(), quiet)
-		ui.PrintReport(res)
-
+		ui.NewCompletenessUI(cmd.OutOrStdout(), quiet).PrintReport(res)
 		return nil
 	},
 }
 
 func init() {
-	completenessCmd.Flags().StringP("input", "i", "", "Path to existing AIBOM file (required)")
-	addDeprecatedFlag(completenessCmd, "format", "f", inputFormatDeprecation)
-	completenessCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")
-	completenessCmd.Flags().Bool("plain-summary", false, "Print a single-line plain summary (no styling)")
+	completenessCmd.Flags().StringP("input", "i", "", "AIBOM file, instead of the argument")
+	completenessCmd.Flags().Bool("json", false, "Print the result as JSON")
 
-	// Bind all flags to viper for config file support.
 	bindFlags(completenessCmd, "completeness")
 }

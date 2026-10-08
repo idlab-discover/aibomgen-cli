@@ -15,7 +15,7 @@ import (
 )
 
 var mergeCmd = &cobra.Command{
-	Use:   "merge",
+	Use:   "merge [aibom...]",
 	Short: "[BETA] Merge one or more AIBOMs with an existing SBOM",
 	Long: `[BETA] Merges one or more AI Bill of Materials (AIBOMs) with a Software Bill of Materials (SBOM) from a different source.
 This allows you to combine AI/ML component information with traditional software dependencies into a single comprehensive BOM.
@@ -27,42 +27,36 @@ Example:
   # Generate SBOM with Syft
   syft scan . -o cyclonedx-json > sbom.json
 
-  # Generate AIBOM with AIBoMGen
-  ./aibomgen-cli generate -i . -o aibom.json
+  # Generate AIBOMs with AIBoMGen (one file per model in dist/)
+  aibomgen-cli scan .
 
   # Merge them together
-  ./aibomgen-cli merge --aibom aibom.json --sbom sbom.json -o merged.json
-
-  # Merge multiple AIBOMs with one SBOM
-  ./aibomgen-cli merge --aibom model1_aibom.json --aibom model2_aibom.json --sbom sbom.json -o merged.json`,
+  aibomgen-cli merge dist/*.aibom.cdx.json --sbom sbom.json -o merged.json`,
+	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get inputs from viper (respects config file and CLI flag).
-		aibomPaths := viper.GetStringSlice("merge.aiboms")
+		// AIBOMs come from arguments and --aibom (flag, env or config).
+		aibomPaths := append(viper.GetStringSlice("merge.aibom"), args...)
 		if len(aibomPaths) == 0 {
-			return errors.New("at least one --aibom is required")
+			return errors.New("no AIBOM given: pass AIBOM files or --aibom")
 		}
 
 		sbomPath := viper.GetString("merge.sbom")
 		if sbomPath == "" {
-			return errors.New("--sbom is required")
+			return errors.New("no SBOM given: pass --sbom")
 		}
 
 		outputPath := viper.GetString("merge.output")
 		if outputPath == "" {
-			return errors.New("--output is required")
+			return errors.New("no output given: pass --output")
 		}
 
-		// Get log level from viper.
-		quiet, err := quietFrom(viper.GetString("merge.log-level"))
-		if err != nil {
-			return err
-		}
+		quiet := verbosity < 0
 
 		// Initialize UI (workflow is nil when quiet).
 		start := time.Now()
 		var wf *ui.Workflow
 		if !quiet {
-			wf = ui.NewWorkflow(os.Stdout)
+			wf = newWorkflow()
 			wf.AddTask("Reading SBOM")
 			wf.AddTask("Reading AIBOM(s)")
 			wf.AddTask("Merging BOMs")
@@ -121,7 +115,7 @@ Example:
 
 		// Prepare merge options.
 		opts := merger.MergeOptions{
-			DeduplicateComponents: viper.GetBool("merge.deduplicate"),
+			DeduplicateComponents: !viper.GetBool("merge.no-deduplicate"),
 		}
 
 		// Perform merge.
@@ -156,14 +150,10 @@ Example:
 }
 
 func init() {
-	mergeCmd.Flags().StringSlice("aibom", []string{}, "Path to AIBOM file (can be specified multiple times, required)")
-	mergeCmd.Flags().String("sbom", "", "Path to SBOM file (required)")
-	mergeCmd.Flags().StringP("output", "o", "", "Output path for merged BOM (required)")
-	addDeprecatedFlag(mergeCmd, "format", "f", outputFormatDeprecation)
-	mergeCmd.Flags().Bool("deduplicate", true, "Remove duplicate components based on BOM-ref")
-	mergeCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")
+	mergeCmd.Flags().StringSlice("aibom", []string{}, "AIBOM file; repeatable, or given as arguments")
+	mergeCmd.Flags().String("sbom", "", "SBOM file to merge into (required)")
+	mergeCmd.Flags().StringP("output", "o", "", "Output file for the merged BOM (required); .xml writes XML, anything else JSON")
+	mergeCmd.Flags().Bool("no-deduplicate", false, "Keep components with duplicate BOM-refs")
 
-	// Bind all flags to viper for config file support.
 	bindFlags(mergeCmd, "merge")
-	_ = viper.BindPFlag("merge.aiboms", mergeCmd.Flags().Lookup("aibom"))
 }

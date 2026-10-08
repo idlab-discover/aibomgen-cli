@@ -36,7 +36,7 @@ func hfLikeFetchers(api *mockModelAPIFetcher) fetcherSet {
 func withFetchers(t *testing.T, fs fetcherSet) {
 	t.Helper()
 	orig := newFetcherSet
-	newFetcherSet = func(*http.Client) fetcherSet { return fs }
+	newFetcherSet = func(*http.Client, string) fetcherSet { return fs }
 	t.Cleanup(func() { newFetcherSet = orig })
 }
 

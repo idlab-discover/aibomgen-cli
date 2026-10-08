@@ -2,6 +2,7 @@ package completeness
 
 import (
 	"github.com/idlab-discover/aibomgen-cli/internal/metadata"
+	"log/slog"
 
 	cdx "github.com/CycloneDX/cyclonedx-go"
 )
@@ -9,29 +10,29 @@ import (
 // Result holds the completeness score for the model component of a BOM and.
 // all linked dataset components.
 type Result struct {
-	ModelID string  // Model identifier/name
-	Score   float64 // 0..1
+	ModelID string  `json:"modelId"` // Model identifier/name
+	Score   float64 `json:"score"`   // 0..1
 
-	Passed int
-	Total  int
+	Passed int `json:"passed"`
+	Total  int `json:"total"`
 
-	MissingRequired []metadata.Key
-	MissingOptional []metadata.Key
+	MissingRequired []metadata.Key `json:"missingRequired"`
+	MissingOptional []metadata.Key `json:"missingOptional"`
 
 	// Dataset-specific tracking.
-	DatasetResults map[string]DatasetResult // key is dataset name/ref
+	DatasetResults map[string]DatasetResult `json:"datasets,omitempty"` // key is dataset name/ref
 }
 
 // DatasetResult holds the completeness score for a single dataset component.
 type DatasetResult struct {
-	DatasetRef string // Reference to the dataset
+	DatasetRef string `json:"datasetRef"` // Reference to the dataset
 
-	Score  float64 // 0..1
-	Passed int
-	Total  int
+	Score  float64 `json:"score"` // 0..1
+	Passed int     `json:"passed"`
+	Total  int     `json:"total"`
 
-	MissingRequired []metadata.DatasetKey
-	MissingOptional []metadata.DatasetKey
+	MissingRequired []metadata.DatasetKey `json:"missingRequired"`
+	MissingOptional []metadata.DatasetKey `json:"missingOptional"`
 }
 
 // Check checks the completeness of a BOM using the default metadata registry.
@@ -65,6 +66,7 @@ func checkWithRegistry(bom *cdx.BOM, modelRegistry []metadata.FieldSpec, dataset
 		if spec.Present != nil && (spec.Key != metadata.ModelCardModelParametersDatasets || datasetsReferenced) {
 			ok = spec.Present(bom)
 		}
+		slog.Debug("completeness: model field", "field", spec.Key.String(), "present", ok, "required", spec.Required)
 
 		if ok {
 			passed++
@@ -161,6 +163,7 @@ func checkDatasetWithRegistry(comp *cdx.Component, datasetRegistry []metadata.Da
 		if spec.Present != nil {
 			ok = spec.Present(comp)
 		}
+		slog.Debug("completeness: dataset field", "dataset", comp.Name, "field", spec.Key.String(), "present", ok, "required", spec.Required)
 
 		if ok {
 			passed++

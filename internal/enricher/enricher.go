@@ -1,8 +1,9 @@
 package enricher
 
 import (
+	"errors"
 	"fmt"
-	"io"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -22,7 +23,7 @@ type Config struct {
 	RequiredOnly bool    // only enrich required fields
 	MinWeight    float64 // minimum weight threshold
 	Refetch      bool    // refetch from Hugging Face
-	NoPreview    bool    // skip preview
+	Yes          bool    // save without preview or confirmation
 	HFToken      string  // Hugging Face token
 	HFBaseURL    string  // Hugging Face base URL
 	HFTimeout    int     // timeout in seconds
@@ -30,20 +31,17 @@ type Config struct {
 
 // Options for creating an Enricher.
 type Options struct {
-	Writer io.Writer
 	Config Config
 }
 
 // Enricher handles AIBOM enrichment.
 type Enricher struct {
-	writer io.Writer
 	config Config
 }
 
 // New creates a new Enricher.
 func New(opts Options) *Enricher {
 	return &Enricher{
-		writer: opts.Writer,
 		config: opts.Config,
 	}
 }
@@ -57,7 +55,7 @@ func (e *Enricher) Enrich(bom *cdx.BOM, configViper *viper.Viper) (*cdx.BOM, err
 	// Get model ID from BOM.
 	modelID := extractModelID(bom)
 	if modelID == "" {
-		fmt.Fprintf(e.writer, "warning: no model ID found in BOM; enrichment will proceed without a model ID\n")
+		slog.Warn("no model ID found in BOM; enrichment will proceed without a model ID")
 	}
 
 	// Run initial completeness check.
@@ -96,8 +94,11 @@ func (e *Enricher) Enrich(bom *cdx.BOM, configViper *viper.Viper) (*cdx.BOM, err
 			comp := &(*bom.Components)[i]
 			if comp.Type == cdx.ComponentTypeData {
 				dsChanges, err := e.enrichDataset(bom, comp, configViper)
+				if errors.Is(err, apperr.ErrCancelled) {
+					return nil, err
+				}
 				if err != nil {
-					fmt.Fprintf(e.writer, "warning: failed to enrich dataset %q: %v\n", comp.Name, err)
+					slog.Warn("failed to enrich dataset", "dataset", comp.Name, "err", err)
 					continue
 				}
 				if len(dsChanges) > 0 {
@@ -108,7 +109,7 @@ func (e *Enricher) Enrich(bom *cdx.BOM, configViper *viper.Viper) (*cdx.BOM, err
 	}
 
 	// Show preview if requested.
-	if !e.config.NoPreview && (len(modelChanges) > 0 || len(datasetChanges) > 0) {
+	if !e.config.Yes && (len(modelChanges) > 0 || len(datasetChanges) > 0) {
 		confirm, err := ShowPreviewWithConfirm(initialResult, postRefetchResult, bom, modelChanges, datasetChanges)
 		if err != nil {
 			return nil, fmt.Errorf("preview error: %w", err)
@@ -295,7 +296,7 @@ func (e *Enricher) refetchMetadata(modelID string) (*fetcher.ModelAPIResponse, *
 		BaseURL: e.config.HFBaseURL,
 	}).Fetch(modelID)
 	if err != nil {
-		fmt.Fprintf(e.writer, "warning: failed to fetch model API metadata for %q: %v\n", modelID, err)
+		slog.Warn("failed to fetch model API metadata", "model", modelID, "err", err)
 		apiResp = nil
 	}
 
@@ -304,7 +305,7 @@ func (e *Enricher) refetchMetadata(modelID string) (*fetcher.ModelAPIResponse, *
 		BaseURL: e.config.HFBaseURL,
 	}).Fetch(modelID)
 	if err != nil {
-		fmt.Fprintf(e.writer, "warning: failed to fetch model README for %q: %v\n", modelID, err)
+		slog.Warn("failed to fetch model README", "model", modelID, "err", err)
 		readme = nil
 	}
 
@@ -398,7 +399,7 @@ func (e *Enricher) refetchDatasetMetadata(datasetID string) (*fetcher.DatasetAPI
 		BaseURL: e.config.HFBaseURL,
 	}).Fetch(datasetID)
 	if err != nil {
-		fmt.Fprintf(e.writer, "warning: failed to fetch dataset API metadata for %q: %v\n", datasetID, err)
+		slog.Warn("failed to fetch dataset API metadata", "dataset", datasetID, "err", err)
 		apiResp = nil
 	}
 
@@ -407,7 +408,7 @@ func (e *Enricher) refetchDatasetMetadata(datasetID string) (*fetcher.DatasetAPI
 		BaseURL: e.config.HFBaseURL,
 	}).Fetch(datasetID)
 	if err != nil {
-		fmt.Fprintf(e.writer, "warning: failed to fetch dataset README for %q: %v\n", datasetID, err)
+		slog.Warn("failed to fetch dataset README", "dataset", datasetID, "err", err)
 		readme = nil
 	}
 
