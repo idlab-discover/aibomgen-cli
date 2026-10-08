@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
 	"github.com/idlab-discover/aibomgen-cli/internal/enricher"
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/bomio"
@@ -14,35 +16,36 @@ import (
 
 // enrichCmd represents the enrich command.
 var enrichCmd = &cobra.Command{
-	Use:   "enrich",
+	Use:   "enrich [file]",
 	Short: "Enrich an existing AIBOM with additional metadata",
-	Long: `Enrich an existing AIBOM with additional metadata through interactive prompts
-or by loading values from a configuration file. Optionally refetch model metadata
-from Hugging Face API and README before enrichment.`,
+	Long: `Enrich an existing AIBOM with additional metadata, prompting for missing fields
+or, with --file, loading the values from a YAML file (see config/enrichment.yaml).
+By default the model metadata is first refetched from the Hugging Face API and README.`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get strategy from viper (respects config file).
-		strategy := strings.ToLower(strings.TrimSpace(viper.GetString("enrich.strategy")))
-		if strategy == "" {
-			strategy = "interactive"
-		}
-		switch strategy {
-		case "interactive", "file":
-			// ok.
-		default:
-			return fmt.Errorf("invalid strategy %q (expected interactive|file)", strategy)
+		quiet := verbosity < 0
+		yes := viper.GetBool("enrich.yes")
+		configFile := strings.TrimSpace(viper.GetString("enrich.file"))
+		strategy := "interactive"
+		if configFile != "" {
+			strategy = "file"
 		}
 
-		// Get log level from viper.
-		quiet, err := quietFrom(viper.GetString("enrich.log-level"))
+		inputPath, err := requireInput(cmd, args, "enrich")
 		if err != nil {
 			return err
 		}
 
-		// Read existing BOM.
-		inputPath := viper.GetString("enrich.input")
-		if inputPath == "" {
-			return errors.New("--input is required")
+		// Fail before any work if a prompt would be needed but can't be shown.
+		if !ui.CanPrompt() {
+			if strategy == "interactive" {
+				return errors.New("interactive enrichment needs a terminal; pass --file <enrichment.yaml>")
+			}
+			if !yes {
+				return errors.New("confirming the changes needs a terminal; pass --yes to save without asking")
+			}
 		}
+
 		bom, err := bomio.ReadBOM(inputPath)
 		if err != nil {
 			return fmt.Errorf("failed to read input BOM: %w", err)
@@ -57,26 +60,22 @@ from Hugging Face API and README before enrichment.`,
 		// Get settings from viper (respects config file).
 		specVersion := strings.TrimSpace(viper.GetString("enrich.spec"))
 
-		// Build enricher configuration.
+		hf := hfOptions("enrich")
 		cfg := enricher.Config{
 			Strategy:     strategy,
-			ConfigFile:   viper.GetString("enrich.file"),
+			ConfigFile:   configFile,
 			RequiredOnly: viper.GetBool("enrich.required-only"),
 			MinWeight:    viper.GetFloat64("enrich.min-weight"),
 			Refetch:      viper.GetBool("enrich.refetch"),
-			NoPreview:    viper.GetBool("enrich.no-preview"),
-			HFToken:      viper.GetString("enrich.hf-token"),
-			HFBaseURL:    viper.GetString("enrich.hf-base-url"),
-			HFTimeout:    viper.GetInt("enrich.hf-timeout"),
+			Yes:          yes,
+			HFToken:      hf.Token,
+			HFBaseURL:    hf.BaseURL,
+			HFTimeout:    int(hf.Timeout / time.Second),
 		}
 
-		// Load config file values if using file strategy.
+		// Load the enrichment values when a file is given.
 		var configViper *viper.Viper
 		if strategy == "file" {
-			configFile := cfg.ConfigFile
-			if configFile == "" {
-				configFile = "./config/enrichment.yaml"
-			}
 			configViper, err = loadEnrichmentConfig(configFile)
 			if err != nil {
 				return fmt.Errorf("failed to load config file: %w", err)
@@ -84,13 +83,13 @@ from Hugging Face API and README before enrichment.`,
 		}
 
 		// Create enricher.
-		e := enricher.New(enricher.Options{
-			Writer: cmd.OutOrStdout(),
-			Config: cfg,
-		})
+		e := enricher.New(enricher.Options{Config: cfg})
 
 		// Run enrichment.
 		enriched, err := e.Enrich(bom, configViper)
+		if errors.Is(err, apperr.ErrCancelled) {
+			return apperr.ErrCancelled
+		}
 		if err != nil {
 			return fmt.Errorf("enrichment failed: %w", err)
 		}
@@ -110,25 +109,16 @@ from Hugging Face API and README before enrichment.`,
 }
 
 func init() {
-	enrichCmd.Flags().StringP("input", "i", "", "Path to existing AIBOM (required)")
-	enrichCmd.Flags().StringP("output", "o", "", "Output file path (default: overwrite input)")
-	addDeprecatedFlag(enrichCmd, "format", "f", inputFormatDeprecation)
-	addDeprecatedFlag(enrichCmd, "output-format", "", outputFormatDeprecation)
+	enrichCmd.Flags().StringP("input", "i", "", "AIBOM file, instead of the argument")
+	enrichCmd.Flags().StringP("output", "o", "", "Output file (default: overwrite the input); .xml writes XML, anything else JSON")
 	enrichCmd.Flags().String("spec", "", "CycloneDX spec version for output (default: same as input)")
+	enrichCmd.Flags().String("file", "", "YAML file with the values to fill in, instead of prompting")
+	enrichCmd.Flags().Bool("required-only", false, "Only fill required fields")
+	enrichCmd.Flags().Float64("min-weight", 0.0, "Only fill fields with weight >= this value")
+	enrichCmd.Flags().Bool("refetch", true, "Refetch model metadata from Hugging Face first (uses the --hf-* flags)")
+	enrichCmd.Flags().BoolP("yes", "y", false, "Save without preview or confirmation")
+	addHFFlags(enrichCmd)
 
-	enrichCmd.Flags().String("strategy", "", "Enrichment strategy: interactive|file")
-	enrichCmd.Flags().String("file", "", "Path to enrichment config file (YAML)")
-	enrichCmd.Flags().Bool("required-only", false, "Only prompt for required fields")
-	enrichCmd.Flags().Float64("min-weight", 0.0, "Only prompt for fields with weight >= this value")
-	enrichCmd.Flags().Bool("refetch", false, "Refetch model metadata from Hugging Face before enrichment")
-	enrichCmd.Flags().Bool("no-preview", false, "Skip preview before saving")
-
-	enrichCmd.Flags().String("log-level", "", "Log level: quiet|standard|debug")
-	enrichCmd.Flags().String("hf-token", "", "Hugging Face API token (for refetch)")
-	enrichCmd.Flags().String("hf-base-url", "", "Hugging Face base URL (for refetch)")
-	enrichCmd.Flags().Int("hf-timeout", 0, "Hugging Face API timeout in seconds (for refetch)")
-
-	// Bind all flags to viper for config file support.
 	bindFlags(enrichCmd, "enrich")
 }
 

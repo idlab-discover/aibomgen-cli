@@ -15,29 +15,29 @@ import (
 // ValidationResult is returned by [Validate] and summarises the outcome of.
 // all checks performed on the BOM.
 type ValidationResult struct {
-	ModelID  string
-	Valid    bool
-	Errors   []string
-	Warnings []string
+	ModelID  string   `json:"modelId"`
+	Valid    bool     `json:"valid"`
+	Errors   []string `json:"errors"`
+	Warnings []string `json:"warnings"`
 
 	// AIBOM-specific metrics.
-	CompletenessScore float64
-	MissingRequired   []metadata.Key
-	MissingOptional   []metadata.Key
+	CompletenessScore float64        `json:"completenessScore"`
+	MissingRequired   []metadata.Key `json:"missingRequired"`
+	MissingOptional   []metadata.Key `json:"missingOptional"`
 
 	// Dataset-specific results.
-	DatasetResults map[string]DatasetValidationResult // key is dataset name
+	DatasetResults map[string]DatasetValidationResult `json:"datasets,omitempty"` // key is dataset name
 }
 
 // DatasetValidationResult holds validation results for a single dataset.
 // component within the BOM.
 type DatasetValidationResult struct {
-	DatasetRef        string
-	CompletenessScore float64
-	MissingRequired   []metadata.DatasetKey
-	MissingOptional   []metadata.DatasetKey
-	Errors            []string
-	Warnings          []string
+	DatasetRef        string                `json:"datasetRef"`
+	CompletenessScore float64               `json:"completenessScore"`
+	MissingRequired   []metadata.DatasetKey `json:"missingRequired"`
+	MissingOptional   []metadata.DatasetKey `json:"missingOptional"`
+	Errors            []string              `json:"errors"`
+	Warnings          []string              `json:"warnings"`
 }
 
 // ValidationOptions configures the behaviour of [Validate].

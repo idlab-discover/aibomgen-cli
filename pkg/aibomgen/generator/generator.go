@@ -78,13 +78,13 @@ func ParseModelRef(s string) (ModelRef, error) {
 	return ModelRef{ID: id, Revision: rev}, nil
 }
 
-var newFetcherSet = func(httpClient *http.Client) fetcherSet {
+var newFetcherSet = func(httpClient *http.Client, baseURL string) fetcherSet {
 	return fetcherSet{
-		modelAPI:      &fetcher.ModelAPIFetcher{Client: httpClient},
-		modelReadme:   &fetcher.ModelReadmeFetcher{Client: httpClient},
-		datasetAPI:    &fetcher.DatasetAPIFetcher{Client: httpClient},
-		datasetReadme: &fetcher.DatasetReadmeFetcher{Client: httpClient},
-		modelTree:     &fetcher.ModelTreeFetcher{Client: httpClient},
+		modelAPI:      &fetcher.ModelAPIFetcher{Client: httpClient, BaseURL: baseURL},
+		modelReadme:   &fetcher.ModelReadmeFetcher{Client: httpClient, BaseURL: baseURL},
+		datasetAPI:    &fetcher.DatasetAPIFetcher{Client: httpClient, BaseURL: baseURL},
+		datasetReadme: &fetcher.DatasetReadmeFetcher{Client: httpClient, BaseURL: baseURL},
+		modelTree:     &fetcher.ModelTreeFetcher{Client: httpClient, BaseURL: baseURL},
 	}
 }
 
@@ -139,6 +139,7 @@ const (
 // GenerateOptions configures the generation process.
 type GenerateOptions struct {
 	HFToken          string
+	BaseURL          string // Hugging Face endpoint (empty = https://huggingface.co)
 	Timeout          time.Duration
 	OnProgress       ProgressCallback
 	SkipSecurityScan bool // when true, the HF tree security scan is not fetched
@@ -218,7 +219,7 @@ func BuildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([
 
 	results := make([]DiscoveredBOM, 0, len(discoveries))
 
-	fetchers := newFetcherSet(newHTTPClient(opts))
+	fetchers := newFetcherSet(newHTTPClient(opts), opts.BaseURL)
 	bomBuilder := newBOMBuilder()
 
 	for i, d := range discoveries {

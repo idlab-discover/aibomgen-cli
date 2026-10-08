@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"fmt"
+	"log/slog"
 
 	cdx "github.com/CycloneDX/cyclonedx-go"
 )
@@ -46,18 +47,20 @@ func onModelCard(fn func(*cdx.MLModelCard, applyInput) error) func(Target, apply
 
 // applyFirst applies the first source value that apply accepts.
 // A failed apply (e.g. a placeholder value) falls through to the next source.
-func applyFirst[S, T any](sources []func(S) (any, bool), apply func(T, applyInput) error, src S, tgt T) {
+func applyFirst[S, T any](key fmt.Stringer, sources []func(S) (any, bool), apply func(T, applyInput) error, src S, tgt T) {
 	if apply == nil {
 		return
 	}
-	for _, get := range sources {
+	for i, get := range sources {
 		if get == nil {
 			continue
 		}
 		if value, ok := get(src); ok && apply(tgt, applyInput{Value: value}) == nil {
+			slog.Debug("metadata: field applied", "field", key.String(), "source", i)
 			return
 		}
 	}
+	slog.Debug("metadata: field not found", "field", key.String())
 }
 
 // applyParsed parses a user value and applies it with Force set.
@@ -66,15 +69,16 @@ func applyParsed[T any](key fmt.Stringer, parse func(string) (any, error), apply
 		return fmt.Errorf("spec missing Parse/Apply for %s", key)
 	}
 	parsed, err := parse(value)
-	if err != nil {
-		return err
+	if err == nil {
+		err = apply(tgt, applyInput{Value: parsed, Force: true})
 	}
-	return apply(tgt, applyInput{Value: parsed, Force: true})
+	slog.Debug("metadata: user value", "field", key.String(), "err", err)
+	return err
 }
 
 // ApplyFromSources applies the first source value that spec.Apply accepts.
 func ApplyFromSources(spec FieldSpec, src Source, tgt Target) {
-	applyFirst(spec.Sources, spec.Apply, src, tgt)
+	applyFirst(spec.Key, spec.Sources, spec.Apply, src, tgt)
 }
 
 // ApplyUserValue parses and applies a user-provided value using spec.Parse and spec.Apply.
@@ -84,7 +88,7 @@ func ApplyUserValue(spec FieldSpec, value string, tgt Target) error {
 
 // ApplyDatasetFromSources applies the first dataset source value that spec.Apply accepts.
 func ApplyDatasetFromSources(spec DatasetFieldSpec, src DatasetSource, tgt DatasetTarget) {
-	applyFirst(spec.Sources, spec.Apply, src, tgt)
+	applyFirst(spec.Key, spec.Sources, spec.Apply, src, tgt)
 }
 
 // ApplyDatasetUserValue parses and applies a dataset user value.

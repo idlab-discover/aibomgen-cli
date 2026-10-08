@@ -11,7 +11,7 @@ import (
 )
 
 // runForm runs a form; tests swap it to drive the form non-interactively.
-var runForm = func(f *huh.Form) error { return f.Run() }
+var runForm = ui.RunForm
 
 // formField is the kind-independent view of a model or dataset FieldSpec.
 type formField struct {

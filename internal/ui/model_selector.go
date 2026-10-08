@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 // ModelSelectorConfig configures the model selector.
 type ModelSelectorConfig struct {
 	HFToken string
+	BaseURL string
 	Timeout time.Duration
 }
 
@@ -82,7 +84,8 @@ func NewModelSelector(config ModelSelectorConfig) *modelSelectorModel {
 	ti.SetWidth(50)
 
 	searcher := &fetcher.ModelSearcher{
-		Client: fetcher.NewHFClient(config.Timeout, config.HFToken),
+		Client:  fetcher.NewHFClient(config.Timeout, config.HFToken),
+		BaseURL: config.BaseURL,
 	}
 
 	delegate := list.NewDefaultDelegate()
@@ -350,8 +353,13 @@ func (m *modelSelectorModel) WasConfirmed() bool {
 }
 
 // RunModelSelector runs the interactive model selector and returns selected model IDs.
+// It renders on stderr and holds logs (its searches log HTTP requests) until it exits.
 func RunModelSelector(config ModelSelectorConfig) ([]string, error) {
-	p := tea.NewProgram(NewModelSelector(config))
+	if !CanPrompt() {
+		return nil, ErrNoInput
+	}
+	defer HoldLogs()()
+	p := tea.NewProgram(NewModelSelector(config), tea.WithOutput(os.Stderr))
 	m, err := p.Run()
 	if err != nil {
 		return nil, err

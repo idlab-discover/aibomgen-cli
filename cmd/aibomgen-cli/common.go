@@ -1,9 +1,15 @@
 package cmd
 
 import (
+	"cmp"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -22,15 +28,56 @@ func bindFlags(cmd *cobra.Command, prefix string) {
 	})
 }
 
-// quietFrom validates a log level (quiet|standard|debug, empty = standard)
-// and reports whether it is quiet.
-func quietFrom(level string) (bool, error) {
-	level = strings.ToLower(strings.TrimSpace(level))
-	switch level {
-	case "", "quiet", "standard", "debug":
-		return level == "quiet", nil
+// verbosity is the resolved output level for the running command:
+// -1 quiet, 0 standard, 1 verbose (-v), 2 debug (-vv). Set in PersistentPreRunE.
+var verbosity int
+
+// resolveVerbosity reads --quiet/--verbose (or their config/env keys).
+func resolveVerbosity() (int, error) {
+	quiet, verbose := viper.GetBool("quiet"), viper.GetInt("verbose")
+	switch {
+	case quiet && verbose > 0:
+		return 0, errors.New("cannot combine --quiet with --verbose")
+	case quiet:
+		return -1, nil
 	}
-	return false, fmt.Errorf("invalid --log-level %q (expected quiet|standard|debug)", level)
+	return min(verbose, 2), nil
+}
+
+// slogLevel maps a verbosity to the minimum level logged to stderr.
+func slogLevel(v int) slog.Level {
+	switch {
+	case v < 0:
+		return slog.LevelError
+	case v == 1:
+		return slog.LevelInfo
+	case v >= 2:
+		return slog.LevelDebug
+	}
+	return slog.LevelWarn
+}
+
+// setLogger installs the default slog logger at the level for v. It writes to
+// stderr through ui.LogWriter, which holds lines back while a prompt is open.
+func setLogger(v int) {
+	slog.SetDefault(slog.New(slog.NewTextHandler(ui.LogWriter(), &slog.HandlerOptions{Level: slogLevel(v), ReplaceAttr: dropTime})))
+}
+
+// dropTime removes the timestamp from log lines; it is noise for a CLI.
+func dropTime(groups []string, a slog.Attr) slog.Attr {
+	if len(groups) == 0 && a.Key == slog.TimeKey {
+		return slog.Attr{}
+	}
+	return a
+}
+
+// newWorkflow returns a progress workflow on stdout. With logs enabled (-v) or
+// stdout not a terminal it renders only the final state: no spinner redraws to
+// erase log lines or leave escape codes in redirected output.
+func newWorkflow() *ui.Workflow {
+	wf := ui.NewWorkflow(os.Stdout)
+	wf.Static = verbosity >= 1 || !ui.IsTTY(os.Stdout)
+	return wf
 }
 
 // trackProgress starts the processing task on wf (nil when quiet) and returns
@@ -48,6 +95,9 @@ func trackProgress(wf *ui.Workflow, processIdx, writeIdx, total int, hasToken bo
 	}
 
 	onProgress := func(evt generator.ProgressEvent) {
+		if evt.Type == generator.EventFetchStart {
+			slog.Info("processing model", "model", evt.ModelID)
+		}
 		if wf == nil {
 			return
 		}
@@ -114,23 +164,17 @@ func trackProgress(wf *ui.Workflow, processIdx, writeIdx, total int, hasToken bo
 	return onProgress, finish
 }
 
-// outputFormat validates a --format value for directory outputs: json (default)
-// or xml. "auto" is accepted as json for backwards compatibility.
+// outputFormat validates a --format value for directory outputs: json or xml.
 func outputFormat(format string) (string, error) {
 	switch format = strings.ToLower(strings.TrimSpace(format)); format {
-	case "", "auto":
-		return "json", nil
 	case "json", "xml":
 		return format, nil
 	}
-	return "", fmt.Errorf("invalid --format %q (expected json|xml)", format)
+	return "", fmt.Errorf("invalid format %q for --format (expected json|xml)", format)
 }
 
-// writeDiscovered writes one file per BOM into dir (default "dist") and prints the summary.
+// writeDiscovered writes one file per BOM into dir and prints the summary.
 func writeDiscovered(genUI *ui.GenerateUI, boms []generator.DiscoveredBOM, dir, format, specVersion string) error {
-	if dir == "" {
-		dir = "dist"
-	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -146,14 +190,71 @@ func writeDiscovered(genUI *ui.GenerateUI, boms []generator.DiscoveredBOM, dir, 
 	return nil
 }
 
-const (
-	inputFormatDeprecation  = "the input format is now detected from the file content"
-	outputFormatDeprecation = "the output format now follows the --output extension (.xml writes XML, anything else JSON)"
-)
+// inputFrom returns the command's single input: the positional argument if
+// given, otherwise the <prefix>.input value (flag, env or config).
+func inputFrom(cmd *cobra.Command, args []string, prefix string) (string, error) {
+	if len(args) == 0 {
+		return strings.TrimSpace(viper.GetString(prefix + ".input")), nil
+	}
+	if cmd.Flags().Changed("input") {
+		return "", errors.New("pass the input as an argument or with --input, not both")
+	}
+	return args[0], nil
+}
 
-// addDeprecatedFlag keeps a removed string flag parseable (hidden and ignored), so
-// existing scripts get a deprecation notice instead of an "unknown flag" error.
-func addDeprecatedFlag(c *cobra.Command, name, shorthand, msg string) {
-	c.Flags().StringP(name, shorthand, "", "")
-	_ = c.Flags().MarkDeprecated(name, msg)
+// requireInput is inputFrom for commands that cannot default the input.
+func requireInput(cmd *cobra.Command, args []string, prefix string) (string, error) {
+	in, err := inputFrom(cmd, args, prefix)
+	if err == nil && in == "" {
+		err = errors.New("no input given: pass a file path or --input")
+	}
+	return in, err
+}
+
+// hfSettings are the Hugging Face options shared by generate, scan, enrich and vuln-scan.
+type hfSettings struct {
+	Token   string
+	BaseURL string
+	Timeout time.Duration
+}
+
+// hfOptions reads the HF flags under prefix, falling back to the standard
+// huggingface_hub env vars HF_TOKEN and HF_ENDPOINT.
+func hfOptions(prefix string) hfSettings {
+	return hfSettings{
+		Token:   cmp.Or(viper.GetString(prefix+".hf-token"), os.Getenv("HF_TOKEN")),
+		BaseURL: cmp.Or(viper.GetString(prefix+".hf-base-url"), os.Getenv("HF_ENDPOINT")),
+		Timeout: time.Duration(viper.GetInt(prefix+".hf-timeout")) * time.Second,
+	}
+}
+
+// addHFFlags registers the shared Hugging Face flags on c.
+func addHFFlags(c *cobra.Command) {
+	c.Flags().String("hf-token", "", "Hugging Face access token (default $HF_TOKEN)")
+	c.Flags().String("hf-base-url", "", "Hugging Face endpoint (default $HF_ENDPOINT or https://huggingface.co)")
+	c.Flags().Int("hf-timeout", 10, "Timeout in seconds per Hugging Face API request")
+}
+
+// addHFModeFlag registers the hidden --hf-mode flag: "dummy" builds a fixture
+// BOM without network access (CI smoke tests), "online" is normal operation.
+func addHFModeFlag(c *cobra.Command) {
+	c.Flags().String("hf-mode", "online", "Hugging Face metadata mode: online|dummy")
+	_ = c.Flags().MarkHidden("hf-mode")
+}
+
+// hfMode validates <prefix>.hf-mode.
+func hfMode(prefix string) (string, error) {
+	switch mode := strings.ToLower(strings.TrimSpace(viper.GetString(prefix + ".hf-mode"))); mode {
+	case "online", "dummy":
+		return mode, nil
+	default:
+		return "", fmt.Errorf("invalid mode %q for --hf-mode (expected online|dummy)", mode)
+	}
+}
+
+// writeJSON writes v to w as indented JSON (the --json output of a command).
+func writeJSON(w io.Writer, v any) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
 }

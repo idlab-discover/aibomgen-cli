@@ -307,7 +307,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -350,7 +350,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -377,7 +377,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -407,7 +407,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -464,7 +464,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -525,7 +525,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -591,7 +591,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -637,7 +637,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -677,7 +677,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -876,7 +876,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -905,7 +905,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -949,7 +949,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -979,7 +979,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -1011,7 +1011,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -1070,7 +1070,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -1118,7 +1118,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -1152,7 +1152,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client) fetcherSet {
+				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
