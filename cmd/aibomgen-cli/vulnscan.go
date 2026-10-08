@@ -3,12 +3,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	cdx "github.com/CycloneDX/cyclonedx-go"
 	"io"
 	"os"
 	"strings"
 
 	"charm.land/huh/v2"
+	cdx "github.com/CycloneDX/cyclonedx-go"
 	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
 	"github.com/idlab-discover/aibomgen-cli/internal/metadata"
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"

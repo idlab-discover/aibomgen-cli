@@ -3,10 +3,10 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
 	"strings"
 	"time"
 
+	"github.com/idlab-discover/aibomgen-cli/internal/apperr"
 	"github.com/idlab-discover/aibomgen-cli/internal/enricher"
 	"github.com/idlab-discover/aibomgen-cli/internal/ui"
 	"github.com/idlab-discover/aibomgen-cli/pkg/aibomgen/bomio"

@@ -95,6 +95,9 @@ func trackProgress(wf *ui.Workflow, processIdx, writeIdx, total int, hasToken bo
 	}
 
 	onProgress := func(evt generator.ProgressEvent) {
+		if evt.Type == generator.EventFetchStart {
+			slog.Info("processing model", "model", evt.ModelID)
+		}
 		if wf == nil {
 			return
 		}

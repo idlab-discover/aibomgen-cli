@@ -42,7 +42,8 @@ type Workflow struct {
 	running    bool
 	lastRender string
 
-	// Static disables the spinner: only the final state is rendered on Stop.
+	// Static disables the spinner and redraws: each task state change is printed
+	// once as a plain line instead (for -v logs and non-terminal output).
 	Static bool
 }
 
@@ -76,6 +77,7 @@ func (wf *Workflow) StartTask(idx int, message string) {
 	if idx >= 0 && idx < len(wf.tasks) {
 		wf.tasks[idx].Status = TaskRunning
 		wf.tasks[idx].Message = message
+		wf.emitLocked(wf.tasks[idx])
 	}
 }
 
@@ -87,6 +89,7 @@ func (wf *Workflow) CompleteTask(idx int, details string) {
 	if idx >= 0 && idx < len(wf.tasks) {
 		wf.tasks[idx].Status = TaskDone
 		wf.tasks[idx].Details = details
+		wf.emitLocked(wf.tasks[idx])
 	}
 }
 
@@ -98,6 +101,7 @@ func (wf *Workflow) FailTask(idx int, errMsg string) {
 	if idx >= 0 && idx < len(wf.tasks) {
 		wf.tasks[idx].Status = TaskFailed
 		wf.tasks[idx].Message = errMsg
+		wf.emitLocked(wf.tasks[idx])
 	}
 }
 
@@ -109,6 +113,7 @@ func (wf *Workflow) SkipTask(idx int, reason string) {
 	if idx >= 0 && idx < len(wf.tasks) {
 		wf.tasks[idx].Status = TaskSkipped
 		wf.tasks[idx].Message = reason
+		wf.emitLocked(wf.tasks[idx])
 	}
 }
 
@@ -165,7 +170,16 @@ func (wf *Workflow) Stop() {
 	wf.mu.Unlock()
 
 	close(wf.stopChan)
-	wf.render(true)
+	if !wf.Static {
+		wf.render(true)
+	}
+}
+
+// emitLocked prints t's current state as one line in Static mode. Callers hold wf.mu.
+func (wf *Workflow) emitLocked(t *Task) {
+	if wf.Static {
+		fmt.Fprintln(wf.writer, wf.renderTask(t, t.Status != TaskRunning))
+	}
 }
 
 // render displays the current state; final renders the end state without

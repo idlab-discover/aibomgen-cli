@@ -1,10 +1,11 @@
 package completeness
 
 import (
-	"github.com/idlab-discover/aibomgen-cli/internal/metadata"
 	"log/slog"
 
 	cdx "github.com/CycloneDX/cyclonedx-go"
+
+	"github.com/idlab-discover/aibomgen-cli/internal/metadata"
 )
 
 // Result holds the completeness score for the model component of a BOM and.
