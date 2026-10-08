@@ -115,19 +115,16 @@ func successFetcherSet() fetcherSet {
 }
 
 func TestBuildDummyBOM(t *testing.T) {
-	// Save originals.
-	originalDummyFetcherSet := newDummyFetcherSet
-	originalBuilder := newBOMBuilder
-
+	t.Parallel()
 	tests := []struct {
 		name    string
-		setup   func()
+		setup   func(g *generator)
 		wantErr bool
 		check   func(*testing.T, []DiscoveredBOM)
 	}{
 		{
 			name:    "builds dummy BOM successfully",
-			setup:   func() {},
+			setup:   func(g *generator) {},
 			wantErr: false,
 			check: func(t *testing.T, got []DiscoveredBOM) {
 				if len(got) != 1 {
@@ -149,8 +146,8 @@ func TestBuildDummyBOM(t *testing.T) {
 		},
 		{
 			name: "handles model API fetch error",
-			setup: func() {
-				newDummyFetcherSet = func() fetcherSet {
+			setup: func(g *generator) {
+				g.newDummyFetcherSet = func() fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -167,8 +164,8 @@ func TestBuildDummyBOM(t *testing.T) {
 		},
 		{
 			name: "handles model README fetch error",
-			setup: func() {
-				newDummyFetcherSet = func() fetcherSet {
+			setup: func(g *generator) {
+				g.newDummyFetcherSet = func() fetcherSet {
 					return fetcherSet{
 						modelAPI: &fetcher.DummyModelAPIFetcher{},
 						modelReadme: &mockModelReadmeFetcher{
@@ -185,8 +182,8 @@ func TestBuildDummyBOM(t *testing.T) {
 		},
 		{
 			name: "handles BOM build error",
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(ctx builder.BuildContext) (*cdx.BOM, error) {
 							return nil, context.Canceled
@@ -198,8 +195,8 @@ func TestBuildDummyBOM(t *testing.T) {
 		},
 		{
 			name: "handles dataset API fetch errors gracefully",
-			setup: func() {
-				newDummyFetcherSet = func() fetcherSet {
+			setup: func(g *generator) {
+				g.newDummyFetcherSet = func() fetcherSet {
 					return fetcherSet{
 						modelAPI:    &fetcher.DummyModelAPIFetcher{},
 						modelReadme: &fetcher.DummyModelReadmeFetcher{},
@@ -223,8 +220,8 @@ func TestBuildDummyBOM(t *testing.T) {
 		},
 		{
 			name: "handles dataset readme fetch error in BuildDummyBOM",
-			setup: func() {
-				newDummyFetcherSet = func() fetcherSet {
+			setup: func(g *generator) {
+				g.newDummyFetcherSet = func() fetcherSet {
 					return fetcherSet{
 						modelAPI:    &fetcher.DummyModelAPIFetcher{},
 						modelReadme: &fetcher.DummyModelReadmeFetcher{},
@@ -252,14 +249,11 @@ func TestBuildDummyBOM(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Restore originals before each test case.
-			newDummyFetcherSet = originalDummyFetcherSet
-			newBOMBuilder = originalBuilder
-
+			g := defaultGenerator()
 			if tt.setup != nil {
-				tt.setup()
+				tt.setup(g)
 			}
-			got, err := BuildDummyBOM()
+			got, err := g.buildDummyBOM()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BuildDummyBOM() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -272,14 +266,7 @@ func TestBuildDummyBOM(t *testing.T) {
 }
 
 func TestBuildPerDiscovery(t *testing.T) {
-	// Save originals and restore after each test.
-	originalBuilder := newBOMBuilder
-	originalFetcherSet := newFetcherSet
-	defer func() {
-		newBOMBuilder = originalBuilder
-		newFetcherSet = originalFetcherSet
-	}()
-
+	t.Parallel()
 	type args struct {
 		discoveries []scanner.Discovery
 		opts        GenerateOptions
@@ -287,7 +274,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		setup   func()
+		setup   func(g *generator)
 		wantErr bool
 		check   func(*testing.T, []DiscoveredBOM)
 	}{
@@ -299,15 +286,15 @@ func TestBuildPerDiscovery(t *testing.T) {
 				},
 				opts: GenerateOptions{Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{SerialNumber: "test-serial"}, nil
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -324,8 +311,8 @@ func TestBuildPerDiscovery(t *testing.T) {
 				discoveries: []scanner.Discovery{},
 				opts:        GenerateOptions{Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder { return &mockBOMBuilder{} }
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder { return &mockBOMBuilder{} }
 			},
 			wantErr: false,
 			check: func(t *testing.T, got []DiscoveredBOM) {
@@ -342,15 +329,15 @@ func TestBuildPerDiscovery(t *testing.T) {
 				},
 				opts: GenerateOptions{Timeout: 0}, // Zero timeout should use default
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -369,15 +356,15 @@ func TestBuildPerDiscovery(t *testing.T) {
 				},
 				opts: GenerateOptions{Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -399,15 +386,15 @@ func TestBuildPerDiscovery(t *testing.T) {
 					OnProgress: func(event ProgressEvent) {},
 				},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{SerialNumber: "test-serial"}, nil
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -429,8 +416,8 @@ func TestBuildPerDiscovery(t *testing.T) {
 					OnProgress: func(event ProgressEvent) {},
 				},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return nil, context.Canceled
@@ -453,8 +440,8 @@ func TestBuildPerDiscovery(t *testing.T) {
 				},
 				opts: GenerateOptions{Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
@@ -464,7 +451,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -514,8 +501,8 @@ func TestBuildPerDiscovery(t *testing.T) {
 					OnProgress: func(event ProgressEvent) {},
 				},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
@@ -525,7 +512,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -580,8 +567,8 @@ func TestBuildPerDiscovery(t *testing.T) {
 				},
 				opts: GenerateOptions{HFToken: "test-token", Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
@@ -591,7 +578,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -629,15 +616,15 @@ func TestBuildPerDiscovery(t *testing.T) {
 				},
 				opts: GenerateOptions{HFToken: "test-token", Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -669,15 +656,15 @@ func TestBuildPerDiscovery(t *testing.T) {
 				},
 				opts: GenerateOptions{Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -700,10 +687,11 @@ func TestBuildPerDiscovery(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := defaultGenerator()
 			if tt.setup != nil {
-				tt.setup()
+				tt.setup(g)
 			}
-			got, err := BuildPerDiscovery(tt.args.discoveries, tt.args.opts)
+			got, err := g.buildPerDiscovery(tt.args.discoveries, tt.args.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BuildPerDiscovery() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -716,6 +704,7 @@ func TestBuildPerDiscovery(t *testing.T) {
 }
 
 func Test_extractDatasetsFromModel(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		modelResp *fetcher.ModelAPIResponse
 		readme    *fetcher.ModelReadmeCard
@@ -843,14 +832,7 @@ func Test_extractDatasetsFromModel(t *testing.T) {
 }
 
 func TestBuildFromModelIDs(t *testing.T) {
-	// Save originals and restore after each test.
-	originalBuilder := newBOMBuilder
-	originalFetcherSet := newFetcherSet
-	defer func() {
-		newBOMBuilder = originalBuilder
-		newFetcherSet = originalFetcherSet
-	}()
-
+	t.Parallel()
 	type args struct {
 		modelIDs []string
 		opts     GenerateOptions
@@ -858,7 +840,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		setup   func()
+		setup   func(g *generator)
 		wantErr bool
 		check   func(*testing.T, []DiscoveredBOM)
 	}{
@@ -868,15 +850,15 @@ func TestBuildFromModelIDs(t *testing.T) {
 				modelIDs: []string{"org/model"},
 				opts:     GenerateOptions{Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{SerialNumber: "test"}, nil
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -897,15 +879,15 @@ func TestBuildFromModelIDs(t *testing.T) {
 				modelIDs: []string{"", "  ", "org/model"},
 				opts:     GenerateOptions{Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -922,8 +904,8 @@ func TestBuildFromModelIDs(t *testing.T) {
 				modelIDs: []string{},
 				opts:     GenerateOptions{Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder { return &mockBOMBuilder{} }
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder { return &mockBOMBuilder{} }
 			},
 			wantErr: false,
 			check: func(t *testing.T, got []DiscoveredBOM) {
@@ -941,15 +923,15 @@ func TestBuildFromModelIDs(t *testing.T) {
 					OnProgress: func(event ProgressEvent) {},
 				},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -966,9 +948,9 @@ func TestBuildFromModelIDs(t *testing.T) {
 				modelIDs: []string{"org/model1", "org/model2"},
 				opts:     GenerateOptions{Timeout: 1 * time.Second},
 			},
-			setup: func() {
+			setup: func(g *generator) {
 				callCount := 0
-				newBOMBuilder = func() bomBuilder {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							callCount++
@@ -979,7 +961,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return successFetcherSet()
 				}
 			},
@@ -1000,8 +982,8 @@ func TestBuildFromModelIDs(t *testing.T) {
 					OnProgress: func(event ProgressEvent) {},
 				},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
@@ -1011,7 +993,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -1059,8 +1041,8 @@ func TestBuildFromModelIDs(t *testing.T) {
 				modelIDs: []string{"org/model-with-dataset-readme-error"},
 				opts:     GenerateOptions{HFToken: "test-token", Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
@@ -1070,7 +1052,7 @@ func TestBuildFromModelIDs(t *testing.T) {
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -1110,15 +1092,15 @@ func TestBuildFromModelIDs(t *testing.T) {
 				modelIDs: []string{"org/nonexistent-model"},
 				opts:     GenerateOptions{Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -1144,15 +1126,15 @@ func TestBuildFromModelIDs(t *testing.T) {
 				modelIDs: []string{"org/private-or-missing-model"},
 				opts:     GenerateOptions{Timeout: 1 * time.Second},
 			},
-			setup: func() {
-				newBOMBuilder = func() bomBuilder {
+			setup: func(g *generator) {
+				g.newBOMBuilder = func() bomBuilder {
 					return &mockBOMBuilder{
 						buildFunc: func(bctx builder.BuildContext) (*cdx.BOM, error) {
 							return &cdx.BOM{}, nil
 						},
 					}
 				}
-				newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
+				g.newFetcherSet = func(httpClient *http.Client, _ string) fetcherSet {
 					return fetcherSet{
 						modelAPI: &mockModelAPIFetcher{
 							fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
@@ -1175,10 +1157,11 @@ func TestBuildFromModelIDs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := defaultGenerator()
 			if tt.setup != nil {
-				tt.setup()
+				tt.setup(g)
 			}
-			got, err := BuildFromModelIDs(tt.args.modelIDs, tt.args.opts)
+			got, err := g.buildFromModelIDs(tt.args.modelIDs, tt.args.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BuildFromModelIDs() error = %v, wantErr %v", err, tt.wantErr)
 				return
