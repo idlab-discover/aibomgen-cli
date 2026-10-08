@@ -3,6 +3,7 @@ package generator
 import (
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	cdx "github.com/CycloneDX/cyclonedx-go"
@@ -167,6 +168,24 @@ func TestParseModelRef(t *testing.T) {
 	if s := (ModelRef{ID: "a/b", Revision: "v1"}).String(); s != "a/b@v1" {
 		t.Fatalf("String() = %q", s)
 	}
+}
+
+func FuzzParseModelRef(f *testing.F) {
+	for _, s := range []string{"org/name", " gpt2 ", "org/name@v1", "org/name@refs/pr/1", "org/name@", "@v1", "", "@"} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		ref, err := ParseModelRef(s)
+		if err != nil {
+			return
+		}
+		if ref.ID == "" || strings.Contains(ref.ID, "@") {
+			t.Fatalf("ParseModelRef(%q) = %+v: invalid ID", s, ref)
+		}
+		if again, err := ParseModelRef(ref.String()); err != nil || again != ref {
+			t.Fatalf("round trip %q -> %+v -> %+v (err %v)", s, ref, again, err)
+		}
+	})
 }
 
 func TestBuildFromModelIDs_InputsOutputs(t *testing.T) {

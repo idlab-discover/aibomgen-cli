@@ -14,7 +14,7 @@ The project is maintained on the `main` branch and through the latest tagged rel
 
 Please do not open public GitHub issues for suspected security vulnerabilities.
 
-Use GitHub's private vulnerability reporting for this repository when available. Include:
+Report it privately via GitHub's private vulnerability reporting: <https://github.com/idlab-discover/aibomgen-cli/security/advisories/new>. Include:
 
 - a clear description of the issue
 - affected versions or commits

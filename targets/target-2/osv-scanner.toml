@@ -1,0 +1,5 @@
+# Fake test repo for the aibomgen scanner; these packages are never installed.
+[[PackageOverrides]]
+ecosystem = "PyPI"
+ignore = true
+reason = "test fixture, not a real dependency"
