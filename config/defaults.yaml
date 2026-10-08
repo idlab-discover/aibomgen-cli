@@ -122,3 +122,28 @@ merge:
   deduplicate: true
   # Log level: quiet|standard|debug
   log-level: "standard"
+
+# ============================================================================
+# Command: vuln-scan
+# ============================================================================
+vuln-scan:
+  # Path to existing AIBOM (required)
+  input: ""
+  # Output path when enrich is true (default: overwrite input); .xml writes XML, anything else JSON
+  output: ""
+  # CycloneDX spec version for output (e.g., 1.5, 1.6, 1.7) empty is latest (1.7)
+  spec: ""
+  # Inject discovered vulnerabilities back into the AIBOM
+  enrich: false
+  # Show confirmation prompt before saving (only with enrich)
+  interactive: true
+  # Skip preview prompt (only with enrich)
+  no-preview: false
+  # Hugging Face access token
+  hf-token: ""
+  # Hugging Face base URL
+  hf-base-url: "https://huggingface.co"
+  # Timeout in seconds per Hugging Face API request
+  hf-timeout: 15
+  # Log level: quiet|standard|debug
+  log-level: "standard"

@@ -117,6 +117,7 @@ Config keys with dashes are translated to underscores in env var names:
 - `generate.hf-token` → `AIBOMGEN_GENERATE_HF_TOKEN`
 - `scan.hf-mode` → `AIBOMGEN_SCAN_HF_MODE`
 - `enrich.log-level` → `AIBOMGEN_ENRICH_LOG_LEVEL`
+- `vuln-scan.hf-token` → `AIBOMGEN_VULN_SCAN_HF_TOKEN`
 
 ## Commands
 
