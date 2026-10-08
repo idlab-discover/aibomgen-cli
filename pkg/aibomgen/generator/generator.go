@@ -26,11 +26,22 @@ type bomBuilder interface {
 	BuildDataset(builder.DatasetBuildContext) (*cdx.Component, error)
 }
 
-var newBOMBuilder = func() bomBuilder {
-	return builder.BOMBuilder{}
+// generator holds the dependency factories; tests construct one with doubles
+// instead of mutating package state.
+type generator struct {
+	newBOMBuilder      func() bomBuilder
+	newFetcherSet      func(httpClient *http.Client, baseURL string) fetcherSet
+	newDummyFetcherSet func() fetcherSet
 }
 
-// Fetcher factory functions for testing.
+func defaultGenerator() *generator {
+	return &generator{
+		newBOMBuilder:      func() bomBuilder { return builder.BOMBuilder{} },
+		newFetcherSet:      liveFetcherSet,
+		newDummyFetcherSet: dummyFetcherSet,
+	}
+}
+
 type fetcherSet struct {
 	modelAPI interface {
 		FetchRevision(id, revision string) (*fetcher.ModelAPIResponse, error)
@@ -78,7 +89,7 @@ func ParseModelRef(s string) (ModelRef, error) {
 	return ModelRef{ID: id, Revision: rev}, nil
 }
 
-var newFetcherSet = func(httpClient *http.Client, baseURL string) fetcherSet {
+func liveFetcherSet(httpClient *http.Client, baseURL string) fetcherSet {
 	return fetcherSet{
 		modelAPI:      &fetcher.ModelAPIFetcher{Client: httpClient, BaseURL: baseURL},
 		modelReadme:   &fetcher.ModelReadmeFetcher{Client: httpClient, BaseURL: baseURL},
@@ -92,8 +103,7 @@ func newHTTPClient(opts GenerateOptions) *http.Client {
 	return fetcher.NewHFClient(opts.Timeout, opts.HFToken)
 }
 
-// Dummy fetcher factory for BuildDummyBOM testing.
-var newDummyFetcherSet = func() fetcherSet {
+func dummyFetcherSet() fetcherSet {
 	return fetcherSet{
 		modelAPI:      &fetcher.DummyModelAPIFetcher{},
 		modelReadme:   &fetcher.DummyModelReadmeFetcher{},
@@ -148,7 +158,11 @@ type GenerateOptions struct {
 // BuildDummyBOM builds a single comprehensive dummy BOM with all fields populated.
 // This is used in dummy mode for testing/demo purposes without scanning or fetching real data.
 func BuildDummyBOM() ([]DiscoveredBOM, error) {
-	fetchers := newDummyFetcherSet()
+	return defaultGenerator().buildDummyBOM()
+}
+
+func (g *generator) buildDummyBOM() ([]DiscoveredBOM, error) {
+	fetchers := g.newDummyFetcherSet()
 
 	// Create a dummy discovery.
 	dummyDiscovery := scanner.Discovery{
@@ -184,7 +198,7 @@ func BuildDummyBOM() ([]DiscoveredBOM, error) {
 		SecurityTree: securityTree,
 	}
 
-	bomBuilder := newBOMBuilder()
+	bomBuilder := g.newBOMBuilder()
 	bom, err := bomBuilder.Build(bctx)
 	if err != nil {
 		return nil, err
@@ -192,7 +206,7 @@ func BuildDummyBOM() ([]DiscoveredBOM, error) {
 
 	// Build dataset components for any datasets referenced in the model's training metadata.
 	noProgress := func(ProgressEvent) {}
-	_, resolved := buildDatasetComponents(fetchers, bom, extractDatasetsFromModel(apiResp, readme), "dummy-org/dummy-model", noProgress)
+	_, resolved := buildDatasetComponents(fetchers, bomBuilder, bom, extractDatasetsFromModel(apiResp, readme), "dummy-org/dummy-model", noProgress)
 	finalizeModelBOM(bom, resolved)
 
 	return []DiscoveredBOM{
@@ -208,6 +222,10 @@ func BuildDummyBOM() ([]DiscoveredBOM, error) {
 // When building a model, if datasets are referenced in the model's training metadata, builds dataset components too.
 // Use opts.OnProgress to receive progress events; pass a nil callback to disable.
 func BuildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([]DiscoveredBOM, error) {
+	return defaultGenerator().buildPerDiscovery(discoveries, opts)
+}
+
+func (g *generator) buildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([]DiscoveredBOM, error) {
 	if opts.Timeout <= 0 {
 		opts.Timeout = 10 * time.Second
 	}
@@ -219,8 +237,8 @@ func BuildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([
 
 	results := make([]DiscoveredBOM, 0, len(discoveries))
 
-	fetchers := newFetcherSet(newHTTPClient(opts), opts.BaseURL)
-	bomBuilder := newBOMBuilder()
+	fetchers := g.newFetcherSet(newHTTPClient(opts), opts.BaseURL)
+	bomBuilder := g.newBOMBuilder()
 
 	for i, d := range discoveries {
 		modelID := strings.TrimSpace(d.ID)
@@ -291,7 +309,7 @@ func BuildPerDiscovery(discoveries []scanner.Discovery, opts GenerateOptions) ([
 
 		progress(ProgressEvent{Type: EventBuildComplete, ModelID: label})
 
-		datasetCount, resolved := buildDatasetComponents(fetchers, bom, extractDatasetsFromModel(resp, readme), label, progress)
+		datasetCount, resolved := buildDatasetComponents(fetchers, bomBuilder, bom, extractDatasetsFromModel(resp, readme), label, progress)
 		finalizeModelBOM(bom, resolved)
 
 		progress(ProgressEvent{Type: EventModelComplete, ModelID: label, Datasets: datasetCount})
@@ -394,7 +412,7 @@ func extractDatasetsFromModel(modelResp *fetcher.ModelAPIResponse, readme *fetch
 // redirects renamed datasets, several card names can resolve to one component; it is
 // added once. Dataset references that fail to fetch (e.g. not on HuggingFace) are
 // skipped here and kept as inline entries by builder.LinkDatasetRefs.
-func buildDatasetComponents(fetchers fetcherSet, bom *cdx.BOM, datasets []string, modelID string, progress ProgressCallback) (int, map[string]string) {
+func buildDatasetComponents(fetchers fetcherSet, bomBuilder bomBuilder, bom *cdx.BOM, datasets []string, modelID string, progress ProgressCallback) (int, map[string]string) {
 	count := 0
 	resolved := make(map[string]string)
 	for _, dsID := range datasets {
@@ -420,7 +438,7 @@ func buildDatasetComponents(fetchers fetcherSet, bom *cdx.BOM, datasets []string
 			Readme:    dsReadme,
 		}
 
-		dsComp, err := newBOMBuilder().BuildDataset(dsCtx)
+		dsComp, err := bomBuilder.BuildDataset(dsCtx)
 		if err != nil {
 			continue
 		}
@@ -445,6 +463,10 @@ func buildDatasetComponents(fetchers fetcherSet, bom *cdx.BOM, datasets []string
 // Each ID may carry a revision as "org/name@revision" (see ParseModelRef).
 // Use opts.OnProgress to receive progress events; pass a nil callback to disable.
 func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM, error) {
+	return defaultGenerator().buildFromModelIDs(modelIDs, opts)
+}
+
+func (g *generator) buildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM, error) {
 	discoveries := make([]scanner.Discovery, 0, len(modelIDs))
 	for _, rawID := range modelIDs {
 		if strings.TrimSpace(rawID) == "" {
@@ -465,5 +487,5 @@ func BuildFromModelIDs(modelIDs []string, opts GenerateOptions) ([]DiscoveredBOM
 			Revision: ref.Revision,
 		})
 	}
-	return BuildPerDiscovery(discoveries, opts)
+	return g.buildPerDiscovery(discoveries, opts)
 }

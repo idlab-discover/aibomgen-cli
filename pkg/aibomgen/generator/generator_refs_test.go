@@ -33,14 +33,14 @@ func hfLikeFetchers(api *mockModelAPIFetcher) fetcherSet {
 	}
 }
 
-func withFetchers(t *testing.T, fs fetcherSet) {
-	t.Helper()
-	orig := newFetcherSet
-	newFetcherSet = func(*http.Client, string) fetcherSet { return fs }
-	t.Cleanup(func() { newFetcherSet = orig })
+func withFetchers(fs fetcherSet) *generator {
+	g := defaultGenerator()
+	g.newFetcherSet = func(*http.Client, string) fetcherSet { return fs }
+	return g
 }
 
 func TestBuildFromModelIDs_DatasetRefsResolve(t *testing.T) {
+	t.Parallel()
 	api := &mockModelAPIFetcher{fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
 		return &fetcher.ModelAPIResponse{
 			ID:       "org/model",
@@ -48,9 +48,9 @@ func TestBuildFromModelIDs_DatasetRefsResolve(t *testing.T) {
 			CardData: map[string]any{"datasets": []any{"wikipedia", "legacy-datasets/wikipedia", "missing"}},
 		}, nil
 	}}
-	withFetchers(t, hfLikeFetchers(api))
+	g := withFetchers(hfLikeFetchers(api))
 
-	boms, err := BuildFromModelIDs([]string{"org/model"}, GenerateOptions{})
+	boms, err := g.buildFromModelIDs([]string{"org/model"}, GenerateOptions{})
 	if err != nil || len(boms) != 1 {
 		t.Fatalf("BuildFromModelIDs = %d boms, err %v", len(boms), err)
 	}
@@ -74,6 +74,7 @@ func TestBuildFromModelIDs_DatasetRefsResolve(t *testing.T) {
 }
 
 func TestBuildDummyBOM_RefsResolve(t *testing.T) {
+	t.Parallel()
 	boms, err := BuildDummyBOM()
 	if err != nil || len(boms) != 1 {
 		t.Fatalf("BuildDummyBOM = %d boms, err %v", len(boms), err)
@@ -84,12 +85,13 @@ func TestBuildDummyBOM_RefsResolve(t *testing.T) {
 }
 
 func TestBuildPerDiscovery_RefsResolveAndRevision(t *testing.T) {
+	t.Parallel()
 	api := &mockModelAPIFetcher{fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
 		return &fetcher.ModelAPIResponse{ID: "org/model", SHA: "abc", CardData: map[string]any{"datasets": "wikipedia"}}, nil
 	}}
-	withFetchers(t, hfLikeFetchers(api))
+	g := withFetchers(hfLikeFetchers(api))
 
-	boms, err := BuildPerDiscovery([]scanner.Discovery{{ID: "org/model", Name: "org/model", Type: "model", Revision: "v2"}}, GenerateOptions{})
+	boms, err := g.buildPerDiscovery([]scanner.Discovery{{ID: "org/model", Name: "org/model", Type: "model", Revision: "v2"}}, GenerateOptions{})
 	if err != nil || len(boms) != 1 {
 		t.Fatalf("BuildPerDiscovery = %d boms, err %v", len(boms), err)
 	}
@@ -105,12 +107,13 @@ func TestBuildPerDiscovery_RefsResolveAndRevision(t *testing.T) {
 }
 
 func TestBuildFromModelIDs_Revisions(t *testing.T) {
+	t.Parallel()
 	api := &mockModelAPIFetcher{fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
 		return &fetcher.ModelAPIResponse{ID: id, SHA: "ABC"}, nil
 	}}
-	withFetchers(t, hfLikeFetchers(api))
+	g := withFetchers(hfLikeFetchers(api))
 
-	boms, err := BuildFromModelIDs([]string{"org/model@v1.0", "org/model", "org/model@"}, GenerateOptions{})
+	boms, err := g.buildFromModelIDs([]string{"org/model@v1.0", "org/model", "org/model@"}, GenerateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,6 +141,7 @@ func TestBuildFromModelIDs_Revisions(t *testing.T) {
 }
 
 func TestParseModelRef(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		in      string
 		want    ModelRef
@@ -166,6 +170,7 @@ func TestParseModelRef(t *testing.T) {
 }
 
 func TestBuildFromModelIDs_InputsOutputs(t *testing.T) {
+	t.Parallel()
 	tags := map[string]string{
 		"google-bert/bert-base-uncased":          "fill-mask",
 		"sentence-transformers/all-MiniLM-L6-v2": "sentence-similarity",
@@ -174,10 +179,10 @@ func TestBuildFromModelIDs_InputsOutputs(t *testing.T) {
 	api := &mockModelAPIFetcher{fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
 		return &fetcher.ModelAPIResponse{ID: id, SHA: "abc", PipelineTag: tags[id]}, nil
 	}}
-	withFetchers(t, hfLikeFetchers(api))
+	g := withFetchers(hfLikeFetchers(api))
 
 	ids := []string{"google-bert/bert-base-uncased", "sentence-transformers/all-MiniLM-L6-v2", "openai/whisper-large-v3"}
-	boms, err := BuildFromModelIDs(ids, GenerateOptions{})
+	boms, err := g.buildFromModelIDs(ids, GenerateOptions{})
 	if err != nil || len(boms) != len(ids) {
 		t.Fatalf("BuildFromModelIDs = %d boms, err %v", len(boms), err)
 	}
@@ -213,6 +218,7 @@ func TestBuildFromModelIDs_InputsOutputs(t *testing.T) {
 }
 
 func TestBuildFromModelIDs_Pedigree(t *testing.T) {
+	t.Parallel()
 	lineage := map[string]*fetcher.ModelBaseModels{
 		"Qwen/Qwen2.5-7B-Instruct": {Relation: "finetune"},
 		"nvidia/Eagle2.5-8B":       {Relation: "merge"},
@@ -228,9 +234,9 @@ func TestBuildFromModelIDs_Pedigree(t *testing.T) {
 			BaseModels: lineage[id],
 		}, nil
 	}}
-	withFetchers(t, hfLikeFetchers(api))
+	g := withFetchers(hfLikeFetchers(api))
 
-	boms, err := BuildFromModelIDs([]string{"Qwen/Qwen2.5-7B-Instruct", "nvidia/Eagle2.5-8B"}, GenerateOptions{})
+	boms, err := g.buildFromModelIDs([]string{"Qwen/Qwen2.5-7B-Instruct", "nvidia/Eagle2.5-8B"}, GenerateOptions{})
 	if err != nil || len(boms) != 2 {
 		t.Fatalf("BuildFromModelIDs = %d boms, err %v", len(boms), err)
 	}
@@ -268,17 +274,18 @@ func TestBuildFromModelIDs_Pedigree(t *testing.T) {
 }
 
 func TestBuild_Evidence(t *testing.T) {
+	t.Parallel()
 	api := &mockModelAPIFetcher{fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
 		return &fetcher.ModelAPIResponse{ID: id, SHA: "abc"}, nil
 	}}
-	withFetchers(t, hfLikeFetchers(api))
+	g := withFetchers(hfLikeFetchers(api))
 
 	// Source scan: the same model found in two files.
 	d := scanner.Discovery{ID: "org/m", Name: "org/m", Type: "model", Occurrences: []scanner.Occurrence{
 		{Location: "a/one.py", Line: 3, Method: "from_pretrained", Symbol: "org/m"},
 		{Location: "two.yaml", Line: 1, Method: "yaml_model_field", Symbol: "org/m"},
 	}}
-	boms, err := BuildPerDiscovery([]scanner.Discovery{d}, GenerateOptions{})
+	boms, err := g.buildPerDiscovery([]scanner.Discovery{d}, GenerateOptions{})
 	if err != nil || len(boms) != 1 {
 		t.Fatalf("BuildPerDiscovery = %d boms, err %v", len(boms), err)
 	}
@@ -291,7 +298,7 @@ func TestBuild_Evidence(t *testing.T) {
 	}
 
 	// Model-ID input: identified through the Hub API.
-	boms, err = BuildFromModelIDs([]string{"org/m"}, GenerateOptions{})
+	boms, err = g.buildFromModelIDs([]string{"org/m"}, GenerateOptions{})
 	if err != nil || len(boms) != 1 {
 		t.Fatalf("BuildFromModelIDs = %d boms, err %v", len(boms), err)
 	}
@@ -311,12 +318,13 @@ func TestBuild_Evidence(t *testing.T) {
 // A dataset known only from a dataset:<id> tag gets a component, and the card's
 // datasets entry (built from the same tag) references it.
 func TestBuildFromModelIDs_DatasetTagFallback(t *testing.T) {
+	t.Parallel()
 	api := &mockModelAPIFetcher{fetchFunc: func(id string) (*fetcher.ModelAPIResponse, error) {
 		return &fetcher.ModelAPIResponse{ID: "org/model", SHA: "abc", Tags: []string{"pytorch", "dataset:wikipedia"}}, nil
 	}}
-	withFetchers(t, hfLikeFetchers(api))
+	g := withFetchers(hfLikeFetchers(api))
 
-	boms, err := BuildFromModelIDs([]string{"org/model"}, GenerateOptions{})
+	boms, err := g.buildFromModelIDs([]string{"org/model"}, GenerateOptions{})
 	if err != nil || len(boms) != 1 {
 		t.Fatalf("BuildFromModelIDs = %d boms, err %v", len(boms), err)
 	}
